@@ -18,7 +18,10 @@ This software project aims to deliver a cross-platform graphical user interface 
    - Both videos shall be displayed simultaneously, in a side-by-side or stacked configuration.
    - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split.
    - Each video pane should display the same current frame (after sync adjustments).
-   - Both videos must be scaled to fit inside a common, matched bounding box, ensuring a visually consistent area for comparison, regardless of source dimensions.
+   - Both videos are displayed within matched bounding boxes, ensuring that the comparison area is visually consistent, regardless of original dimensions.
+   - If the source dimensions differ, users can toggle between two modes:
+     1. Each video scaled to fill its own bounding box (preserving aspect ratio).
+     2. The larger video fills the box, and the smaller video is scaled proportionally to the displayed size of the larger one.
    - Each video's native dimensions must be displayed in text.
    - The system must permit zooming in both panes to analyze specific regions of the videos in more detail.
 
