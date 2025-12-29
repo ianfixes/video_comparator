@@ -16,8 +16,8 @@ import numpy as np
 import wx
 
 from video_comparator.common.types import ScalingMode
-from video_comparator.media.metadata import VideoMetadata
-from video_comparator.render.scaling import ScalingCalculator
+from video_comparator.media.metadata_extractor import VideoMetadata
+from video_comparator.render.scaling_calculator import ScalingCalculator
 
 
 class VideoPane(wx.Panel):

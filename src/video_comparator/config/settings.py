@@ -8,23 +8,32 @@ Responsibilities:
 - Keep optional to avoid startup fragility
 """
 
+from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from video_comparator.common.types import LayoutOrientation, ScalingMode
 
 
+@dataclass
 class Settings:
     """Application settings data structure."""
 
-    def __init__(
-        self,
+    recent_files: List[str] = field(default_factory=list)
+    layout_orientation: LayoutOrientation = LayoutOrientation.HORIZONTAL
+    scaling_mode: ScalingMode = ScalingMode.INDEPENDENT
+    default_zoom: float = 1.0
+    shortcut_overrides: dict = field(default_factory=dict)
+
+    @classmethod
+    def create(
+        cls,
         recent_files: List[str],
         layout_orientation: LayoutOrientation,
         scaling_mode: ScalingMode,
         default_zoom: float,
         shortcut_overrides: dict,
-    ) -> None:
-        """Initialize settings with provided values.
+    ) -> "Settings":
+        """Factory method with validation for creating Settings instances.
 
         Args:
             recent_files: List of recently opened file paths
@@ -36,17 +45,19 @@ class Settings:
         Raises:
             ValueError: If enum values are invalid or default_zoom <= 0
         """
-        self._validate_enum(layout_orientation, LayoutOrientation, "layout_orientation")
-        self._validate_enum(scaling_mode, ScalingMode, "scaling_mode")
+        cls._validate_enum(layout_orientation, LayoutOrientation, "layout_orientation")
+        cls._validate_enum(scaling_mode, ScalingMode, "scaling_mode")
 
         if default_zoom <= 0:
             raise ValueError(f"default_zoom must be > 0, got {default_zoom}")
 
-        self.recent_files: List[str] = recent_files
-        self.layout_orientation: LayoutOrientation = layout_orientation
-        self.scaling_mode: ScalingMode = scaling_mode
-        self.default_zoom: float = default_zoom
-        self.shortcut_overrides: dict = shortcut_overrides
+        return cls(
+            recent_files=recent_files,
+            layout_orientation=layout_orientation,
+            scaling_mode=scaling_mode,
+            default_zoom=default_zoom,
+            shortcut_overrides=shortcut_overrides,
+        )
 
     @staticmethod
     def _validate_enum(value: Any, enum_class: type, field_name: str) -> None:
@@ -106,10 +117,10 @@ class Settings:
                 scaling_mode = ScalingMode(scaling_mode_str)
             except ValueError:
                 raise ValueError(
-                    f"Invalid scaling_mode: {scaling_mode_str}. " f"Must be one of: {[e.value for e in ScalingMode]}"
+                    f"Invalid scaling_mode: {scaling_mode_str}. Must be one of: {[e.value for e in ScalingMode]}"
                 )
 
-            return cls(
+            return cls.create(
                 recent_files=data.get("recent_files", []),
                 layout_orientation=layout_orientation,
                 scaling_mode=scaling_mode,

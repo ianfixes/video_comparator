@@ -12,7 +12,7 @@ from typing import Optional
 import numpy as np
 
 from video_comparator.cache.frame_cache import FrameCache
-from video_comparator.media.metadata import VideoMetadata
+from video_comparator.media.metadata_extractor import VideoMetadata
 
 
 class VideoDecoder:

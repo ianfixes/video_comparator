@@ -9,7 +9,7 @@ Responsibilities:
 
 from typing import Optional, Tuple
 
-from video_comparator.media.metadata import VideoMetadata
+from video_comparator.media.metadata_extractor import VideoMetadata
 
 
 class TimelineController:

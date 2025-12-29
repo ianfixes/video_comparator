@@ -6,8 +6,8 @@ Responsibilities:
 - User-facing errors for unsupported formats
 """
 
-from video_comparator.errors.handler import ErrorHandler
-from video_comparator.media.metadata import MetadataExtractor
+from video_comparator.errors.error_handler import ErrorHandler
+from video_comparator.media.metadata_extractor import MetadataExtractor
 
 
 class MediaLoader:

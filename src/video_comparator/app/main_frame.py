@@ -10,9 +10,9 @@ from typing import Optional
 
 import wx
 
-from video_comparator.input.shortcuts import ShortcutManager
+from video_comparator.input.shortcut_manager import ShortcutManager
 from video_comparator.ui.controls import ControlPanel
-from video_comparator.ui.layout import LayoutManager
+from video_comparator.ui.layout_manager import LayoutManager
 
 
 class MainFrame:

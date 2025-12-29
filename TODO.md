@@ -28,7 +28,7 @@ None, these are trivial.
 - [x] Test Settings serialization to dict/JSON
 - [x] Test Settings deserialization from dict/JSON
 
-### VideoMetadata (`media/metadata.py`)
+### VideoMetadata (`media/metadata_extractor.py`)
 - [ ] Implement VideoMetadata class with all PyAV fields (duration, fps, width, height, pixel_format, total_frames, time_base)
 - [ ] Implement `dimensions` property
 - [ ] Add validation for metadata values (positive durations, fps, dimensions)
@@ -39,7 +39,7 @@ None, these are trivial.
 - [ ] Test VideoMetadata validation (reject negative/zero values)
 - [ ] Test VideoMetadata with edge cases (very large dimensions, high fps)
 
-### KeyBinding (`input/shortcuts.py`)
+### KeyBinding (`input/shortcut_manager.py`)
 - [ ] Implement KeyBinding class using wxPython key code constants (wx.WXK_*)
 - [ ] Add validation for key codes and modifiers (wx.MOD_*)
 
@@ -52,7 +52,7 @@ None, these are trivial.
 
 ## Phase 3: Utility Classes
 
-### MetadataExtractor (`media/metadata.py`)
+### MetadataExtractor (`media/metadata_extractor.py`)
 - [ ] Implement PyAV container opening
 - [ ] Implement video stream detection
 - [ ] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
@@ -70,7 +70,7 @@ None, these are trivial.
 
 **Note:** Test video files should be placed in `tests/sample_data/` directory.
 
-### ScalingCalculator (`render/scaling.py`)
+### ScalingCalculator (`render/scaling_calculator.py`)
 - [ ] Implement `calculate_scale` method for independent mode
 - [ ] Implement `calculate_scale` method for match_larger mode
 - [ ] Implement aspect ratio preservation logic
@@ -84,7 +84,7 @@ None, these are trivial.
 - [ ] Test coordinate transformations (video to display, display to video)
 - [ ] Test scaling with identical video and display sizes
 
-### ErrorDialog (`errors/handler.py`)
+### ErrorDialog (`errors/error_dialog.py`)
 - [ ] Implement wx.MessageDialog wrapper
 - [ ] Implement dialog display/show method
 - [ ] Implement dialog result handling
@@ -94,7 +94,7 @@ None, these are trivial.
 - [ ] Test ErrorDialog display (mock wx.MessageDialog)
 - [ ] Test dialog result handling
 
-### ErrorHandler (`errors/handler.py`)
+### ErrorHandler (`errors/error_handler.py`)
 - [ ] Implement error message formatting
 - [ ] Implement error categorization (load errors, decode errors, format errors)
 - [ ] Integrate with ErrorDialog for GUI display (warning level, configurable to info)
@@ -136,7 +136,7 @@ None, these are trivial.
 - [ ] Test cache with various frame sizes
 - [ ] Test cache with rapid position changes
 
-### VideoDecoder (`decode/decoder.py`)
+### VideoDecoder (`decode/video_decoder.py`)
 - [ ] Implement PyAV container opening from file path
 - [ ] Implement video stream selection
 - [ ] Implement frame-accurate seek by frame index
@@ -163,7 +163,7 @@ None, these are trivial.
 - [ ] Test decode error handling (corrupted frame, unsupported codec)
 - [ ] Test decoder with FrameCache integration
 
-### TimelineController (`sync/timeline.py`)
+### TimelineController (`sync/timeline_controller.py`)
 - [ ] Implement current position tracking (in seconds)
 - [ ] Implement sync offset tracking (in frames, can be negative)
 - [ ] Implement frame-to-time conversion for video 1
@@ -197,7 +197,7 @@ None, these are trivial.
 
 ## Phase 5: Controllers
 
-### PlaybackController (`playback/controller.py`)
+### PlaybackController (`playback/playback_controller.py`)
 - [ ] Use PlaybackState enum from `common/types.py`
 - [ ] Implement state machine (STOPPED → PLAYING → PAUSED → STOPPED)
 - [ ] Implement play() method
@@ -236,7 +236,7 @@ None, these are trivial.
 
 ## Phase 6: Media Loading
 
-### MediaLoader (`media/loader.py`)
+### MediaLoader (`media/media_loader.py`)
 - [ ] Implement file selection dialog (wx.FileDialog)
 - [ ] Implement file validation (existence, accessibility, readable)
 - [ ] Implement file format validation (basic extension check)
@@ -297,7 +297,7 @@ None, these are trivial.
 
 ## Phase 8: UI Components
 
-### LayoutManager (`ui/layout.py`)
+### LayoutManager (`ui/layout_manager.py`)
 - [ ] Implement orientation toggle (horizontal ↔ vertical)
 - [ ] Implement scaling mode toggle (independent ↔ match_larger)
 - [ ] Implement pane sizing calculation for horizontal layout
@@ -384,7 +384,7 @@ None, these are trivial.
 
 ## Phase 9: Input Handling
 
-### ShortcutManager (`input/shortcuts.py`)
+### ShortcutManager (`input/shortcut_manager.py`)
 - [ ] Implement default key bindings
 - [ ] Implement key binding registration
 - [ ] Implement command dispatch to handlers

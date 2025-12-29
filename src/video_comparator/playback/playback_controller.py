@@ -12,8 +12,8 @@ from enum import Enum
 from typing import Optional
 
 from video_comparator.cache.frame_cache import FrameCache
-from video_comparator.decode.decoder import VideoDecoder
-from video_comparator.sync.timeline import TimelineController
+from video_comparator.decode.video_decoder import VideoDecoder
+from video_comparator.sync.timeline_controller import TimelineController
 
 
 class PlaybackState(Enum):

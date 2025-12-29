@@ -14,7 +14,7 @@ class TestSettings(unittest.TestCase):
     def test_enum_field_validation_layout_orientation(self) -> None:
         """Test Settings rejects invalid layout_orientation enum values."""
         with self.assertRaises(ValueError) as context:
-            Settings(
+            Settings.create(
                 recent_files=[],
                 layout_orientation="invalid",  # type: ignore
                 scaling_mode=ScalingMode.INDEPENDENT,
@@ -28,7 +28,7 @@ class TestSettings(unittest.TestCase):
     def test_enum_field_validation_scaling_mode(self) -> None:
         """Test Settings rejects invalid scaling_mode enum values."""
         with self.assertRaises(ValueError) as context:
-            Settings(
+            Settings.create(
                 recent_files=[],
                 layout_orientation=LayoutOrientation.HORIZONTAL,
                 scaling_mode="invalid",  # type: ignore
@@ -41,7 +41,7 @@ class TestSettings(unittest.TestCase):
 
     def test_default_zoom_validation_positive(self) -> None:
         """Test Settings accepts positive default_zoom values."""
-        settings = Settings(
+        settings = Settings.create(
             recent_files=[],
             layout_orientation=LayoutOrientation.HORIZONTAL,
             scaling_mode=ScalingMode.INDEPENDENT,
@@ -53,7 +53,7 @@ class TestSettings(unittest.TestCase):
     def test_default_zoom_validation_zero(self) -> None:
         """Test Settings rejects zero default_zoom."""
         with self.assertRaises(ValueError) as context:
-            Settings(
+            Settings.create(
                 recent_files=[],
                 layout_orientation=LayoutOrientation.HORIZONTAL,
                 scaling_mode=ScalingMode.INDEPENDENT,
@@ -66,7 +66,7 @@ class TestSettings(unittest.TestCase):
     def test_default_zoom_validation_negative(self) -> None:
         """Test Settings rejects negative default_zoom."""
         with self.assertRaises(ValueError) as context:
-            Settings(
+            Settings.create(
                 recent_files=[],
                 layout_orientation=LayoutOrientation.HORIZONTAL,
                 scaling_mode=ScalingMode.INDEPENDENT,

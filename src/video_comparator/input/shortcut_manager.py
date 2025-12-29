@@ -7,18 +7,18 @@ Responsibilities:
 - Unified dispatch so buttons and keys hit the same controller actions
 """
 
+from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 
+@dataclass
 class KeyBinding:
     """Represents a key binding configuration."""
 
-    def __init__(self, key_code: int, modifiers: int, command: str, tooltip: str) -> None:
-        """Initialize key binding with key code, modifiers, command, and tooltip."""
-        self.key_code: int = key_code
-        self.modifiers: int = modifiers
-        self.command: str = command
-        self.tooltip: str = tooltip
+    key_code: int
+    modifiers: int
+    command: str
+    tooltip: str
 
 
 class ShortcutManager:
