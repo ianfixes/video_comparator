@@ -46,7 +46,10 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 7. **Zoom and Region Inspection**
    - The application must provide controls and/or hotkeys to zoom in and out on the video display area, as well as to reset zoom to default.
-   - Users must be able to use the mouse (click-and-drag or similar) to pan the zoomed region within each video pane for detailed area inspection.
+   - Mouse interactions for zoom and pan:
+     - **Mouse drag**: Clicking and dragging the mouse within a video pane must pan the zoomed region, allowing users to inspect different areas of the frame.
+     - **Scroll wheel**: Scrolling the mouse wheel over a video pane must zoom in (scroll up) or zoom out (scroll down) on that pane.
+     - **Shift-drag rectangle**: Holding Shift while clicking and dragging must draw a selection rectangle, and releasing the mouse must zoom to fit the selected region.
    - Zoom must be supported independently or synchronously for each video pane, allowing detailed comparison.
    - The zoom state (level and pan position) must remain consistent during video playback, frame stepping, and when seeking the timeline.
    - The zoom feature must not interfere with video synchronization or performance.

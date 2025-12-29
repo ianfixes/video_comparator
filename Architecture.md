@@ -86,9 +86,14 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - native dimensions
 - playback time/frame
 - zoom level
-- maintain zoom/pan state across seeks/steps/layout changes.
+- maintain zoom/pan state across seeks/steps/layout changes
+- mouse interactions:
+  - mouse drag for panning
+  - scroll wheel for zoom in/out
+  - Shift-drag rectangle for zoom to region
 #### Testability
 - logic tests for transform math (pan/zoom/fit calculations)
+- mouse event handling tests (drag, wheel, Shift-drag)
 - golden-image tests optional via offscreen buffers.
 
 ### 8) Layout & Controls

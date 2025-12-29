@@ -267,7 +267,10 @@ None, these are trivial.
 - [ ] Implement scaling mode support (independent vs match_larger)
 - [ ] Implement matched bounding box calculation
 - [ ] Implement overlay rendering (filename, dimensions, time/frame, zoom level)
-- [ ] Implement mouse event handlers for pan (click-and-drag)
+- [ ] Implement mouse event handlers:
+  - [ ] Mouse drag (click-and-drag) for panning the zoomed region
+  - [ ] Mouse wheel scroll for zooming in/out
+  - [ ] Shift-drag rectangle selection for zooming to a specific region
 - [ ] Implement zoom state persistence across seeks/steps
 - [ ] Integrate with ScalingCalculator
 - [ ] Integrate with VideoMetadata for overlay info
@@ -282,7 +285,9 @@ None, these are trivial.
 - [ ] Test match_larger scaling mode rendering
 - [ ] Test matched bounding box calculation
 - [ ] Test overlay text rendering (mock wx.PaintDC)
-- [ ] Test mouse pan interaction (mock mouse events)
+- [ ] Test mouse drag pan interaction (mock mouse events)
+- [ ] Test mouse wheel zoom in/out (mock wheel events)
+- [ ] Test Shift-drag rectangle selection and zoom to region (mock mouse events)
 - [ ] Test zoom state persistence after seek
 - [ ] Test zoom state persistence after frame step
 - [ ] Test coordinate transformations (screen to video space)
