@@ -549,6 +549,18 @@ files = [
 ]
 
 [[package]]
+name = "types-wxpython"
+version = "0.9.7"
+description = "Typing stubs for wxPython"
+optional = false
+python-versions = "<4.0.0,>=3.8.1"
+groups = ["main"]
+files = [
+    {file = "types_wxpython-0.9.7-py3-none-any.whl", hash = "sha256:2669fe4e064e8eed5fb163e8d3f7bbec65a62a5ea3ad6d43f9624d035cb3deb7"},
+    {file = "types_wxpython-0.9.7.tar.gz", hash = "sha256:d9c09ded60cbe98ee44e8cb4cf46638ce4929e75e527e390d0db19808d71f6bd"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -607,4 +619,4 @@ typing-extensions = {version = "*", markers = "python_version < \"3.11\""}
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "2901847da09fd177d30a708c0603368b09da53563f67a177600aef62a718ab65"
+content-hash = "ae80968ada8374d4a495447b54575cb1f7b25356561e0d05bc7a3cbe9425436b"
