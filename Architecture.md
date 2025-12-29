@@ -25,10 +25,10 @@ This document outlines the major subsystems for the video comparator. Each subsy
 #### Responsibilities
 - file selection
 - validation
-- probing via PyAV (duration, fps, dimensions, pixel format)
+- probing via PyAV (duration, fps, dimensions, pixel format, total_frames, time_base)
 - user-facing errors for unsupported formats.
 #### Testability
-- unit tests with known media samples
+- unit tests with known media samples from `tests/sample_data/`
 - error-path tests for missing/invalid files.
 
 ### 3) Decode Engine (per video)
@@ -36,15 +36,17 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - open containers
 - frame-accurate seek (time- or frame-based)
 - decode to NumPy arrays
-- optional hardware accel flags
 - handle differing fps/timebases.
 #### Testability
 - unit tests on deterministic sample clips to assert decoded frame indices/timestamps
-- mocks for hardware accel flags.
+- test files from `tests/sample_data/` directory.
+
+**Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
-- small ring buffer ahead/behind current position to minimize seek latency
+- ring buffer with 1 second behind and 1 second ahead of current position (2 seconds total)
+- cache size calculated based on video fps
 - eviction policy
 - memory bounds.
 #### Testability

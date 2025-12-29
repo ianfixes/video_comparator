@@ -15,3 +15,11 @@ class ScalingMode(Enum):
 
     INDEPENDENT = "independent"
     MATCH_LARGER = "match_larger"
+
+
+class PlaybackState(Enum):
+    """Playback state options."""
+
+    STOPPED = "stopped"
+    PLAYING = "playing"
+    PAUSED = "paused"

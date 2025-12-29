@@ -7,6 +7,7 @@ This document outlines the implementation plan from lowest-level modules to high
 ### ✅ Common Types (`common/types.py`)
 - [x] Define `LayoutOrientation` enum
 - [x] Define `ScalingMode` enum
+- [ ] Define `PlaybackState` enum (STOPPED, PLAYING, PAUSED)
 
 **Unit Tests Required:**
 None, these are trivial.
@@ -28,7 +29,7 @@ None, these are trivial.
 - [x] Test Settings deserialization from dict/JSON
 
 ### VideoMetadata (`media/metadata.py`)
-- [ ] Implement VideoMetadata class
+- [ ] Implement VideoMetadata class with all PyAV fields (duration, fps, width, height, pixel_format, total_frames, time_base)
 - [ ] Implement `dimensions` property
 - [ ] Add validation for metadata values (positive durations, fps, dimensions)
 
@@ -39,13 +40,13 @@ None, these are trivial.
 - [ ] Test VideoMetadata with edge cases (very large dimensions, high fps)
 
 ### KeyBinding (`input/shortcuts.py`)
-- [ ] Implement KeyBinding class
-- [ ] Add validation for key codes and modifiers
+- [ ] Implement KeyBinding class using wxPython key code constants (wx.WXK_*)
+- [ ] Add validation for key codes and modifiers (wx.MOD_*)
 
 **Unit Tests Required:**
-- [ ] Test KeyBinding initialization
+- [ ] Test KeyBinding initialization with wxPython key codes
 - [ ] Test KeyBinding equality comparison
-- [ ] Test KeyBinding validation
+- [ ] Test KeyBinding validation for valid/invalid key codes
 
 ---
 
@@ -59,13 +60,15 @@ None, these are trivial.
 - [ ] Add support for multiple video streams (select first video stream)
 
 **Unit Tests Required:**
-- [ ] Test metadata extraction from known test video file
+- [ ] Test metadata extraction from known test video file (from `tests/sample_data/`)
 - [ ] Test extraction of all required fields (duration, fps, width, height, pixel_format, total_frames, time_base)
 - [ ] Test error handling for missing file
 - [ ] Test error handling for unsupported format
 - [ ] Test error handling for file with no video stream
 - [ ] Test with videos of different formats (MP4, MKV, AVI)
 - [ ] Test with videos of different codecs (H.264, H.265, ProRes)
+
+**Note:** Test video files should be placed in `tests/sample_data/` directory.
 
 ### ScalingCalculator (`render/scaling.py`)
 - [ ] Implement `calculate_scale` method for independent mode
@@ -94,15 +97,18 @@ None, these are trivial.
 ### ErrorHandler (`errors/handler.py`)
 - [ ] Implement error message formatting
 - [ ] Implement error categorization (load errors, decode errors, format errors)
-- [ ] Integrate with ErrorDialog for display
-- [ ] Implement logging integration (if enabled)
+- [ ] Integrate with ErrorDialog for GUI display (warning level, configurable to info)
+- [ ] Implement console logging (info level, configurable to debug)
+- [ ] Implement GUI log viewer (scrollable, warning level, configurable to info)
 
 **Unit Tests Required:**
 - [ ] Test error message formatting for different error types
 - [ ] Test error categorization
 - [ ] Test ErrorHandler integration with ErrorDialog
-- [ ] Test logging when enabled
-- [ ] Test no logging when disabled
+- [ ] Test console logging at info level
+- [ ] Test console logging at debug level
+- [ ] Test GUI log viewer at warning level
+- [ ] Test GUI log viewer at info level
 - [ ] Test error handling with and without parent window
 
 ---
@@ -112,18 +118,20 @@ None, these are trivial.
 ### FrameCache (`cache/frame_cache.py`)
 - [ ] Implement frame storage (Dict[int, np.ndarray])
 - [ ] Implement cache hit/miss logic
-- [ ] Implement ring buffer with ahead/behind current position
+- [ ] Implement ring buffer with 1 second behind and 1 second ahead of current position (2 seconds total)
 - [ ] Implement eviction policy (LRU or FIFO)
 - [ ] Implement memory bounds checking and eviction
 - [ ] Implement frame retrieval by frame index
 - [ ] Implement cache invalidation
+- [ ] Calculate cache size based on video fps (2 seconds worth of frames)
 
 **Unit Tests Required:**
 - [ ] Test cache hit when frame exists
 - [ ] Test cache miss when frame doesn't exist
 - [ ] Test cache eviction when max_frames exceeded
 - [ ] Test cache eviction when max_memory_mb exceeded
-- [ ] Test ring buffer maintains frames ahead/behind current position
+- [ ] Test ring buffer maintains 1 second behind and 1 second ahead of current position
+- [ ] Test cache size calculation based on fps (2 seconds worth)
 - [ ] Test cache invalidation clears all frames
 - [ ] Test cache with various frame sizes
 - [ ] Test cache with rapid position changes
@@ -135,9 +143,10 @@ None, these are trivial.
 - [ ] Implement frame-accurate seek by timestamp
 - [ ] Implement frame decoding to NumPy array
 - [ ] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
-- [ ] Implement hardware acceleration detection and usage
 - [ ] Implement error handling for decode failures
 - [ ] Integrate with FrameCache (optional)
+
+**Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
 **Unit Tests Required:**
 - [ ] Test container opening with valid video file
@@ -152,7 +161,6 @@ None, these are trivial.
 - [ ] Test seek to middle frame
 - [ ] Test seek with videos of different framerates
 - [ ] Test decode error handling (corrupted frame, unsupported codec)
-- [ ] Test hardware acceleration flag (mock if needed)
 - [ ] Test decoder with FrameCache integration
 
 ### TimelineController (`sync/timeline.py`)
@@ -190,7 +198,7 @@ None, these are trivial.
 ## Phase 5: Controllers
 
 ### PlaybackController (`playback/controller.py`)
-- [ ] Implement PlaybackState enum usage
+- [ ] Use PlaybackState enum from `common/types.py`
 - [ ] Implement state machine (STOPPED → PLAYING → PAUSED → STOPPED)
 - [ ] Implement play() method
 - [ ] Implement pause() method
