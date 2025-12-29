@@ -16,16 +16,16 @@ None, these are trivial.
 ## Phase 2: Data Structures
 
 ### Settings (`config/settings.py`)
-- [ ] Implement Settings class with all fields
-- [ ] Add validation for enum values
-- [ ] Add serialization/deserialization methods (for persistence)
+- [x] Implement Settings class with all fields
+- [x] Add validation for enum values
+- [x] Add serialization/deserialization methods (for persistence)
 
 **Unit Tests Required:**
-- [ ] Test Settings initialization with defaults
-- [ ] Test Settings initialization with custom values
-- [ ] Test Settings enum field validation
-- [ ] Test Settings serialization to dict/JSON
-- [ ] Test Settings deserialization from dict/JSON
+- [x] Test Settings initialization with defaults
+- [x] Test Settings initialization with custom values
+- [x] Test Settings enum field validation
+- [x] Test Settings serialization to dict/JSON
+- [x] Test Settings deserialization from dict/JSON
 
 ### VideoMetadata (`media/metadata.py`)
 - [ ] Implement VideoMetadata class
@@ -81,15 +81,26 @@ None, these are trivial.
 - [ ] Test coordinate transformations (video to display, display to video)
 - [ ] Test scaling with identical video and display sizes
 
+### ErrorDialog (`errors/handler.py`)
+- [ ] Implement wx.MessageDialog wrapper
+- [ ] Implement dialog display/show method
+- [ ] Implement dialog result handling
+
+**Unit Tests Required:**
+- [ ] Test ErrorDialog initialization
+- [ ] Test ErrorDialog display (mock wx.MessageDialog)
+- [ ] Test dialog result handling
+
 ### ErrorHandler (`errors/handler.py`)
 - [ ] Implement error message formatting
-- [ ] Implement ErrorDialog display (wx.MessageDialog wrapper)
+- [ ] Implement error categorization (load errors, decode errors, format errors)
+- [ ] Integrate with ErrorDialog for display
 - [ ] Implement logging integration (if enabled)
-- [ ] Add error categorization (load errors, decode errors, format errors)
 
 **Unit Tests Required:**
 - [ ] Test error message formatting for different error types
-- [ ] Test ErrorDialog creation (mock wx.MessageDialog)
+- [ ] Test error categorization
+- [ ] Test ErrorHandler integration with ErrorDialog
 - [ ] Test logging when enabled
 - [ ] Test no logging when disabled
 - [ ] Test error handling with and without parent window
