@@ -28,16 +28,16 @@ None, these are trivial.
 - [x] Test Settings serialization to dict/JSON
 - [x] Test Settings deserialization from dict/JSON
 
-### VideoMetadata (`media/metadata_extractor.py`)
-- [ ] Implement VideoMetadata class with all PyAV fields (duration, fps, width, height, pixel_format, total_frames, time_base)
-- [ ] Implement `dimensions` property
-- [ ] Add validation for metadata values (positive durations, fps, dimensions)
+### VideoMetadata (`media/video_metadata.py`)
+- [x] Implement VideoMetadata class with all PyAV fields (duration, fps, width, height, pixel_format, total_frames, time_base)
+- [x] Implement `dimensions` property
+- [x] Add validation for metadata values (positive durations, fps, dimensions)
 
 **Unit Tests Required:**
-- [ ] Test VideoMetadata initialization with valid data
-- [ ] Test `dimensions` property returns correct tuple
-- [ ] Test VideoMetadata validation (reject negative/zero values)
-- [ ] Test VideoMetadata with edge cases (very large dimensions, high fps)
+- [x] Test VideoMetadata initialization with valid data
+- [x] Test `dimensions` property returns correct tuple
+- [x] Test VideoMetadata validation (reject negative/zero values)
+- [x] Test VideoMetadata with edge cases (very large dimensions, high fps)
 
 ### KeyBinding (`input/shortcut_manager.py`)
 - [x] Implement KeyBinding class using wxPython key code constants (wx.WXK_*)
@@ -53,20 +53,20 @@ None, these are trivial.
 ## Phase 3: Utility Classes
 
 ### MetadataExtractor (`media/metadata_extractor.py`)
-- [ ] Implement PyAV container opening
-- [ ] Implement video stream detection
-- [ ] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
-- [ ] Implement error handling for unsupported formats
-- [ ] Add support for multiple video streams (select first video stream)
+- [x] Implement PyAV container opening
+- [x] Implement video stream detection
+- [x] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
+- [x] Implement error handling for unsupported formats
+- [x] Add support for multiple video streams (select first video stream)
 
 **Unit Tests Required:**
-- [ ] Test metadata extraction from known test video file (from `tests/sample_data/`)
-- [ ] Test extraction of all required fields (duration, fps, width, height, pixel_format, total_frames, time_base)
-- [ ] Test error handling for missing file
-- [ ] Test error handling for unsupported format
-- [ ] Test error handling for file with no video stream
-- [ ] Test with videos of different formats (MP4, MKV, AVI)
-- [ ] Test with videos of different codecs (H.264, H.265, ProRes)
+- [x] Test metadata extraction from known test video file (from `tests/sample_data/`)
+- [x] Test extraction of all required fields (duration, fps, width, height, pixel_format, total_frames, time_base)
+- [x] Test error handling for missing file
+- [x] Test error handling for unsupported format
+- [x] Test error handling for file with no video stream
+- [x] Test with videos of different formats (MP4, MKV, AVI)
+- [x] Test with videos of different codecs (H.264, H.265, ProRes)
 
 **Note:** Test video files should be placed in `tests/sample_data/` directory.
 

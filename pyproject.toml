@@ -24,6 +24,9 @@ mypy = "^1.7.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.isort]
+line_length = 120
+
 [tool.black]
 line-length = 120
 target-version = ['py310']
