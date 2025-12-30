@@ -40,13 +40,13 @@ None, these are trivial.
 - [ ] Test VideoMetadata with edge cases (very large dimensions, high fps)
 
 ### KeyBinding (`input/shortcut_manager.py`)
-- [ ] Implement KeyBinding class using wxPython key code constants (wx.WXK_*)
-- [ ] Add validation for key codes and modifiers (wx.MOD_*)
+- [x] Implement KeyBinding class using wxPython key code constants (wx.WXK_*)
+- [x] Add validation for key codes and modifiers (wx.MOD_*)
 
 **Unit Tests Required:**
-- [ ] Test KeyBinding initialization with wxPython key codes
-- [ ] Test KeyBinding equality comparison
-- [ ] Test KeyBinding validation for valid/invalid key codes
+- [x] Test KeyBinding initialization with wxPython key codes
+- [x] Test KeyBinding equality comparison
+- [x] Test KeyBinding validation for valid/invalid key codes
 
 ---
 
@@ -385,22 +385,22 @@ None, these are trivial.
 ## Phase 9: Input Handling
 
 ### ShortcutManager (`input/shortcut_manager.py`)
-- [ ] Implement default key bindings
-- [ ] Implement key binding registration
-- [ ] Implement command dispatch to handlers
-- [ ] Implement keyboard event handling (wx.EVT_KEY_DOWN)
-- [ ] Implement tooltip/help text generation
-- [ ] Implement custom binding override support
+- [x] Implement default key bindings
+- [x] Implement key binding registration
+- [x] Implement command dispatch to handlers
+- [x] Implement keyboard event handling (wx.EVT_KEY_DOWN)
+- [x] Implement tooltip/help text generation
+- [x] Implement custom binding override support
 
 **Unit Tests Required:**
-- [ ] Test ShortcutManager initialization
-- [ ] Test default key bindings are registered
-- [ ] Test key press dispatches to correct command handler
-- [ ] Test command handler receives correct command
-- [ ] Test custom bindings override defaults
-- [ ] Test tooltip generation for all commands
-- [ ] Test keyboard event handling (mock wx events)
-- [ ] Test modifier key combinations (Ctrl, Alt, Shift)
+- [x] Test ShortcutManager initialization
+- [x] Test default key bindings are registered
+- [x] Test key press dispatches to correct command handler
+- [x] Test command handler receives correct command
+- [x] Test custom bindings override defaults
+- [x] Test tooltip generation for all commands
+- [x] Test keyboard event handling (mock wx events)
+- [x] Test modifier key combinations (Ctrl, Alt, Shift)
 
 ---
 
