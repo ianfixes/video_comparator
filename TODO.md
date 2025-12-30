@@ -95,21 +95,19 @@ None, these are trivial.
 - [x] Test dialog result handling
 
 ### ErrorHandler (`errors/error_handler.py`)
-- [ ] Implement error message formatting
-- [ ] Implement error categorization (load errors, decode errors, format errors)
-- [ ] Integrate with ErrorDialog for GUI display (warning level, configurable to info)
-- [ ] Implement console logging (info level, configurable to debug)
-- [ ] Implement GUI log viewer (scrollable, warning level, configurable to info)
+- [x] Implement error message formatting
+- [x] Integrate with ErrorDialog for GUI display (warning level, configurable to info)
+- [x] Implement console logging (info level, configurable to debug)
+- [x] Implement GUI log viewer (scrollable, warning level, configurable to info)
 
 **Unit Tests Required:**
-- [ ] Test error message formatting for different error types
-- [ ] Test error categorization
-- [ ] Test ErrorHandler integration with ErrorDialog
-- [ ] Test console logging at info level
-- [ ] Test console logging at debug level
-- [ ] Test GUI log viewer at warning level
-- [ ] Test GUI log viewer at info level
-- [ ] Test error handling with and without parent window
+- [x] Test error message formatting for different error types
+- [x] Test ErrorHandler integration with ErrorDialog
+- [x] Test console logging at info level
+- [x] Test console logging at debug level
+- [x] Test GUI log viewer at warning level
+- [x] Test GUI log viewer at info level
+- [x] Test error handling with and without parent window
 
 ---
 
