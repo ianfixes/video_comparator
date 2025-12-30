@@ -7,7 +7,7 @@ This document outlines the implementation plan from lowest-level modules to high
 ### ✅ Common Types (`common/types.py`)
 - [x] Define `LayoutOrientation` enum
 - [x] Define `ScalingMode` enum
-- [ ] Define `PlaybackState` enum (STOPPED, PLAYING, PAUSED)
+- [x] Define `PlaybackState` enum (STOPPED, PLAYING, PAUSED)
 
 **Unit Tests Required:**
 None, these are trivial.

@@ -8,20 +8,12 @@ Responsibilities:
 - Maintains lockstep between videos respecting offsets
 """
 
-from enum import Enum
 from typing import Optional
 
 from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.common.types import PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
 from video_comparator.sync.timeline_controller import TimelineController
-
-
-class PlaybackState(Enum):
-    """Playback state enumeration."""
-
-    STOPPED = "stopped"
-    PLAYING = "playing"
-    PAUSED = "paused"
 
 
 class PlaybackController:
