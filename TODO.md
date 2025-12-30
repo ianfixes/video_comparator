@@ -71,18 +71,18 @@ None, these are trivial.
 **Note:** Test video files should be placed in `tests/sample_data/` directory.
 
 ### ScalingCalculator (`render/scaling_calculator.py`)
-- [ ] Implement `calculate_scale` method for independent mode
-- [ ] Implement `calculate_scale` method for match_larger mode
-- [ ] Implement aspect ratio preservation logic
-- [ ] Add coordinate transformation helpers (video space ↔ display space)
+- [x] Implement `calculate_scale` method for independent mode
+- [x] Implement `calculate_scale` method for match_larger mode
+- [x] Implement aspect ratio preservation logic
+- [x] Add coordinate transformation helpers (video space ↔ display space)
 
 **Unit Tests Required:**
-- [ ] Test independent scaling mode with various video/display size combinations
-- [ ] Test match_larger scaling mode with reference size
-- [ ] Test aspect ratio preservation in both modes
-- [ ] Test edge cases (very small/large videos, square videos, extreme aspect ratios)
-- [ ] Test coordinate transformations (video to display, display to video)
-- [ ] Test scaling with identical video and display sizes
+- [x] Test independent scaling mode with various video/display size combinations
+- [x] Test match_larger scaling mode with reference size
+- [x] Test aspect ratio preservation in both modes
+- [x] Test edge cases (very small/large videos, square videos, extreme aspect ratios)
+- [x] Test coordinate transformations (video to display, display to video)
+- [x] Test scaling with identical video and display sizes
 
 ### ErrorDialog (`errors/error_dialog.py`)
 - [ ] Implement wx.MessageDialog wrapper

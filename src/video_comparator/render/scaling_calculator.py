@@ -34,6 +34,77 @@ class ScalingCalculator:
             reference_size: Optional reference size for match_larger mode
 
         Returns:
-            (scale_x, scale_y) tuple
+            (scale_x, scale_y) tuple - both values are equal to preserve aspect ratio
+
+        Raises:
+            ValueError: If video_size or display_size has invalid dimensions
+            ValueError: If match_larger mode is used without reference_size
         """
-        return (1.0, 1.0)  # TODO: Implement actual scaling logic
+        video_width, video_height = video_size
+        display_width, display_height = display_size
+
+        if video_width <= 0 or video_height <= 0:
+            raise ValueError(f"video_size must have positive dimensions, got {video_size}")
+        if display_width <= 0 or display_height <= 0:
+            raise ValueError(f"display_size must have positive dimensions, got {display_size}")
+
+        if scaling_mode == ScalingMode.INDEPENDENT:
+            scale_x = display_width / video_width
+            scale_y = display_height / video_height
+            scale = min(scale_x, scale_y)
+            return (scale, scale)
+        elif scaling_mode == ScalingMode.MATCH_LARGER:
+            if reference_size is None:
+                raise ValueError("reference_size is required for MATCH_LARGER scaling mode")
+            ref_width, ref_height = reference_size
+            if ref_width <= 0 or ref_height <= 0:
+                raise ValueError(f"reference_size must have positive dimensions, got {reference_size}")
+
+            scale_x = ref_width / video_width
+            scale_y = ref_height / video_height
+            scale = min(scale_x, scale_y)
+            return (scale, scale)
+        else:
+            raise ValueError(f"Unknown scaling mode: {scaling_mode}")
+
+    def video_to_display(
+        self,
+        video_point: Tuple[float, float],
+        scale: Tuple[float, float],
+        pan_offset: Tuple[float, float] = (0.0, 0.0),
+    ) -> Tuple[float, float]:
+        """Transform coordinates from video space to display space.
+
+        Args:
+            video_point: (x, y) coordinates in video space
+            scale: (scale_x, scale_y) scaling factors
+            pan_offset: (offset_x, offset_y) pan offset in display space
+
+        Returns:
+            (x, y) coordinates in display space
+        """
+        x, y = video_point
+        scale_x, scale_y = scale
+        offset_x, offset_y = pan_offset
+        return (x * scale_x + offset_x, y * scale_y + offset_y)
+
+    def display_to_video(
+        self,
+        display_point: Tuple[float, float],
+        scale: Tuple[float, float],
+        pan_offset: Tuple[float, float] = (0.0, 0.0),
+    ) -> Tuple[float, float]:
+        """Transform coordinates from display space to video space.
+
+        Args:
+            display_point: (x, y) coordinates in display space
+            scale: (scale_x, scale_y) scaling factors
+            pan_offset: (offset_x, offset_y) pan offset in display space
+
+        Returns:
+            (x, y) coordinates in video space
+        """
+        x, y = display_point
+        scale_x, scale_y = scale
+        offset_x, offset_y = pan_offset
+        return ((x - offset_x) / scale_x, (y - offset_y) / scale_y)
