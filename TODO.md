@@ -85,14 +85,14 @@ None, these are trivial.
 - [x] Test scaling with identical video and display sizes
 
 ### ErrorDialog (`errors/error_dialog.py`)
-- [ ] Implement wx.MessageDialog wrapper
-- [ ] Implement dialog display/show method
-- [ ] Implement dialog result handling
+- [x] Implement wx.MessageDialog wrapper
+- [x] Implement dialog display/show method
+- [x] Implement dialog result handling
 
 **Unit Tests Required:**
-- [ ] Test ErrorDialog initialization
-- [ ] Test ErrorDialog display (mock wx.MessageDialog)
-- [ ] Test dialog result handling
+- [x] Test ErrorDialog initialization
+- [x] Test ErrorDialog display (mock wx.MessageDialog)
+- [x] Test dialog result handling
 
 ### ErrorHandler (`errors/error_handler.py`)
 - [ ] Implement error message formatting

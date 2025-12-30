@@ -27,3 +27,19 @@ class ErrorDialog:
         self.parent: wx.Window = parent
         self.title: str = title
         self.message: str = message
+
+    def show(self, style: int = wx.OK | wx.ICON_ERROR) -> int:
+        """Display the error dialog and return the user's response.
+
+        Args:
+            style: Dialog style flags (default: wx.OK | wx.ICON_ERROR)
+
+        Returns:
+            Dialog result code (e.g., wx.ID_OK, wx.ID_CANCEL)
+        """
+        dialog = wx.MessageDialog(self.parent, self.message, self.title, style)
+        try:
+            result = dialog.ShowModal()
+            return result
+        finally:
+            dialog.Destroy()
