@@ -172,34 +172,34 @@ None, these are trivial.
 - [x] Test decoder with FrameCache integration
 
 ### TimelineController (`sync/timeline_controller.py`)
-- [ ] Implement current position tracking (in seconds)
-- [ ] Implement sync offset tracking (in frames, can be negative)
-- [ ] Implement frame-to-time conversion for video 1
-- [ ] Implement frame-to-time conversion for video 2 (with offset)
-- [ ] Implement time-to-frame conversion for video 1
-- [ ] Implement time-to-frame conversion for video 2 (with offset)
-- [ ] Implement position setting (seek)
-- [ ] Implement sync offset adjustment (set, increment, decrement)
-- [ ] Implement resolved frame/time calculation for both videos
-- [ ] Handle differing framerates between videos
+- [x] Implement current position tracking (in seconds)
+- [x] Implement sync offset tracking (in frames, can be negative)
+- [x] Implement frame-to-time conversion for video 1
+- [x] Implement frame-to-time conversion for video 2 (with offset)
+- [x] Implement time-to-frame conversion for video 1
+- [x] Implement time-to-frame conversion for video 2 (with offset)
+- [x] Implement position setting (seek)
+- [x] Implement sync offset adjustment (set, increment, decrement)
+- [x] Implement resolved frame/time calculation for both videos
+- [x] Handle differing framerates between videos
 
 **Unit Tests Required:**
-- [ ] Test initial position is 0.0
-- [ ] Test initial sync offset is 0
-- [ ] Test frame-to-time conversion for video 1 (various framerates)
-- [ ] Test frame-to-time conversion for video 2 with positive offset
-- [ ] Test frame-to-time conversion for video 2 with negative offset
-- [ ] Test time-to-frame conversion for video 1
-- [ ] Test time-to-frame conversion for video 2 with offset
-- [ ] Test position setting updates current position
-- [ ] Test sync offset setting
-- [ ] Test sync offset increment (+1 frame)
-- [ ] Test sync offset decrement (-1 frame)
-- [ ] Test resolved frame calculation for video 1
-- [ ] Test resolved frame calculation for video 2 (with offset)
-- [ ] Test resolved time calculation for both videos
-- [ ] Test with videos of different framerates (e.g., 24fps vs 30fps)
-- [ ] Test edge cases (position at start, position at end, large offsets)
+- [x] Test initial position is 0.0
+- [x] Test initial sync offset is 0
+- [x] Test frame-to-time conversion for video 1 (various framerates)
+- [x] Test frame-to-time conversion for video 2 with positive offset
+- [x] Test frame-to-time conversion for video 2 with negative offset
+- [x] Test time-to-frame conversion for video 1
+- [x] Test time-to-frame conversion for video 2 with offset
+- [x] Test position setting updates current position
+- [x] Test sync offset setting
+- [x] Test sync offset increment (+1 frame)
+- [x] Test sync offset decrement (-1 frame)
+- [x] Test resolved frame calculation for video 1
+- [x] Test resolved frame calculation for video 2 (with offset)
+- [x] Test resolved time calculation for both videos
+- [x] Test with videos of different framerates (e.g., 24fps vs 30fps)
+- [x] Test edge cases (position at start, position at end, large offsets)
 
 ---
 
@@ -219,6 +219,10 @@ None, these are trivial.
 - [ ] Integrate with TimelineController for position math
 - [ ] Integrate with VideoDecoders for frame retrieval
 - [ ] Integrate with FrameCaches (optional)
+- [ ] Create and update PrefillStrategy instances for each video's FrameCache
+  - [ ] Query TimelineController for resolved frame numbers for both videos
+  - [ ] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
+  - [ ] Update strategies when position changes or playback state changes
 
 **Unit Tests Required:**
 - [ ] Test initial state is STOPPED
@@ -239,6 +243,10 @@ None, these are trivial.
 - [ ] Test playback with FrameCache integration
 - [ ] Test playback speed adjustment
 - [ ] Test edge cases (step at start of video, step at end of video)
+- [ ] Test PrefillStrategy creation for each video
+- [ ] Test PrefillStrategy updates when position changes
+- [ ] Test PrefillStrategy updates when playback state changes
+- [ ] Test PrefillStrategy handles different framerates correctly
 
 ---
 

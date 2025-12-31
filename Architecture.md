@@ -59,6 +59,11 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - defines which frames should be protected from cache eviction
 - provides protected frame set based on current position, playback state, and prediction logic
 - swappable strategy pattern for different prefetching approaches
+#### Creation & Lifecycle
+- PrefillStrategy instances are created and updated by PlaybackController (not TimelineController)
+- PlaybackController queries TimelineController for resolved frame numbers for each video
+- Separate PrefillStrategy instances are created for each video's FrameCache
+- Strategies are updated when position changes or playback state changes
 #### Testability
 - unit tests for protected frame calculation
 - unit tests for different strategy implementations (ring buffer, predictive, etc.)
@@ -81,10 +86,15 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - frame-step forward/backward even when paused
 - drives tick events that request frames from the cache/decoder
 - delegates position math to Sync
-- maintains lockstep between videos respecting offsets.
+- maintains lockstep between videos respecting offsets
+- creates and updates PrefillStrategy instances for each video's FrameCache
+  - queries TimelineController for resolved frame numbers
+  - creates separate PrefillStrategy instances per video (accounting for different framerates/offsets)
+  - updates strategies when position or playback state changes
 #### Testability
 - unit tests on state transitions and emitted requests
-- simulated tick tests without GUI.
+- simulated tick tests without GUI
+- tests for PrefillStrategy creation and updates
 
 ### 7) Render Layer (Video Panes)
 #### Responsibilities
