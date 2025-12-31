@@ -145,31 +145,31 @@ None, these are trivial.
 - [x] Test query methods return correct missing frames
 
 ### VideoDecoder (`decode/video_decoder.py`)
-- [ ] Implement PyAV container opening from file path
-- [ ] Implement video stream selection
-- [ ] Implement frame-accurate seek by frame index
-- [ ] Implement frame-accurate seek by timestamp
-- [ ] Implement frame decoding to NumPy array
-- [ ] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
-- [ ] Implement error handling for decode failures
-- [ ] Integrate with FrameCache (optional)
+- [x] Implement PyAV container opening from file path
+- [x] Implement video stream selection
+- [x] Implement frame-accurate seek by frame index
+- [x] Implement frame-accurate seek by timestamp
+- [x] Implement frame decoding to NumPy array
+- [x] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
+- [x] Implement error handling for decode failures
+- [x] Integrate with FrameCache (optional)
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
 **Unit Tests Required:**
-- [ ] Test container opening with valid video file
-- [ ] Test container opening with invalid file (error handling)
-- [ ] Test video stream detection and selection
-- [ ] Test frame-accurate seek by frame index (verify exact frame returned)
-- [ ] Test frame-accurate seek by timestamp (verify correct frame for timestamp)
-- [ ] Test frame decoding returns NumPy array with correct shape
-- [ ] Test frame decoding returns correct pixel format
-- [ ] Test seek to first frame
-- [ ] Test seek to last frame
-- [ ] Test seek to middle frame
-- [ ] Test seek with videos of different framerates
-- [ ] Test decode error handling (corrupted frame, unsupported codec)
-- [ ] Test decoder with FrameCache integration
+- [x] Test container opening with valid video file
+- [x] Test container opening with invalid file (error handling)
+- [x] Test video stream detection and selection
+- [x] Test frame-accurate seek by frame index (verify exact frame returned)
+- [x] Test frame-accurate seek by timestamp (verify correct frame for timestamp)
+- [x] Test frame decoding returns NumPy array with correct shape
+- [x] Test frame decoding returns correct pixel format
+- [x] Test seek to first frame
+- [x] Test seek to last frame
+- [x] Test seek to middle frame
+- [x] Test seek with videos of different framerates
+- [x] Test decode error handling (corrupted frame, unsupported codec)
+- [x] Test decoder with FrameCache integration
 
 ### TimelineController (`sync/timeline_controller.py`)
 - [ ] Implement current position tracking (in seconds)
