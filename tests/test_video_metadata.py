@@ -20,7 +20,7 @@ class TestVideoMetadata(unittest.TestCase):
     def test_dimensions_property_returns_tuple(self) -> None:
         """Test dimensions property returns correct (width, height) tuple."""
         metadata = VideoMetadata(
-            file_path="/test/path.avi",
+            file_path=Path("/test/path.avi"),
             duration=10.0,
             fps=30.0,
             width=1920,
@@ -37,7 +37,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero duration."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=0.0,
                 fps=30.0,
                 width=1920,
@@ -53,7 +53,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative duration."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=-1.0,
                 fps=30.0,
                 width=1920,
@@ -69,7 +69,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero fps."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=0.0,
                 width=1920,
@@ -85,7 +85,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative fps."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=-1.0,
                 width=1920,
@@ -101,7 +101,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero width."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=0,
@@ -117,7 +117,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative width."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=-1,
@@ -133,7 +133,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero height."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -149,7 +149,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative height."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -165,7 +165,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects empty pixel_format."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -181,7 +181,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero total_frames."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -197,7 +197,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative total_frames."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -213,7 +213,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects zero time_base."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -229,7 +229,7 @@ class TestVideoMetadata(unittest.TestCase):
         """Test VideoMetadata validation rejects negative time_base."""
         with self.assertRaises(ValueError) as context:
             VideoMetadata(
-                file_path="/test/path.avi",
+                file_path=Path("/test/path.avi"),
                 duration=10.0,
                 fps=30.0,
                 width=1920,
@@ -244,7 +244,7 @@ class TestVideoMetadata(unittest.TestCase):
     def test_validation_accepts_large_dimensions(self) -> None:
         """Test VideoMetadata accepts very large dimensions."""
         metadata = VideoMetadata(
-            file_path="/test/path.avi",
+            file_path=Path("/test/path.avi"),
             duration=10.0,
             fps=30.0,
             width=7680,
@@ -260,7 +260,7 @@ class TestVideoMetadata(unittest.TestCase):
     def test_validation_accepts_high_fps(self) -> None:
         """Test VideoMetadata accepts high fps values."""
         metadata = VideoMetadata(
-            file_path="/test/path.avi",
+            file_path=Path("/test/path.avi"),
             duration=10.0,
             fps=120.0,
             width=1920,
@@ -294,7 +294,7 @@ class TestVideoMetadata(unittest.TestCase):
         metadata = VideoMetadata.from_path(avi_file)
 
         self.assertIsInstance(metadata, VideoMetadata)
-        self.assertEqual(metadata.file_path, str(avi_file.absolute()))
+        self.assertEqual(metadata.file_path, avi_file)
         # Specific values for file_example_AVI_480_750kB.avi
         self.assertAlmostEqual(metadata.duration, 30.613333, places=1)
         self.assertAlmostEqual(metadata.fps, 30.0, places=1)
@@ -364,17 +364,6 @@ class TestVideoMetadata(unittest.TestCase):
         self.assertTrue(metadata.fps > 0)
         self.assertTrue(metadata.width > 0)
         self.assertTrue(metadata.height > 0)
-
-    def test_extract_file_path_is_absolute(self) -> None:
-        """Test extracted metadata file_path is absolute."""
-        avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
-        if not avi_file.exists():
-            self.skipTest(f"Test video file not found: {avi_file}")
-
-        metadata = VideoMetadata.from_path(avi_file)
-
-        self.assertTrue(os.path.isabs(metadata.file_path))
-        self.assertEqual(metadata.file_path, str(avi_file.absolute()))
 
     def test_extract_no_video_stream_raises_value_error(self) -> None:
         """Test extract raises ValueError for file with no video stream."""

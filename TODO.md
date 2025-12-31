@@ -113,26 +113,36 @@ None, these are trivial.
 
 ## Phase 4: Core Logic (Low-Level Dependencies)
 
-### FrameCache (`cache/frame_cache.py`)
-- [ ] Implement frame storage (Dict[int, np.ndarray])
-- [ ] Implement cache hit/miss logic
-- [ ] Implement ring buffer with 1 second behind and 1 second ahead of current position (2 seconds total)
-- [ ] Implement eviction policy (LRU or FIFO)
-- [ ] Implement memory bounds checking and eviction
-- [ ] Implement frame retrieval by frame index
-- [ ] Implement cache invalidation
-- [ ] Calculate cache size based on video fps (2 seconds worth of frames)
+### PrefillStrategy (`cache/prefill_strategy.py`)
+- [x] Implement PrefillStrategy ABC with abstract methods
+- [x] Implement `get_protected_frames() -> Set[int]` abstract method
+- [x] Implement `is_protected_frame(frame_num: int) -> bool` abstract method
 
 **Unit Tests Required:**
-- [ ] Test cache hit when frame exists
-- [ ] Test cache miss when frame doesn't exist
-- [ ] Test cache eviction when max_frames exceeded
-- [ ] Test cache eviction when max_memory_mb exceeded
-- [ ] Test ring buffer maintains 1 second behind and 1 second ahead of current position
-- [ ] Test cache size calculation based on fps (2 seconds worth)
-- [ ] Test cache invalidation clears all frames
-- [ ] Test cache with various frame sizes
-- [ ] Test cache with rapid position changes
+- [x] Test TrivialPrefillStrategy implementation returns the protected set
+- [x] Test `is_protected_frame` returns True for frames in protected set
+- [x] Test `is_protected_frame` returns False for frames not in protected set
+
+### FrameCache (`cache/frame_cache.py`)
+- [x] Implement frame storage (Dict[int, np.ndarray])
+- [x] Implement cache hit/miss logic
+- [x] Implement LRU eviction policy
+- [x] Implement protected frame mechanism (frames from PrefillStrategy are not evicted)
+- [x] Implement memory bounds checking and eviction
+- [x] Implement frame retrieval by frame index
+- [x] Implement cache invalidation
+- [x] Implement `set_prefill_strategy()` method
+- [x] Add query methods for prefill logic (e.g., `get_missing_frames()`)
+
+**Unit Tests Required:**
+- [x] Test cache hit when frame exists
+- [x] Test cache miss when frame doesn't exist
+- [x] Test cache eviction when max_memory_mb exceeded (LRU, skipping protected frames)
+- [x] Test protected frames are not evicted even when cache is full
+- [x] Test cache invalidation clears all frames
+- [x] Test cache with various frame sizes
+- [x] Test `set_prefill_strategy()` updates protected frame set
+- [x] Test query methods return correct missing frames
 
 ### VideoDecoder (`decode/video_decoder.py`)
 - [ ] Implement PyAV container opening from file path

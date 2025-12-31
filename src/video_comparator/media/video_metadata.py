@@ -17,7 +17,7 @@ import av
 class VideoMetadata:
     """Stores and provides access to video metadata."""
 
-    file_path: str
+    file_path: Optional[Path]
     duration: float
     fps: float
     width: int
@@ -105,7 +105,7 @@ class VideoMetadata:
                 raise ValueError(f"Invalid video height: {height}")
 
             return cls(
-                file_path=str(file_path.absolute()),
+                file_path=file_path,
                 duration=duration_seconds,
                 fps=fps,
                 width=width,

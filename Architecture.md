@@ -45,13 +45,23 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
-- ring buffer with 1 second behind and 1 second ahead of current position (2 seconds total)
-- cache size calculated based on video fps
-- eviction policy
-- memory bounds.
+- LRU eviction policy with protected frame set
+- memory bounds management
+- frame storage and retrieval
+- integration with PrefillStrategy to protect frames from eviction
 #### Testability
-- unit tests for cache hit/miss behavior and eviction
+- unit tests for cache hit/miss behavior and LRU eviction
+- unit tests for protected frame behavior
 - timing-free logic tests.
+
+### 4a) Prefill Strategy
+#### Responsibilities
+- defines which frames should be protected from cache eviction
+- provides protected frame set based on current position, playback state, and prediction logic
+- swappable strategy pattern for different prefetching approaches
+#### Testability
+- unit tests for protected frame calculation
+- unit tests for different strategy implementations (ring buffer, predictive, etc.)
 
 ### 5) Sync & Timeline Controller
 #### Responsibilities
