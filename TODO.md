@@ -245,7 +245,7 @@ None, these are trivial.
 - [ ] Implement lockstep synchronization (both videos advance together)
 - [ ] Integrate with TimelineController for position math
 - [ ] Integrate with VideoDecoders for frame retrieval
-- [ ] Integrate with FrameCaches (optional)
+- [ ] Integrate with FrameCaches
 - [ ] Create and update PrefillStrategy instances for each video's FrameCache
   - [ ] Query TimelineController for resolved frame numbers for both videos
   - [ ] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
