@@ -115,11 +115,21 @@ None, these are trivial.
 
 ### PrefillStrategy (`cache/prefill_strategy.py`)
 - [x] Implement PrefillStrategy ABC with abstract methods
-- [x] Implement `get_protected_frames() -> Set[int]` abstract method
-- [x] Implement `is_protected_frame(frame_num: int) -> bool` abstract method
+- [x] Implement `generate_protected_frames() -> Generator[int, None, None]` generator method
+- [x] Implement `_generate_protected_frames()` abstract method for subclasses
+- [x] Implement `cacheable_frame_count` property to track consumed frames
+- [x] Implement `protected_frames() -> Set[int]` method to reconstruct protected set
+- [x] Implement `is_protected_frame(frame_num: int, protected_set: Set[int]) -> bool` method
+- [x] Implement `FramesNotGeneratedError` exception for error handling
+- [x] Implement TrivialPrefillStrategy with iterator-based initialization
 
 **Unit Tests Required:**
-- [x] Test TrivialPrefillStrategy implementation returns the protected set
+- [x] Test TrivialPrefillStrategy generates frames in order
+- [x] Test `generate_protected_frames` yields all frames
+- [x] Test `cacheable_frame_count` tracks consumed frames
+- [x] Test `protected_frames` returns consumed frames set
+- [x] Test `protected_frames` raises error if not generated
+- [x] Test `protected_frames` respects cache capacity limit
 - [x] Test `is_protected_frame` returns True for frames in protected set
 - [x] Test `is_protected_frame` returns False for frames not in protected set
 
@@ -132,6 +142,10 @@ None, these are trivial.
 - [x] Implement frame retrieval by frame index
 - [x] Implement cache invalidation
 - [x] Implement `set_prefill_strategy()` method
+- [x] Implement generator consumption logic in `_ensure_protected_frames()`
+  - [x] Consume frames from strategy generator until cache capacity reached
+  - [x] Calculate capacity based on frame size estimates
+  - [x] Store consumed frames as protected set
 - [x] Add query methods for prefill logic (e.g., `get_missing_frames()`)
 
 **Unit Tests Required:**

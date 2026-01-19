@@ -2,54 +2,124 @@
 
 Responsibilities:
 - Define which frames should be protected from cache eviction
-- Provide protected frame set based on prediction logic
+- Generate frame numbers in priority order (does not need to know cache size)
 - Swappable strategy pattern for different prefetching approaches
 """
 
 from abc import ABC, abstractmethod
-from typing import Set
+from collections import OrderedDict
+from typing import Generator, Iterator, Optional, Set
 
 
 class PrefillStrategy(ABC):
     """Abstract base class for prefill strategies.
 
-    Prefill strategies define which frames should be protected from eviction
-    in the frame cache. The strategy is updated when the target frame changes,
-    and the cache uses it to determine which frames to preserve during LRU eviction.
+    Prefill strategies generate frame numbers in priority order. The FrameCache
+    consumes frames from the generator until it reaches capacity, and those
+    consumed frames become the protected set. This design allows strategies to
+    focus on priority ordering without needing to know cache capacity in advance.
     """
 
-    @abstractmethod
-    def get_protected_frames(self) -> Set[int]:
-        """Get the set of frame indices that should be protected from eviction.
+    class FramesNotGeneratedError(Exception):
+        """Exception raised when protected frames have not been generated yet."""
 
-        Returns:
-            Set of frame indices that should not be evicted from the cache
+    _cacheable_frame_count: Optional[int] = None
+
+    @property
+    def cacheable_frame_count(self) -> Optional[int]:
+        """Read-only access to the number of cacheable frames."""
+        return self._cacheable_frame_count
+
+    @abstractmethod
+    def _generate_protected_frames(self) -> Generator[int, None, None]:
+        """Generate frame indices in priority order for protection.
+
+        Yields frame indices in order of priority (most important first).
+        The FrameCache will consume frames until it reaches capacity.
+        Strategies do not need to know or respect cache capacity.
+
+        Frame order must be deterministic and consistent.
+
+        Yields:
+            Frame indices in priority order
         """
         pass
 
-    @abstractmethod
-    def is_protected_frame(self, frame_num: int) -> bool:
-        """Check if a specific frame should be protected from eviction.
+    def generate_protected_frames(self) -> Generator[int, None, None]:
+        """
+        Generate frame indices in priority order for protection.
+        The FrameCache will consume frames until it reaches capacity.
+        Strategies do not need to know or respect cache capacity.
+
+        Frame order must be deterministic and consistent.
+
+        Yields:
+            Frame indices in priority order
+        """
+        self._cacheable_frame_count = 0
+
+        for frame_num in self._generate_protected_frames():
+            self._cacheable_frame_count += 1
+            yield frame_num
+
+    def _protected_frames(self) -> Set[int]:
+        """
+        Return the set of protected frames.
+        """
+        if self._cacheable_frame_count is None:
+            raise self.FramesNotGeneratedError()
+
+        # Naive/safe implementation: generate them again since it's deterministic
+        return set(x for i, x in enumerate(self._generate_protected_frames()) if i < self._cacheable_frame_count)
+
+    def protected_frames(self) -> Set[int]:
+        """
+        Return the set of protected frames if it has been generated
+        """
+        if self._cacheable_frame_count is None:
+            raise self.FramesNotGeneratedError()
+
+        # Naive/safe implementation: generate them again since it's deterministic
+        return self._protected_frames()
+
+    def is_protected_frame(self, frame_num: int, protected_set: Set[int]) -> bool:
+        """Check if a specific frame is in the protected set.
+
+        This is a convenience method. The actual protected set is determined
+        by FrameCache consuming frames from generate_protected_frames().
 
         Args:
             frame_num: Frame index to check
+            protected_set: The set of protected frames (from FrameCache)
 
         Returns:
-            True if the frame should be protected, False otherwise
+            True if the frame is in the protected set, False otherwise
         """
-        pass
+        if self._cacheable_frame_count is None:
+            raise self.FramesNotGeneratedError()
+        # Naive/safe implementation: genrate a set every time
+        return frame_num in self.protected_frames()
 
 
 class TrivialPrefillStrategy(PrefillStrategy):
-    """Trivial prefill strategy that takes the set of frames as input."""
+    """Trivial prefill strategy that yields frames from a provided sequence."""
 
-    def __init__(self, protected_frames: Set[int]) -> None:
-        self.protected_frames = protected_frames
+    def __init__(self, frame_sequence: Iterator[int]) -> None:
+        """
+        Initialize with a sequence of frame indices, preserving insertion order and uniqueness.
 
-    def get_protected_frames(self) -> Set[int]:
-        """Get the set of frame indices that should be protected from eviction."""
-        return set(self.protected_frames)
+        Args:
+            frame_sequence: Iterable of frame indices (any order, may have duplicates)
+        """
+        self.frame_sequence = list(int(x) for x in OrderedDict.fromkeys(frame_sequence))
 
-    def is_protected_frame(self, frame_num: int) -> bool:
-        """Check if a specific frame should be protected from eviction."""
-        return frame_num in self.protected_frames
+    def _generate_protected_frames(self) -> Generator[int, None, None]:
+        """Generate frame indices from the provided sequence."""
+        yield from self.frame_sequence
+
+    def _protected_frames(self) -> Set[int]:
+        """Return the set of protected frames."""
+        if self._cacheable_frame_count is None:
+            raise self.FramesNotGeneratedError()
+
+        return set(self.frame_sequence[: self._cacheable_frame_count])

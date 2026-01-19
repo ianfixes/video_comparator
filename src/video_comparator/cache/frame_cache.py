@@ -72,11 +72,17 @@ class FrameCache:
         self.cache[frame_index] = frame
         self.access_order.append(frame_index)
 
-    def set_prefill_strategy(self, strategy: Optional[PrefillStrategy]) -> None:
+    def set_prefill_strategy(self, strategy: Optional[PrefillStrategy], frame_size_bytes: Optional[int] = None) -> None:
         """Set the prefill strategy that defines protected frames.
+
+        The cache will consume frames from the strategy's generator until it
+        reaches capacity (current cache size + free space). Consumed frames
+        become the protected set.
 
         Args:
             strategy: PrefillStrategy instance, or None to disable protection
+            frame_size_bytes: Optional frame size for capacity calculation.
+                If None, uses frame_size_estimate_bytes or average of cached frames.
         """
         self.prefill_strategy = strategy
         self.protected_frames = None  # reset the protected frames set
@@ -86,12 +92,50 @@ class FrameCache:
         self.cache.clear()
         self.access_order.clear()
 
-    def _ensure_protected_frames(self) -> None:
-        """Ensure the protected frames set is initialized."""
-        if self.protected_frames is None:
-            self.protected_frames = (
-                set() if self.prefill_strategy is None else self.prefill_strategy.get_protected_frames()
-            )
+    def _ensure_protected_frames(self, frame_size_bytes: Optional[int] = None) -> None:
+        """Ensure the protected frames set is initialized by consuming from strategy generator.
+
+        Consumes frames from the prefill strategy generator until cache capacity
+        is reached. The capacity is calculated as: current cache size + free space.
+        This ensures protected frames can use the full cache capacity.
+
+        Args:
+            frame_size_bytes: Optional frame size for capacity calculation.
+                If None, uses frame_size_estimate_bytes or average of cached frames.
+        """
+        if self.protected_frames is not None:
+            return
+
+        if self.prefill_strategy is None:
+            self.protected_frames = set()
+            return
+
+        protected: Set[int] = set()
+        current_memory = self._calculate_total_memory()
+        available_bytes = self.max_memory_bytes - current_memory
+
+        frame_size = frame_size_bytes
+        if frame_size is None:
+            if self.cache:
+                frame_size = current_memory // len(self.cache)
+            else:
+                frame_size = self.frame_size_estimate_bytes or (self.max_memory_bytes // 100)
+
+        if frame_size <= 0:
+            self.protected_frames = protected
+            return
+
+        max_frames = self.max_memory_bytes // frame_size
+        if max_frames <= 0:
+            self.protected_frames = protected
+            return
+
+        for frame_num in self.prefill_strategy.generate_protected_frames():
+            protected.add(frame_num)
+            if len(protected) >= max_frames:
+                break
+
+        self.protected_frames = protected
 
     def _update_access_order(self, frame_index: int) -> None:
         """Update LRU access order for a frame.
@@ -124,19 +168,8 @@ class FrameCache:
             if oldest_frame_index in self.access_order:
                 self.access_order.remove(oldest_frame_index)
 
-    def _get_protected_frames(self) -> Set[int]:
-        """Get the set of protected frames from the prefill strategy.
-
-        Returns:
-            Set of protected frame indices, empty if no strategy is set
-        """
-        return set() if self.prefill_strategy is None else self.prefill_strategy.get_protected_frames()
-
     def _find_evictable_frame(self) -> Optional[int]:
         """Find the least recently used frame that is not protected.
-
-        Args:
-            protected_frames: Set of frame indices that should not be evicted
 
         Returns:
             Frame index to evict, or None if all frames are protected

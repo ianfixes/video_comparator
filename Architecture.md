@@ -57,8 +57,17 @@ This document outlines the major subsystems for the video comparator. Each subsy
 ### 4a) Prefill Strategy
 #### Responsibilities
 - defines which frames should be protected from cache eviction
-- provides protected frame set based on current position, playback state, and prediction logic
+- generates frame numbers in priority order (does not need to know cache capacity)
+- tracks how many frames were actually consumed by the cache
+- can reconstruct the protected frame set based on consumed count
 - swappable strategy pattern for different prefetching approaches
+#### Design
+- Strategies generate frames via `generate_protected_frames()` generator
+- FrameCache consumes frames until it reaches capacity
+- Strategy tracks consumed count via `_cacheable_frame_count`
+- `protected_frames()` method reconstructs the protected set deterministically
+- Frame order must be deterministic and consistent for reconstruction
+- Strategies do not need to know cache capacity in advance
 #### Creation & Lifecycle
 - PrefillStrategy instances are created and updated by PlaybackController (not TimelineController)
 - PlaybackController queries TimelineController for resolved frame numbers for each video
@@ -67,6 +76,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 #### Testability
 - unit tests for protected frame calculation
 - unit tests for different strategy implementations (ring buffer, predictive, etc.)
+- unit tests for cacheable_frame_count tracking
+- unit tests for protected_frames reconstruction
 
 ### 5) Sync & Timeline Controller
 #### Responsibilities
