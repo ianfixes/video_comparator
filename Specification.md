@@ -80,6 +80,14 @@ This software project aims to deliver a cross-platform graphical user interface 
 12. **Error Handling**
     - Graceful handling of unsupported formats, missing codecs, or video loading errors.
     - Clear error messages and user guidance.
+    - Each subsystem defines per-class exceptions matching its responsibilities:
+      - Media Loading: file validation, format errors, missing codecs
+      - Decode Engine: decode failures, seek errors, unsupported formats
+      - Frame Cache: cache capacity errors, invalid frame indices
+      - Prefill Strategy: strategy-specific errors (e.g., frames not generated)
+      - Timeline Controller: invalid positions, out-of-range seeks
+      - Playback Controller: playback state errors, synchronization failures
+    - Exceptions are caught at appropriate boundaries and displayed via ErrorHandler with user-friendly messages.
 
 13. **Project Extensibility**
     - The GUI and backend should be designed for modularity, allowing future expansion (e.g., annotation tools, quality metrics overlays, multi-video support).

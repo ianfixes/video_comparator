@@ -58,6 +58,7 @@ None, these are trivial.
 - [x] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
 - [x] Implement error handling for unsupported formats
 - [x] Add support for multiple video streams (select first video stream)
+- [ ] Define per-class exceptions for metadata errors (e.g., `MetadataExtractionError`, `UnsupportedFormatError`, `NoVideoStreamError`)
 
 **Unit Tests Required:**
 - [x] Test metadata extraction from known test video file (from `tests/sample_data/`)
@@ -68,7 +69,7 @@ None, these are trivial.
 - [x] Test with videos of different formats (MP4, MKV, AVI)
 - [x] Test with videos of different codecs (H.264, H.265, ProRes)
 
-**Note:** Test video files should be placed in `tests/sample_data/` directory.
+**Note:** Test video files are available in `tests/sample_data/` directory. Use `file_example_AVI_*.avi` files for testing.
 
 ### ScalingCalculator (`render/scaling_calculator.py`)
 - [x] Implement `calculate_scale` method for independent mode
@@ -121,7 +122,11 @@ None, these are trivial.
 - [x] Implement `protected_frames() -> Set[int]` method to reconstruct protected set
 - [x] Implement `is_protected_frame(frame_num: int, protected_set: Set[int]) -> bool` method
 - [x] Implement `FramesNotGeneratedError` exception for error handling
-- [x] Implement TrivialPrefillStrategy with iterator-based initialization
+- [x] Implement TrivialPrefillStrategy with iterator-based initialization (temporary implementation)
+
+**Design Notes:**
+- `TrivialPrefillStrategy` is a temporary implementation for testing. The final strategy implementation is TBD and may add additional methods to accept data relevant to the caching strategy (e.g., current position, playback direction, video metadata).
+- `generate_protected_frames()` is expected to be called every time the position changes to regenerate the protected frame set.
 
 **Unit Tests Required:**
 - [x] Test TrivialPrefillStrategy generates frames in order
@@ -148,6 +153,11 @@ None, these are trivial.
   - [x] Store consumed frames as protected set
 - [x] Add query methods for prefill logic (e.g., `get_missing_frames()`)
 
+**Design Notes:**
+- FrameCache consumes frames from PrefillStrategy's `generate_protected_frames()` generator until capacity is reached.
+- Capacity is calculated based on available memory and frame size estimates.
+- Consumed frames become the protected set that cannot be evicted.
+
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
 - [x] Test cache miss when frame doesn't exist
@@ -157,6 +167,7 @@ None, these are trivial.
 - [x] Test cache with various frame sizes
 - [x] Test `set_prefill_strategy()` updates protected frame set
 - [x] Test query methods return correct missing frames
+- [x] Test generator consumption stops at capacity
 
 ### VideoDecoder (`decode/video_decoder.py`)
 - [x] Implement PyAV container opening from file path
@@ -167,6 +178,7 @@ None, these are trivial.
 - [x] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
 - [x] Implement error handling for decode failures
 - [x] Integrate with FrameCache (optional)
+- [ ] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
@@ -196,6 +208,7 @@ None, these are trivial.
 - [x] Implement sync offset adjustment (set, increment, decrement)
 - [x] Implement resolved frame/time calculation for both videos
 - [x] Handle differing framerates between videos
+- [ ] Define per-class exceptions for timeline errors (e.g., `InvalidPositionError`, `OutOfRangeError`)
 
 **Unit Tests Required:**
 - [x] Test initial position is 0.0
@@ -236,7 +249,9 @@ None, these are trivial.
 - [ ] Create and update PrefillStrategy instances for each video's FrameCache
   - [ ] Query TimelineController for resolved frame numbers for both videos
   - [ ] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
+  - [ ] **Call `generate_protected_frames()` on strategies every time position changes**
   - [ ] Update strategies when position changes or playback state changes
+- [ ] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
 **Unit Tests Required:**
 - [ ] Test initial state is STOPPED
@@ -258,7 +273,7 @@ None, these are trivial.
 - [ ] Test playback speed adjustment
 - [ ] Test edge cases (step at start of video, step at end of video)
 - [ ] Test PrefillStrategy creation for each video
-- [ ] Test PrefillStrategy updates when position changes
+- [ ] Test `generate_protected_frames()` is called on position changes
 - [ ] Test PrefillStrategy updates when playback state changes
 - [ ] Test PrefillStrategy handles different framerates correctly
 
@@ -304,10 +319,11 @@ None, these are trivial.
 - [ ] Implement zoom state persistence across seeks/steps
 - [ ] Integrate with ScalingCalculator
 - [ ] Integrate with VideoMetadata for overlay info
+- [ ] Define per-class exceptions for rendering errors (e.g., `RenderingError`)
 
 **Unit Tests Required:**
-- [ ] Test VideoPane initialization
-- [ ] Test frame rendering with valid frame
+- [ ] Test VideoPane initialization (mock wx.Panel)
+- [ ] Test frame rendering with valid frame (mock wx.PaintDC)
 - [ ] Test frame rendering with None frame (empty state)
 - [ ] Test zoom transform application (various zoom levels)
 - [ ] Test pan transform application (various pan positions)
@@ -322,6 +338,8 @@ None, these are trivial.
 - [ ] Test zoom state persistence after frame step
 - [ ] Test coordinate transformations (screen to video space)
 - [ ] Test edge cases (very large zoom, extreme pan positions)
+
+**Note:** wxPython components should be mocked in unit tests. Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators.
 
 ---
 
@@ -538,3 +556,15 @@ Each module should have:
 5. **Edge case tests** for boundary conditions
 
 Test files should be in `tests/` directory mirroring the source structure.
+
+### Testing wxPython Components
+
+- wxPython components should be mocked in unit tests
+- No test fixtures are currently available for wxPython widgets
+- Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators, following the project's testing conventions
+- Consider third-party libraries for wxPython mocking if needed (open to suggestions)
+
+### Test Data
+
+- Test video files are available in `tests/sample_data/`
+- Use `file_example_AVI_*.avi` files for testing video decoding and metadata extraction

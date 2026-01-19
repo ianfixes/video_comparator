@@ -7,6 +7,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - Video decode: PyAV (FFmpeg) for frame-accurate seeking/decoding
 - Data handling: NumPy for frame buffers and transforms
 - Tests: pytest (unit + integration), mypy for types, black/isort for style
+- Testing: wxPython components should be mocked in unit tests (no test fixtures available yet)
 
 ## Subsystems
 
@@ -29,6 +30,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - user-facing errors for unsupported formats.
 #### Testability
 - unit tests with known media samples from `tests/sample_data/`
+- test files available: `file_example_AVI_*.avi` files in `tests/sample_data/`
 - error-path tests for missing/invalid files.
 
 ### 3) Decode Engine (per video)
@@ -49,9 +51,14 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - memory bounds management
 - frame storage and retrieval
 - integration with PrefillStrategy to protect frames from eviction
+#### Design
+- FrameCache consumes frames from PrefillStrategy's `generate_protected_frames()` generator until capacity is reached
+- Capacity is calculated based on available memory and frame size estimates
+- Consumed frames become the protected set that cannot be evicted
 #### Testability
 - unit tests for cache hit/miss behavior and LRU eviction
 - unit tests for protected frame behavior
+- unit tests for generator consumption until capacity
 - timing-free logic tests.
 
 ### 4a) Prefill Strategy
@@ -63,16 +70,18 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - swappable strategy pattern for different prefetching approaches
 #### Design
 - Strategies generate frames via `generate_protected_frames()` generator
-- FrameCache consumes frames until it reaches capacity
+- FrameCache consumes frames from the generator until it reaches capacity
 - Strategy tracks consumed count via `_cacheable_frame_count`
 - `protected_frames()` method reconstructs the protected set deterministically
 - Frame order must be deterministic and consistent for reconstruction
 - Strategies do not need to know cache capacity in advance
+- **Note:** `TrivialPrefillStrategy` is a temporary implementation for testing. The final strategy implementation is TBD and may add additional methods to accept data relevant to the caching strategy (e.g., current position, playback direction, video metadata).
 #### Creation & Lifecycle
 - PrefillStrategy instances are created and updated by PlaybackController (not TimelineController)
 - PlaybackController queries TimelineController for resolved frame numbers for each video
 - Separate PrefillStrategy instances are created for each video's FrameCache
-- Strategies are updated when position changes or playback state changes
+- **`generate_protected_frames()` is called every time the position changes** to regenerate the protected frame set
+- Strategies may be updated when position changes or playback state changes
 #### Testability
 - unit tests for protected frame calculation
 - unit tests for different strategy implementations (ring buffer, predictive, etc.)
@@ -101,11 +110,13 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - creates and updates PrefillStrategy instances for each video's FrameCache
   - queries TimelineController for resolved frame numbers
   - creates separate PrefillStrategy instances per video (accounting for different framerates/offsets)
+  - **calls `generate_protected_frames()` on strategies every time position changes**
   - updates strategies when position or playback state changes
 #### Testability
 - unit tests on state transitions and emitted requests
 - simulated tick tests without GUI
 - tests for PrefillStrategy creation and updates
+- tests verifying `generate_protected_frames()` is called on position changes
 
 ### 7) Render Layer (Video Panes)
 #### Responsibilities
@@ -155,3 +166,15 @@ This document outlines the major subsystems for the video comparator. Each subsy
 #### Testability
 - keybinding maps are pure data
 - unit tests ensure commands dispatch to controllers.
+
+## Error Handling
+
+Each subsystem should define per-class exceptions that match its responsibilities:
+- **Media Loading**: Exceptions for file validation, format errors, missing codecs
+- **Decode Engine**: Exceptions for decode failures, seek errors, unsupported formats
+- **Frame Cache**: Exceptions for cache capacity errors, invalid frame indices
+- **Prefill Strategy**: Exceptions for strategy-specific errors (e.g., `FramesNotGeneratedError`)
+- **Timeline Controller**: Exceptions for invalid positions, out-of-range seeks
+- **Playback Controller**: Exceptions for playback state errors, synchronization failures
+
+Exceptions should be caught at appropriate boundaries and passed to `ErrorHandler` for user-friendly display. Lower-level exceptions may be wrapped in higher-level exceptions to provide context.

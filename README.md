@@ -91,6 +91,33 @@ poetry install
 - FFmpeg libraries (installed system-wide or via package manager)
 - wxWidgets runtime libraries (included with wxPython package)
 
+## Testing
+
+The project uses pytest for unit and integration tests. Test files are located in the `tests/` directory.
+
+### Test Data
+
+Test video files are available in `tests/sample_data/`:
+- `file_example_AVI_*.avi` files for testing video decoding and metadata extraction
+
+### Testing wxPython Components
+
+wxPython components should be mocked in unit tests. No test fixtures are currently available for wxPython widgets. Consider using context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators, following the project's testing conventions.
+
+### Running Tests
+
+Run the validation script to execute all linting and tests:
+
+```bash
+./validate.sh
+```
+
+This runs:
+- `isort` for import sorting
+- `black` for code formatting
+- `mypy` for type checking
+- `pytest` for unit and integration tests
+
 ## License
 
 [To be determined]
