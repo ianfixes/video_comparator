@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 
 from video_comparator.cache.frame_cache import FrameCache
-from video_comparator.decode.video_decoder import VideoDecoder
+from video_comparator.decode.video_decoder import UnsupportedFormatError, VideoDecoder
 from video_comparator.media.video_metadata import VideoMetadata
 
 
@@ -419,7 +419,7 @@ class TestVideoDecoder(unittest.TestCase):
 
                 decoder = VideoDecoder(metadata)
 
-                with self.assertRaises(ValueError) as context:
+                with self.assertRaises(UnsupportedFormatError) as context:
                     decoder._ensure_open()
 
                 self.assertIn("No video stream found", str(context.exception))

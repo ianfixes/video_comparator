@@ -13,6 +13,18 @@ from typing import Optional, Tuple
 import av
 
 
+class MetadataExtractionError(Exception):
+    """Base exception for metadata extraction errors."""
+
+
+class UnsupportedFormatError(MetadataExtractionError):
+    """Raised when a video file format is not supported or cannot be opened."""
+
+
+class NoVideoStreamError(MetadataExtractionError):
+    """Raised when a file has no video stream."""
+
+
 @dataclass
 class VideoMetadata:
     """Stores and provides access to video metadata."""
@@ -60,7 +72,9 @@ class VideoMetadata:
 
         Raises:
             FileNotFoundError: If the file does not exist
-            ValueError: If the file has no video stream or cannot be opened
+            UnsupportedFormatError: If the file format is not supported or cannot be opened
+            NoVideoStreamError: If the file has no video stream
+            MetadataExtractionError: For other metadata extraction errors
         """
         if not file_path.exists():
             raise FileNotFoundError(f"Video file not found: {file_path}")
@@ -68,7 +82,7 @@ class VideoMetadata:
         try:
             container = av.open(str(file_path.absolute()))
         except av.AVError as e:
-            raise ValueError(f"Failed to open video file: {file_path}") from e
+            raise UnsupportedFormatError(f"Failed to open video file: {file_path}") from e
 
         try:
             video_stream = None
@@ -77,7 +91,7 @@ class VideoMetadata:
                 break
 
             if video_stream is None:
-                raise ValueError(f"No video stream found in file: {file_path}")
+                raise NoVideoStreamError(f"No video stream found in file: {file_path}")
 
             duration_seconds = float(container.duration) / av.time_base if container.duration else 0.0
             if duration_seconds <= 0 and video_stream.duration is not None and video_stream.time_base is not None:

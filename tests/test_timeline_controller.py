@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from video_comparator.media.video_metadata import VideoMetadata
-from video_comparator.sync.timeline_controller import TimelineController
+from video_comparator.sync.timeline_controller import InvalidPositionError, TimelineController
 
 
 class TestTimelineController(unittest.TestCase):
@@ -145,12 +145,12 @@ class TestTimelineController(unittest.TestCase):
         """Test position setting with out of range value raises error."""
         controller = TimelineController(self.metadata_30fps, self.metadata_24fps)
 
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(InvalidPositionError) as context:
             controller.set_position(-1.0)
 
         self.assertIn("out of range", str(context.exception))
 
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(InvalidPositionError) as context:
             controller.set_position(11.0)
 
         self.assertIn("out of range", str(context.exception))
@@ -340,5 +340,5 @@ class TestTimelineController(unittest.TestCase):
         controller.set_position(5.0)
         self.assertEqual(controller.current_position, 5.0)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidPositionError):
             controller.set_position(6.0)

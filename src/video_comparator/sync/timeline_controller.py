@@ -12,6 +12,18 @@ from typing import Tuple
 from video_comparator.media.video_metadata import VideoMetadata
 
 
+class TimelineError(Exception):
+    """Base exception for timeline controller errors."""
+
+
+class InvalidPositionError(TimelineError):
+    """Raised when a position is invalid or out of range."""
+
+
+class OutOfRangeError(TimelineError):
+    """Raised when a position or frame is out of the valid range."""
+
+
 class TimelineController:
     """Manages timeline position and synchronization offsets."""
 
@@ -85,11 +97,11 @@ class TimelineController:
             timestamp: Timestamp in seconds
 
         Raises:
-            ValueError: If timestamp is out of valid range
+            InvalidPositionError: If timestamp is out of valid range
         """
         max_duration = min(self.metadata_video1.duration, self.metadata_video2.duration)
         if timestamp < 0.0 or timestamp > max_duration:
-            raise ValueError(f"Position {timestamp} out of range [0.0, {max_duration}]")
+            raise InvalidPositionError(f"Position {timestamp} out of range [0.0, {max_duration}]")
         self.current_position = timestamp
 
     def set_sync_offset(self, offset_frames: int) -> None:

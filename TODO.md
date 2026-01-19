@@ -52,13 +52,13 @@ None, these are trivial.
 
 ## Phase 3: Utility Classes
 
-### MetadataExtractor (`media/metadata_extractor.py`)
+### MetadataExtractor (`media/video_metadata.py`)
 - [x] Implement PyAV container opening
 - [x] Implement video stream detection
 - [x] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
 - [x] Implement error handling for unsupported formats
 - [x] Add support for multiple video streams (select first video stream)
-- [ ] Define per-class exceptions for metadata errors (e.g., `MetadataExtractionError`, `UnsupportedFormatError`, `NoVideoStreamError`)
+- [x] Define per-class exceptions for metadata errors (e.g., `MetadataExtractionError`, `UnsupportedFormatError`, `NoVideoStreamError`)
 
 **Unit Tests Required:**
 - [x] Test metadata extraction from known test video file (from `tests/sample_data/`)
@@ -178,7 +178,7 @@ None, these are trivial.
 - [x] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
 - [x] Implement error handling for decode failures
 - [x] Integrate with FrameCache (optional)
-- [ ] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
+- [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
@@ -208,7 +208,7 @@ None, these are trivial.
 - [x] Implement sync offset adjustment (set, increment, decrement)
 - [x] Implement resolved frame/time calculation for both videos
 - [x] Handle differing framerates between videos
-- [ ] Define per-class exceptions for timeline errors (e.g., `InvalidPositionError`, `OutOfRangeError`)
+- [x] Define per-class exceptions for timeline errors (e.g., `InvalidPositionError`, `OutOfRangeError`)
 
 **Unit Tests Required:**
 - [x] Test initial position is 0.0

@@ -7,7 +7,7 @@ from typing import List
 
 import av
 
-from video_comparator.media.video_metadata import VideoMetadata
+from video_comparator.media.video_metadata import NoVideoStreamError, VideoMetadata
 
 
 class TestVideoMetadata(unittest.TestCase):
@@ -382,7 +382,7 @@ class TestVideoMetadata(unittest.TestCase):
                 mock_container.close = MagicMock()
                 mock_open.return_value = mock_container
 
-                with self.assertRaises(ValueError) as context:
+                with self.assertRaises(NoVideoStreamError) as context:
                     VideoMetadata.from_path(test_file)
 
                 self.assertIn("No video stream found", str(context.exception))

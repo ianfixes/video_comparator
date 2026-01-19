@@ -16,6 +16,18 @@ from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.media.video_metadata import VideoMetadata
 
 
+class DecodeError(Exception):
+    """Base exception for video decoding errors."""
+
+
+class SeekError(DecodeError):
+    """Raised when a seek operation fails."""
+
+
+class UnsupportedFormatError(DecodeError):
+    """Raised when a video format is not supported for decoding."""
+
+
 class VideoDecoder:
     """Decodes video frames from a video file."""
 
@@ -49,7 +61,7 @@ class VideoDecoder:
             if self.metadata.file_path is not None:
                 self._container = av.open(str(self.metadata.file_path.absolute()))
         except av.AVError as e:
-            raise ValueError(f"Failed to open video file: {self.metadata.file_path}") from e
+            raise UnsupportedFormatError(f"Failed to open video file: {self.metadata.file_path}") from e
 
         self._video_stream = None
         if self._container is not None:
@@ -59,7 +71,7 @@ class VideoDecoder:
 
         if self._video_stream is None:
             self.close()
-            raise ValueError(f"No video stream found in file: {self.metadata.file_path}")
+            raise UnsupportedFormatError(f"No video stream found in file: {self.metadata.file_path}")
 
     def close(self) -> None:
         """Close the video container and release resources."""
@@ -76,7 +88,7 @@ class VideoDecoder:
 
         Raises:
             ValueError: If frame_index is out of range
-            ValueError: If seek fails
+            SeekError: If seek fails
         """
         if frame_index < 0 or frame_index >= self.metadata.total_frames:
             raise ValueError(f"Frame index {frame_index} out of range [0, {self.metadata.total_frames - 1}]")
@@ -90,7 +102,7 @@ class VideoDecoder:
             if self._container is not None:
                 self._container.seek(timestamp_pts, stream=self._video_stream)  # type: ignore
         except av.AVError as e:
-            raise ValueError(f"Failed to seek to frame {frame_index}") from e
+            raise SeekError(f"Failed to seek to frame {frame_index}") from e
 
     def seek_to_timestamp(self, timestamp_seconds: float) -> None:
         """Seek to a specific timestamp.
@@ -100,7 +112,7 @@ class VideoDecoder:
 
         Raises:
             ValueError: If timestamp is out of range
-            ValueError: If seek fails
+            SeekError: If seek fails
         """
         if timestamp_seconds < 0.0 or timestamp_seconds > self.metadata.duration:
             raise ValueError(f"Timestamp {timestamp_seconds} out of range [0.0, {self.metadata.duration}]")
@@ -113,7 +125,7 @@ class VideoDecoder:
             if self._container is not None:
                 self._container.seek(timestamp_pts, stream=self._video_stream)  # type: ignore
         except av.AVError as e:
-            raise ValueError(f"Failed to seek to timestamp {timestamp_seconds}") from e
+            raise SeekError(f"Failed to seek to timestamp {timestamp_seconds}") from e
 
     def decode_frame(self, frame_index: int) -> np.ndarray:
         """Decode a specific frame by index.
@@ -126,7 +138,7 @@ class VideoDecoder:
 
         Raises:
             ValueError: If frame_index is out of range
-            ValueError: If decode fails
+            DecodeError: If decode fails
         """
         if frame_index < 0 or frame_index >= self.metadata.total_frames:
             raise ValueError(f"Frame index {frame_index} out of range [0, {self.metadata.total_frames - 1}]")
@@ -149,9 +161,9 @@ class VideoDecoder:
                             self.frame_cache.put(frame_index, frame_array)
                         return frame_array
         except (av.AVError, Exception) as e:
-            raise ValueError(f"Failed to decode frame {frame_index}") from e
+            raise DecodeError(f"Failed to decode frame {frame_index}") from e
 
-        raise ValueError(f"No frame found at index {frame_index}")
+        raise DecodeError(f"No frame found at index {frame_index}")
 
     def decode_frame_at_timestamp(self, timestamp_seconds: float) -> np.ndarray:
         """Decode a frame at a specific timestamp.
