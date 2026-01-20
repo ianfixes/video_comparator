@@ -8,9 +8,14 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Define `LayoutOrientation` enum
 - [x] Define `ScalingMode` enum
 - [x] Define `PlaybackState` enum (STOPPED, PLAYING, PAUSED)
+- [ ] Define `FrameRequestStatus` enum (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- [ ] Define `FrameResult` dataclass (frame_number, frame, status, error)
 
 **Unit Tests Required:**
-None, these are trivial.
+- [ ] Test FrameRequestStatus enum values
+- [ ] Test FrameResult initialization with success case
+- [ ] Test FrameResult initialization with error cases
+- [ ] Test FrameResult with None frame and status
 
 ---
 
@@ -146,17 +151,34 @@ None, these are trivial.
 - [x] Implement memory bounds checking and eviction
 - [x] Implement frame retrieval by frame index
 - [x] Implement cache invalidation
-- [x] Implement `set_prefill_strategy()` method
+- [x] Implement `set_prefill_strategy()` method (basic version)
 - [x] Implement generator consumption logic in `_ensure_protected_frames()`
   - [x] Consume frames from strategy generator until cache capacity reached
   - [x] Calculate capacity based on frame size estimates
   - [x] Store consumed frames as protected set
 - [x] Add query methods for prefill logic (e.g., `get_missing_frames()`)
+- [ ] Refactor to autonomous prefetching entity:
+  - [ ] Implement `request_prefill_frame(strategy, callback, decoder)` interface
+  - [ ] Implement request cancellation mechanism (cancel all pending requests on new request)
+  - [ ] Implement immediate first frame fetch and callback invocation with `FrameResult`
+  - [ ] Implement background prefetch thread
+  - [ ] Implement prefetch queue management with cancellation support
+  - [ ] Implement strategy update and stale request cancellation
+  - [ ] Make cache operations thread-safe
+  - [ ] Handle race conditions: cancel pending requests when new request arrives
 
 **Design Notes:**
-- FrameCache consumes frames from PrefillStrategy's `generate_protected_frames()` generator until capacity is reached.
-- Capacity is calculated based on available memory and frame size estimates.
-- Consumed frames become the protected set that cannot be evicted.
+- FrameCache operates as an autonomous entity with its own background prefetch thread
+- External interface: `set_prefill_strategy(strategy: PrefillStrategy, frame_callback: Callable[[int, np.ndarray], None], decoder: VideoDecoder)`
+- Behavior:
+  1. Receives PrefillStrategy + callback + decoder from PlaybackController
+  2. Generates first frame number from strategy and acquires it (cache hit or miss)
+  3. Signals callback immediately with (frame_number, frame) tuple
+  4. Continues fetching remaining frames from strategy generator in background until capacity reached
+- Consumed frames become the protected set that cannot be evicted
+- Capacity is calculated based on available memory and frame size estimates
+- FrameCache manages its own prefetch thread lifecycle and queue
+- When strategy is updated, FrameCache cancels stale prefetch requests and starts new prefetch cycle
 
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
@@ -168,6 +190,15 @@ None, these are trivial.
 - [x] Test `set_prefill_strategy()` updates protected frame set
 - [x] Test query methods return correct missing frames
 - [x] Test generator consumption stops at capacity
+- [ ] Test callback invocation with first frame (immediate) using FrameResult
+- [ ] Test background prefetching of remaining frames with FrameResult objects
+- [ ] Test strategy update cancels stale prefetch requests
+- [ ] Test race condition handling: new request cancels pending requests
+- [ ] Test FrameResult with CANCELLED status for cancelled requests
+- [ ] Test FrameResult with error statuses (DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- [ ] Test thread safety of cache operations
+- [ ] Test prefetch queue management with cancellation
+- [ ] Test prefetch thread lifecycle (start/stop/cleanup)
 
 ### VideoDecoder (`decode/video_decoder.py`)
 - [x] Implement PyAV container opening from file path
@@ -249,8 +280,11 @@ None, these are trivial.
 - [ ] Create and update PrefillStrategy instances for each video's FrameCache
   - [ ] Query TimelineController for resolved frame numbers for both videos
   - [ ] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
-  - [ ] **Call `generate_protected_frames()` on strategies every time position changes**
+  - [ ] Submit strategies to FrameCache via `request_prefill_frame(strategy, callback, decoder)` every time position changes
+  - [ ] Provide frame callbacks that receive `FrameResult` objects from FrameCache
+  - [ ] Handle FrameResult statuses appropriately (SUCCESS, CANCELLED, errors)
   - [ ] Update strategies when position changes or playback state changes
+- [ ] Implement frame callback handling to coordinate frame display
 - [ ] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
 **Unit Tests Required:**

@@ -50,16 +50,53 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - LRU eviction policy with protected frame set
 - memory bounds management
 - frame storage and retrieval
+- autonomous background prefetching of frames
 - integration with PrefillStrategy to protect frames from eviction
+- race condition handling via request cancellation
 #### Design
-- FrameCache consumes frames from PrefillStrategy's `generate_protected_frames()` generator until capacity is reached
-- Capacity is calculated based on available memory and frame size estimates
+- FrameCache operates as an autonomous entity with its own background prefetch thread
+- PlaybackController submits a fully-configured PrefillStrategy and a callback function to FrameCache
+- FrameCache interface:
+  1. Receives PrefillStrategy + callback from PlaybackController
+  2. **Cancels all pending requests** when new request arrives (prevents race conditions)
+  3. Generates first frame number from strategy (`generate_protected_frames`) and acquires it (cache hit or miss via VideoDecoder)
+  4. Signals callback immediately with `FrameResult` object
+  5. Continues fetching remaining frames from strategy generator in background thread until capacity reached
 - Consumed frames become the protected set that cannot be evicted
+- Capacity is calculated based on available memory and frame size estimates
+- FrameCache manages its own prefetch thread lifecycle and queue
+- When new request arrives, FrameCache cancels all pending prefetch requests and starts new prefetch cycle
+- Callbacks receive `FrameResult` objects that convey frame data or failure reasons
+#### FrameResult Object
+- `FrameResult` dataclass contains:
+  - `frame_number: int` - The requested frame index
+  - `frame: Optional[np.ndarray]` - The frame data (None if request failed)
+  - `status: FrameRequestStatus` - Status enum indicating success or failure reason
+  - `error: Optional[Exception]` - Exception object if status indicates an error
+- `FrameRequestStatus` enum values:
+  - `SUCCESS` - Frame successfully retrieved
+  - `CANCELLED` - Request cancelled due to new request (race condition)
+  - `DECODE_ERROR` - Frame decode failed
+  - `SEEK_ERROR` - Frame seek failed
+  - `OUT_OF_RANGE` - Frame index out of valid range
+- Callbacks receive `FrameResult` instead of raw tuples, allowing proper error handling
+#### External Interface
+- `request_prefill_frame(strategy: PrefillStrategy, frame_callback: Callable[[FrameResult], None], decoder: VideoDecoder) -> None`
+  - Sets the prefill strategy, callback, and decoder reference
+  - **Cancels all pending requests** before starting new prefetch cycle
+  - Triggers immediate frame fetch for first frame in strategy
+  - Starts background prefetching of remaining frames
+  - Callback receives `FrameResult` objects (immediate for first frame, async for prefetched frames)
+- `get(frame_index: int) -> Optional[np.ndarray]` - Synchronous frame retrieval (existing)
+- `put(frame_index: int, frame: np.ndarray) -> None` - Frame storage (existing)
 #### Testability
 - unit tests for cache hit/miss behavior and LRU eviction
 - unit tests for protected frame behavior
 - unit tests for generator consumption until capacity
-- timing-free logic tests.
+- unit tests for callback invocation with correct frame numbers
+- unit tests for background prefetching behavior
+- unit tests for strategy update and prefetch cancellation
+- thread safety tests for concurrent cache operations
 
 ### 4a) Prefill Strategy
 #### Responsibilities
@@ -110,13 +147,22 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - creates and updates PrefillStrategy instances for each video's FrameCache
   - queries TimelineController for resolved frame numbers
   - creates separate PrefillStrategy instances per video (accounting for different framerates/offsets)
-  - **calls `generate_protected_frames()` on strategies every time position changes**
+  - submits strategies to FrameCache via `request_prefill_frame()` with callback
   - updates strategies when position or playback state changes
+- provides frame callbacks that receive `FrameResult` objects from FrameCache
+- coordinates frame display via callbacks (does not directly manage prefetching)
+#### Design
+- PlaybackController creates PrefillStrategy instances based on current position
+- Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()`
+- FrameCache handles immediate frame fetch and background prefetching autonomously
+- Callback receives `FrameResult` objects as frames become available (immediate for first frame, async for prefetched frames)
+- Handles race conditions: when position changes rapidly, old requests are cancelled and new ones initiated
 #### Testability
 - unit tests on state transitions and emitted requests
 - simulated tick tests without GUI
 - tests for PrefillStrategy creation and updates
-- tests verifying `generate_protected_frames()` is called on position changes
+- tests verifying strategies are submitted to FrameCache on position changes
+- tests for callback invocation with correct frame data
 
 ### 7) Render Layer (Video Panes)
 #### Responsibilities
