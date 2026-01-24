@@ -12,10 +12,10 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Define `FrameResult` dataclass (frame_number, frame, status, error)
 
 **Unit Tests Required:**
-- [ ] Test FrameRequestStatus enum values
-- [ ] Test FrameResult initialization with success case
-- [ ] Test FrameResult initialization with error cases
-- [ ] Test FrameResult with None frame and status
+- [x] Test FrameRequestStatus enum values
+- [x] Test FrameResult initialization with success case
+- [x] Test FrameResult initialization with error cases
+- [x] Test FrameResult with None frame and status
 
 ---
 

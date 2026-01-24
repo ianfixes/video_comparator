@@ -9,12 +9,13 @@ Responsibilities:
 - Creates and updates PrefillStrategy instances for frame caches
 """
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Iterator, Optional, Tuple
 
 from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.cache.prefill_strategy import PrefillStrategy, TrivialPrefillStrategy
 from video_comparator.common.types import PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
+from video_comparator.media.video_metadata import VideoMetadata
 from video_comparator.sync.timeline_controller import TimelineController
 
 
@@ -191,17 +192,16 @@ class PlaybackController:
         self._prefill_strategy_video1.generate_protected_frames()
         self._prefill_strategy_video2.generate_protected_frames()
 
-    def _generate_protected_frame_sequence(self, current_frame: int, metadata) -> list[int]:
+    def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.
 
         Args:
             current_frame: Current frame index
             metadata: VideoMetadata for the video
 
-        Returns:
-            List of frame indices in priority order
+        Yields:
+            Frame indices in priority order
         """
-        frames: list[int] = []
         lookahead = 10
         lookbehind = 5
 
@@ -209,9 +209,7 @@ class PlaybackController:
         end_frame = min(metadata.total_frames - 1, current_frame + lookahead)
 
         for frame_idx in range(start_frame, end_frame + 1):
-            frames.append(frame_idx)
-
-        return frames
+            yield frame_idx
 
     def set_playback_speed(self, speed: float) -> None:
         """Set playback speed multiplier.
