@@ -62,7 +62,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
   3. Generates first frame number from strategy (`generate_protected_frames`) and acquires it (cache hit or miss via VideoDecoder)
   4. Signals callback immediately with `FrameResult` object
   5. Continues fetching remaining frames from strategy generator in background thread until capacity reached
-- Consumed frames become the protected set that cannot be evicted
+- Consumed frames become the protected set (in priority order) that cannot be evicted
 - Capacity is calculated based on available memory and frame size estimates
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When new request arrives, FrameCache cancels all pending prefetch requests and starts new prefetch cycle

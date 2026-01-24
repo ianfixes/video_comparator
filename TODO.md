@@ -124,8 +124,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement `generate_protected_frames() -> Generator[int, None, None]` generator method
 - [x] Implement `_generate_protected_frames()` abstract method for subclasses
 - [x] Implement `cacheable_frame_count` property to track consumed frames
-- [x] Implement `protected_frames() -> Set[int]` method to reconstruct protected set
-- [x] Implement `is_protected_frame(frame_num: int, protected_set: Set[int]) -> bool` method
+- [x] Implement `protected_frames() -> Dict[int, None]` method to reconstruct protected set
+- [x] Implement `is_protected_frame(frame_num: int, protected_set: Dict[int, None]) -> bool` method
 - [x] Implement `FramesNotGeneratedError` exception for error handling
 - [x] Implement TrivialPrefillStrategy with iterator-based initialization (temporary implementation)
 

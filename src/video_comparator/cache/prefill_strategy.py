@@ -7,8 +7,7 @@ Responsibilities:
 """
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict
-from typing import Generator, Iterator, Optional, Set
+from typing import Dict, Generator, Iterator, Optional
 
 
 class PrefillStrategy(ABC):
@@ -62,17 +61,20 @@ class PrefillStrategy(ABC):
             self._cacheable_frame_count += 1
             yield frame_num
 
-    def _protected_frames(self) -> Set[int]:
+    def _protected_frames(self) -> Dict[int, None]:
         """
         Return the set of protected frames.
+        Implemented as a dict to guarantee deterministic order, as Python does not guarantee order of sets.
         """
         if self._cacheable_frame_count is None:
             raise self.FramesNotGeneratedError()
 
         # Naive/safe implementation: generate them again since it's deterministic
-        return set(x for i, x in enumerate(self._generate_protected_frames()) if i < self._cacheable_frame_count)
+        return dict.fromkeys(
+            x for i, x in enumerate(self._generate_protected_frames()) if i < self._cacheable_frame_count
+        )
 
-    def protected_frames(self) -> Set[int]:
+    def protected_frames(self) -> Dict[int, None]:
         """
         Return the set of protected frames if it has been generated
         """
@@ -82,7 +84,7 @@ class PrefillStrategy(ABC):
         # Naive/safe implementation: generate them again since it's deterministic
         return self._protected_frames()
 
-    def is_protected_frame(self, frame_num: int, protected_set: Set[int]) -> bool:
+    def is_protected_frame(self, frame_num: int) -> bool:
         """Check if a specific frame is in the protected set.
 
         This is a convenience method. The actual protected set is determined
@@ -97,7 +99,7 @@ class PrefillStrategy(ABC):
         """
         if self._cacheable_frame_count is None:
             raise self.FramesNotGeneratedError()
-        # Naive/safe implementation: genrate a set every time
+        # Naive/safe implementation: generate a set every time
         return frame_num in self.protected_frames()
 
 
@@ -111,15 +113,15 @@ class TrivialPrefillStrategy(PrefillStrategy):
         Args:
             frame_sequence: Iterable of frame indices (any order, may have duplicates)
         """
-        self.frame_sequence = list(int(x) for x in OrderedDict.fromkeys(frame_sequence))
+        self.frame_sequence: Dict[int, None] = dict.fromkeys(frame_sequence)
 
     def _generate_protected_frames(self) -> Generator[int, None, None]:
         """Generate frame indices from the provided sequence."""
-        yield from self.frame_sequence
+        yield from self.frame_sequence.keys()
 
-    def _protected_frames(self) -> Set[int]:
+    def _protected_frames(self) -> Dict[int, None]:
         """Return the set of protected frames."""
         if self._cacheable_frame_count is None:
             raise self.FramesNotGeneratedError()
 
-        return set(self.frame_sequence[: self._cacheable_frame_count])
+        return self.frame_sequence
