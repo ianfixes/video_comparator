@@ -65,6 +65,7 @@ class FrameCache:
 
         self._prefetch_queue: queue.Queue[Optional[int]] = queue.Queue()
         self._cancellation_event = threading.Event()
+        self._sync_event = threading.Event()
         self._prefetch_thread: Optional[threading.Thread] = None
         self._shutdown_event = threading.Event()
 
@@ -143,12 +144,10 @@ class FrameCache:
         if not protected_frames_list:
             return
 
+        self._sync_event.clear()
         first_frame_num = protected_frames_list[0]
         first_result = self._fetch_frame_sync(first_frame_num, decoder)
         frame_callback(first_result)
-
-        if first_result.status != FrameRequestStatus.SUCCESS:
-            return
 
         self._start_prefetch_thread_if_needed()
 
@@ -187,17 +186,20 @@ class FrameCache:
         If called after cancellation (new request arrived), this has no effect as the
         worker has already been cancelled.
         """
-        pass
+        if not self._cancellation_event.is_set():
+            self._sync_event.set()
 
     def _cancel_pending_requests(self) -> None:
         """Cancel all pending prefetch requests."""
         self._cancellation_event.set()
+        self._sync_event.set()
         while not self._prefetch_queue.empty():
             try:
                 self._prefetch_queue.get_nowait()
             except queue.Empty:
                 break
         self._cancellation_event.clear()
+        self._sync_event.clear()
 
     def _start_prefetch_thread_if_needed(self) -> None:
         """Start the background prefetch thread if not already running."""
@@ -210,6 +212,10 @@ class FrameCache:
     def _prefetch_worker(self) -> None:
         """Background worker thread that processes prefetch queue."""
         while not self._shutdown_event.is_set():
+            if not self._sync_event.is_set():
+                if not self._sync_event.wait(timeout=0.1):
+                    continue
+
             try:
                 frame_num = self._prefetch_queue.get(timeout=0.1)
             except queue.Empty:

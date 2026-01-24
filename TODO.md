@@ -166,11 +166,11 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Implement strategy update and stale request cancellation
   - [x] Make cache operations thread-safe
   - [x] Handle race conditions: cancel pending requests when new request arrives
-- [ ] Implement synchronization mechanism:
-  - [ ] Add `signal_sync_complete()` method stub to FrameCache
-  - [ ] Modify background prefetch worker to wait for sync signal before processing queued frames
-  - [ ] Ensure worker can be cancelled even while waiting for sync signal
-  - [ ] Queue remaining frames after first frame but pause worker until sync signal
+- [x] Implement synchronization mechanism:
+  - [x] Add `signal_sync_complete()` method stub to FrameCache
+  - [x] Modify background prefetch worker to wait for sync signal before processing queued frames
+  - [x] Ensure worker can be cancelled even while waiting for sync signal
+  - [x] Queue remaining frames after first frame but pause worker until sync signal
 
 **Design Notes:**
 - FrameCache operates as an autonomous entity with its own background prefetch thread
@@ -207,10 +207,10 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test thread safety of cache operations
 - [x] Test prefetch queue management with cancellation
 - [x] Test prefetch thread lifecycle (start/stop/cleanup)
-- [ ] Test synchronization: background worker waits for sync signal before processing queued frames
-- [ ] Test synchronization: worker can be cancelled while waiting for sync signal
-- [ ] Test `signal_sync_complete()` allows worker to proceed with queued frames
-- [ ] Test `signal_sync_complete()` has no effect if called after cancellation
+- [x] Test synchronization: background worker waits for sync signal before processing queued frames
+- [x] Test synchronization: worker can be cancelled while waiting for sync signal
+- [x] Test `signal_sync_complete()` allows worker to proceed with queued frames
+- [x] Test `signal_sync_complete()` has no effect if called after cancellation
 
 ### VideoDecoder (`decode/video_decoder.py`)
 - [x] Implement PyAV container opening from file path
@@ -297,40 +297,40 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Update strategies when position changes or playback state changes
 - [x] Implement frame callback handling to coordinate frame display
 - [x] Implement synchronization mechanism to ensure both frame caches deliver first frames before display
-- [ ] Implement `signal_sync_complete()` call to both FrameCaches after both first frames arrive
-- [ ] Ensure sync signal is sent even if one video has error (error frame passed to callback)
+- [x] Implement `signal_sync_complete()` call to both FrameCaches after both first frames arrive
+- [x] Ensure sync signal is sent even if one video has error (error frame passed to callback)
 - [x] Integrate with ErrorHandler for error reporting
 - [x] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
 **Unit Tests Required:**
-- [ ] Test initial state is STOPPED
-- [ ] Test state transition STOPPED → PLAYING
-- [ ] Test state transition PLAYING → PAUSED
-- [ ] Test state transition PAUSED → PLAYING
-- [ ] Test state transition PLAYING → STOPPED
-- [ ] Test state transition PAUSED → STOPPED
-- [ ] Test frame_step_forward when paused
-- [ ] Test frame_step_forward when playing
-- [ ] Test frame_step_backward when paused
-- [ ] Test frame_step_backward when playing
-- [ ] Test frame_step_forward requests correct frames via FrameCache (with offset)
-- [ ] Test frame_step_backward requests correct frames via FrameCache (with offset)
-- [ ] Test play() maintains lockstep between videos
-- [ ] Test tick loop advances both videos in sync
-- [ ] Test playback respects sync offsets
-- [ ] Test playback with FrameCache integration
-- [ ] Test playback speed adjustment
-- [ ] Test edge cases (step at start of video, step at end of video)
-- [ ] Test PrefillStrategy creation for each video
-- [ ] Test `generate_protected_frames()` is called on position changes
-- [ ] Test PrefillStrategy updates when playback state changes
-- [ ] Test PrefillStrategy handles different framerates correctly
-- [ ] Test synchronization: both frame caches deliver first frames before user callback
-- [ ] Test synchronization: `signal_sync_complete()` called on both caches after both first frames arrive
-- [ ] Test synchronization: sync signal sent even when one video has error
-- [ ] Test CANCELLED FrameResult status handling (discarded)
-- [ ] Test error FrameResult status handling (ErrorHandler integration)
-- [ ] Test user callback receives FrameResult objects for both videos
+- [x] Test initial state is STOPPED
+- [x] Test state transition STOPPED → PLAYING
+- [x] Test state transition PLAYING → PAUSED
+- [x] Test state transition PAUSED → PLAYING
+- [x] Test state transition PLAYING → STOPPED
+- [x] Test state transition PAUSED → STOPPED
+- [x] Test frame_step_forward when paused
+- [x] Test frame_step_forward when playing
+- [x] Test frame_step_backward when paused
+- [x] Test frame_step_backward when playing
+- [x] Test frame_step_forward requests correct frames via FrameCache (with offset)
+- [x] Test frame_step_backward requests correct frames via FrameCache (with offset)
+- [x] Test play() maintains lockstep between videos
+- [x] Test tick loop advances both videos in sync
+- [x] Test playback respects sync offsets
+- [x] Test playback with FrameCache integration
+- [x] Test playback speed adjustment
+- [x] Test edge cases (step at start of video, step at end of video)
+- [x] Test PrefillStrategy creation for each video
+- [x] Test `generate_protected_frames()` is called on position changes
+- [x] Test PrefillStrategy updates when playback state changes
+- [x] Test PrefillStrategy handles different framerates correctly
+- [x] Test synchronization: both frame caches deliver first frames before user callback
+- [x] Test synchronization: `signal_sync_complete()` called on both caches after both first frames arrive
+- [x] Test synchronization: sync signal sent even when one video has error
+- [x] Test CANCELLED FrameResult status handling (discarded)
+- [x] Test error FrameResult status handling (ErrorHandler integration)
+- [x] Test user callback receives FrameResult objects for both videos
 
 ---
 

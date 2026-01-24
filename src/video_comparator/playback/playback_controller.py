@@ -203,7 +203,8 @@ class PlaybackController:
 
         This method synchronizes both frame results and calls the user callback
         only when both first frames have arrived. It handles CANCELLED and error
-        statuses appropriately.
+        statuses appropriately. After both frames arrive, it signals both frame
+        caches that synchronization is complete.
 
         Args:
             video_id: 1 for video1, 2 for video2
@@ -229,6 +230,9 @@ class PlaybackController:
 
                 if self.frame_callback is not None:
                     self.frame_callback(result1, result2)
+
+                self.frame_cache_video1.signal_sync_complete()
+                self.frame_cache_video2.signal_sync_complete()
 
     def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.
