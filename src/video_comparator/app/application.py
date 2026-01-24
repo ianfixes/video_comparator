@@ -12,8 +12,8 @@ from typing import Optional
 
 from video_comparator.app.main_frame import MainFrame
 from video_comparator.config.settings_manager import SettingsManager
-from video_comparator.errors.handler import ErrorHandler
-from video_comparator.input.shortcuts import ShortcutManager
+from video_comparator.errors.error_handler import ErrorHandler
+from video_comparator.input.shortcut_manager import ShortcutManager
 
 
 class Application:

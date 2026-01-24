@@ -9,12 +9,15 @@ Responsibilities:
 - Creates and updates PrefillStrategy instances for frame caches
 """
 
+import threading
 from typing import Callable, Iterator, Optional, Tuple
 
 from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy, TrivialPrefillStrategy
-from video_comparator.common.types import PlaybackState
+from video_comparator.common.types import FrameRequestStatus, PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
+from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
 from video_comparator.sync.timeline_controller import TimelineController
 
@@ -41,7 +44,8 @@ class PlaybackController:
         decoder_video2: VideoDecoder,
         frame_cache_video1: FrameCache,
         frame_cache_video2: FrameCache,
-        frame_callback: Optional[Callable[[int, int], None]] = None,
+        error_handler: ErrorHandler,
+        frame_callback: Optional[Callable[[FrameResult, FrameResult], None]] = None,
     ) -> None:
         """Initialize playback controller with timeline, decoders, and caches.
 
@@ -51,19 +55,25 @@ class PlaybackController:
             decoder_video2: Decoder for the second video
             frame_cache_video1: Frame cache for the first video
             frame_cache_video2: Frame cache for the second video
-            frame_callback: Optional callback function(frame_video1, frame_video2) called when frames are ready
+            error_handler: Error handler for displaying errors
+            frame_callback: Optional callback function(result_video1, result_video2) called when frames are ready
         """
         self.timeline_controller: TimelineController = timeline_controller
         self.decoder_video1: VideoDecoder = decoder_video1
         self.decoder_video2: VideoDecoder = decoder_video2
         self.frame_cache_video1: FrameCache = frame_cache_video1
         self.frame_cache_video2: FrameCache = frame_cache_video2
-        self.frame_callback: Optional[Callable[[int, int], None]] = frame_callback
+        self.error_handler: ErrorHandler = error_handler
+        self.frame_callback: Optional[Callable[[FrameResult, FrameResult], None]] = frame_callback
         self.state: PlaybackState = PlaybackState.STOPPED
         self.playback_speed: float = 1.0
         self._prefill_strategy_video1: Optional[PrefillStrategy] = None
         self._prefill_strategy_video2: Optional[PrefillStrategy] = None
         self._last_position: float = -1.0
+
+        self._sync_lock = threading.Lock()
+        self._pending_result_video1: Optional[FrameResult] = None
+        self._pending_result_video2: Optional[FrameResult] = None
 
     def play(self) -> None:
         """Start or resume playback."""
@@ -113,7 +123,6 @@ class PlaybackController:
 
         self.timeline_controller.set_position(new_time)
         self._request_frames()
-        self._update_prefill_strategies()
 
     def frame_step_backward(self) -> None:
         """Step backward one frame in both videos."""
@@ -126,7 +135,6 @@ class PlaybackController:
 
         self.timeline_controller.set_position(new_time)
         self._request_frames()
-        self._update_prefill_strategies()
 
     def tick(self, delta_time: float) -> None:
         """Advance playback by delta_time seconds.
@@ -152,21 +160,10 @@ class PlaybackController:
 
         self.timeline_controller.set_position(new_time)
         self._request_frames()
-        self._update_prefill_strategies()
 
     def _request_frames(self) -> None:
-        """Request current frames from decoders and notify callback."""
-        frame_video1 = self.timeline_controller.get_resolved_frame_video1()
-        frame_video2 = self.timeline_controller.get_resolved_frame_video2()
-
-        try:
-            frame1 = self.decoder_video1.decode_frame(frame_video1)
-            frame2 = self.decoder_video2.decode_frame(frame_video2)
-
-            if self.frame_callback is not None:
-                self.frame_callback(frame_video1, frame_video2)
-        except Exception as e:
-            raise SynchronizationError(f"Failed to decode frames: {e}") from e
+        """Request current frames from frame caches using prefill strategies."""
+        self._update_prefill_strategies()
 
     def _update_prefill_strategies(self) -> None:
         """Update PrefillStrategy instances for both frame caches based on current position."""
@@ -186,11 +183,52 @@ class PlaybackController:
         self._prefill_strategy_video1 = TrivialPrefillStrategy(frames_video1)
         self._prefill_strategy_video2 = TrivialPrefillStrategy(frames_video2)
 
-        self.frame_cache_video1.set_prefill_strategy(self._prefill_strategy_video1)
-        self.frame_cache_video2.set_prefill_strategy(self._prefill_strategy_video2)
+        with self._sync_lock:
+            self._pending_result_video1 = None
+            self._pending_result_video2 = None
 
-        self._prefill_strategy_video1.generate_protected_frames()
-        self._prefill_strategy_video2.generate_protected_frames()
+        self.frame_cache_video1.request_prefill_frame(
+            self._prefill_strategy_video1,
+            lambda result: self._handle_frame_result(1, result),
+            self.decoder_video1,
+        )
+        self.frame_cache_video2.request_prefill_frame(
+            self._prefill_strategy_video2,
+            lambda result: self._handle_frame_result(2, result),
+            self.decoder_video2,
+        )
+
+    def _handle_frame_result(self, video_id: int, result: FrameResult) -> None:
+        """Handle a frame result from one of the frame caches.
+
+        This method synchronizes both frame results and calls the user callback
+        only when both first frames have arrived. It handles CANCELLED and error
+        statuses appropriately.
+
+        Args:
+            video_id: 1 for video1, 2 for video2
+            result: FrameResult from the frame cache
+        """
+        if result.status == FrameRequestStatus.CANCELLED:
+            return
+
+        if result.status != FrameRequestStatus.SUCCESS and result.error is not None:
+            self.error_handler.handle_error(result.error)
+
+        with self._sync_lock:
+            if video_id == 1:
+                self._pending_result_video1 = result
+            else:
+                self._pending_result_video2 = result
+
+            if self._pending_result_video1 is not None and self._pending_result_video2 is not None:
+                result1 = self._pending_result_video1
+                result2 = self._pending_result_video2
+                self._pending_result_video1 = None
+                self._pending_result_video2 = None
+
+                if self.frame_callback is not None:
+                    self.frame_callback(result1, result2)
 
     def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.

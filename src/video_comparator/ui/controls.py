@@ -13,9 +13,9 @@ from typing import Optional
 
 import wx
 
-from video_comparator.playback.controller import PlaybackController
+from video_comparator.playback.playback_controller import PlaybackController
 from video_comparator.render.video_pane import VideoPane
-from video_comparator.sync.timeline import TimelineController
+from video_comparator.sync.timeline_controller import TimelineController
 
 
 class TimelineSlider:
