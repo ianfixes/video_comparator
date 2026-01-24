@@ -1,20 +1,9 @@
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Optional
 
 import numpy as np
 
-
-class FrameRequestStatus(Enum):
-    """
-    Enum representing the status of a frame request, as produced by FrameCache.
-    """
-
-    SUCCESS = auto()  # Frame successfully retrieved and decoded.
-    CANCELLED = auto()  # Request was cancelled (e.g., due to a new strategy request, race condition).
-    DECODE_ERROR = auto()  # Frame decode failed.
-    SEEK_ERROR = auto()  # Seeking to the frame failed.
-    OUT_OF_RANGE = auto()  # Frame index requested is out of valid range.
+from video_comparator.common.types import FrameRequestStatus
 
 
 @dataclass(frozen=True)

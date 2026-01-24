@@ -4,7 +4,8 @@ import unittest
 
 import numpy as np
 
-from video_comparator.cache.frame_result import FrameRequestStatus, FrameResult
+from video_comparator.cache.frame_result import FrameResult
+from video_comparator.common.types import FrameRequestStatus
 from video_comparator.decode.video_decoder import DecodeError, SeekError
 
 

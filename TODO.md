@@ -8,8 +8,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Define `LayoutOrientation` enum
 - [x] Define `ScalingMode` enum
 - [x] Define `PlaybackState` enum (STOPPED, PLAYING, PAUSED)
-- [ ] Define `FrameRequestStatus` enum (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
-- [ ] Define `FrameResult` dataclass (frame_number, frame, status, error)
+- [x] Define `FrameRequestStatus` enum (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- [x] Define `FrameResult` dataclass (frame_number, frame, status, error) - Note: Located in `cache/frame_result.py` due to numpy dependency
 
 **Unit Tests Required:**
 - [x] Test FrameRequestStatus enum values
