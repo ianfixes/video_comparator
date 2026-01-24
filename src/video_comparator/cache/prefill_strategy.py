@@ -124,4 +124,5 @@ class TrivialPrefillStrategy(PrefillStrategy):
         if self._cacheable_frame_count is None:
             raise self.FramesNotGeneratedError()
 
-        return self.frame_sequence
+        frame_keys = list(self.frame_sequence.keys())
+        return dict.fromkeys(frame_keys[: self._cacheable_frame_count])

@@ -60,8 +60,15 @@ This document outlines the major subsystems for the video comparator. Each subsy
   1. Receives PrefillStrategy + callback from PlaybackController
   2. **Cancels all pending requests** when new request arrives (prevents race conditions)
   3. Generates first frame number from strategy (`generate_protected_frames`) and acquires it (cache hit or miss via VideoDecoder)
-  4. Signals callback immediately with `FrameResult` object
-  5. Continues fetching remaining frames from strategy generator in background thread until capacity reached
+  4. Signals callback immediately with `FrameResult` object for the first frame
+  5. **Queues remaining frames for background prefetch but pauses worker until sync signal**
+  6. Background worker waits for `signal_sync_complete()` before processing queued frames
+  7. Once sync signal received, continues fetching remaining frames from strategy generator in background thread until capacity reached
+- **Synchronization with PlaybackController**:
+  - After first frame callback, background prefetch worker pauses and waits for synchronization signal
+  - PlaybackController calls `signal_sync_complete()` on both FrameCaches when both first frames have arrived
+  - This ensures both videos are synchronized before any additional prefetching occurs
+  - If new `request_prefill_frame()` arrives before sync completes, cancellation prevents old workers from continuing
 - Consumed frames become the protected set (in priority order) that cannot be evicted
 - Capacity is calculated based on available memory and frame size estimates
 - FrameCache manages its own prefetch thread lifecycle and queue
@@ -85,8 +92,13 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - Sets the prefill strategy, callback, and decoder reference
   - **Cancels all pending requests** before starting new prefetch cycle
   - Triggers immediate frame fetch for first frame in strategy
-  - Starts background prefetching of remaining frames
-  - Callback receives `FrameResult` objects (immediate for first frame, async for prefetched frames)
+  - Queues remaining frames for background prefetch but worker waits for sync signal
+  - Callback receives `FrameResult` object immediately for first frame
+  - Background worker processes queued frames only after `signal_sync_complete()` is called
+- `signal_sync_complete() -> None`
+  - Signals that synchronization is complete and background prefetch worker can proceed
+  - Called by PlaybackController when both frame caches have delivered their first frames
+  - If called after cancellation, has no effect (worker already cancelled)
 - `get(frame_index: int) -> Optional[np.ndarray]` - Synchronous frame retrieval (existing)
 - `put(frame_index: int, frame: np.ndarray) -> None` - Frame storage (existing)
 #### Testability
@@ -151,11 +163,23 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - updates strategies when position or playback state changes
 - provides frame callbacks that receive `FrameResult` objects from FrameCache
 - coordinates frame display via callbacks (does not directly manage prefetching)
+- synchronizes both frame caches to ensure both first frames arrive before display
 #### Design
 - PlaybackController creates PrefillStrategy instances based on current position
-- Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()`
-- FrameCache handles immediate frame fetch and background prefetching autonomously
-- Callback receives `FrameResult` objects as frames become available (immediate for first frame, async for prefetched frames)
+- Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()` for both videos
+- FrameCache handles immediate frame fetch for first frame, then queues remaining frames
+- **Synchronization mechanism**: Uses thread-safe pending results pattern to coordinate both frame caches
+  - Each frame cache callback stores its result in a thread-safe pending results structure
+  - When both first frames have arrived, PlaybackController:
+    1. Invokes user callback with both `FrameResult` objects
+    2. Calls `signal_sync_complete()` on both FrameCaches to allow background prefetching to proceed
+  - This ensures both videos are synchronized before any additional prefetching occurs
+  - Background workers in FrameCache wait for sync signal before processing queued frames
+- **Error handling**:
+  - CANCELLED results are discarded (early return)
+  - Error results (DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE) are logged via ErrorHandler
+  - User callback receives FrameResult objects, allowing UI to display blank/error frames when needed
+  - If one video has an error and the other succeeds, sync signal is still sent (error frame is passed to callback)
 - Handles race conditions: when position changes rapidly, old requests are cancelled and new ones initiated
 #### Testability
 - unit tests on state transitions and emitted requests

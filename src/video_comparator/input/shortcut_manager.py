@@ -10,7 +10,7 @@ Responsibilities:
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
-import wx
+import wx  # type: ignore
 
 
 @dataclass(frozen=True, eq=True)

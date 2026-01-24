@@ -151,34 +151,43 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement memory bounds checking and eviction
 - [x] Implement frame retrieval by frame index
 - [x] Implement cache invalidation
-- [x] Implement `set_prefill_strategy()` method (basic version)
+- [x] Implement `request_prefill_frame()` method (replaces old `set_prefill_strategy()`)
 - [x] Implement generator consumption logic in `_ensure_protected_frames()`
   - [x] Consume frames from strategy generator until cache capacity reached
   - [x] Calculate capacity based on frame size estimates
   - [x] Store consumed frames as protected set
 - [x] Add query methods for prefill logic (e.g., `get_missing_frames()`)
-- [ ] Refactor to autonomous prefetching entity:
-  - [ ] Implement `request_prefill_frame(strategy, callback, decoder)` interface
-  - [ ] Implement request cancellation mechanism (cancel all pending requests on new request)
-  - [ ] Implement immediate first frame fetch and callback invocation with `FrameResult`
-  - [ ] Implement background prefetch thread
-  - [ ] Implement prefetch queue management with cancellation support
-  - [ ] Implement strategy update and stale request cancellation
-  - [ ] Make cache operations thread-safe
-  - [ ] Handle race conditions: cancel pending requests when new request arrives
+- [x] Refactor to autonomous prefetching entity:
+  - [x] Implement `request_prefill_frame(strategy, callback, decoder)` interface
+  - [x] Implement request cancellation mechanism (cancel all pending requests on new request)
+  - [x] Implement immediate first frame fetch and callback invocation with `FrameResult`
+  - [x] Implement background prefetch thread
+  - [x] Implement prefetch queue management with cancellation support
+  - [x] Implement strategy update and stale request cancellation
+  - [x] Make cache operations thread-safe
+  - [x] Handle race conditions: cancel pending requests when new request arrives
+- [ ] Implement synchronization mechanism:
+  - [ ] Add `signal_sync_complete()` method stub to FrameCache
+  - [ ] Modify background prefetch worker to wait for sync signal before processing queued frames
+  - [ ] Ensure worker can be cancelled even while waiting for sync signal
+  - [ ] Queue remaining frames after first frame but pause worker until sync signal
 
 **Design Notes:**
 - FrameCache operates as an autonomous entity with its own background prefetch thread
-- External interface: `set_prefill_strategy(strategy: PrefillStrategy, frame_callback: Callable[[int, np.ndarray], None], decoder: VideoDecoder)`
+- External interface: `request_prefill_frame(strategy: PrefillStrategy, frame_callback: Callable[[FrameResult], None], decoder: VideoDecoder)`
 - Behavior:
   1. Receives PrefillStrategy + callback + decoder from PlaybackController
-  2. Generates first frame number from strategy and acquires it (cache hit or miss)
-  3. Signals callback immediately with (frame_number, frame) tuple
-  4. Continues fetching remaining frames from strategy generator in background until capacity reached
+  2. **Cancels all pending requests** when new request arrives (prevents race conditions)
+  3. Generates first frame number from strategy and acquires it (cache hit or miss via VideoDecoder)
+  4. Signals callback immediately with `FrameResult` object for first frame
+  5. Queues remaining frames for background prefetch but worker waits for sync signal
+  6. Background worker processes queued frames only after `signal_sync_complete()` is called
+- **Synchronization**: Background prefetch worker pauses after first frame callback and waits for `signal_sync_complete()` from PlaybackController before processing queued frames. This ensures both videos are synchronized before additional prefetching occurs.
 - Consumed frames become the protected set that cannot be evicted
 - Capacity is calculated based on available memory and frame size estimates
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When strategy is updated, FrameCache cancels stale prefetch requests and starts new prefetch cycle
+- Callbacks receive `FrameResult` objects that convey frame data or failure reasons (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
 
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
@@ -187,18 +196,21 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test protected frames are not evicted even when cache is full
 - [x] Test cache invalidation clears all frames
 - [x] Test cache with various frame sizes
-- [x] Test `set_prefill_strategy()` updates protected frame set
 - [x] Test query methods return correct missing frames
 - [x] Test generator consumption stops at capacity
-- [ ] Test callback invocation with first frame (immediate) using FrameResult
-- [ ] Test background prefetching of remaining frames with FrameResult objects
-- [ ] Test strategy update cancels stale prefetch requests
-- [ ] Test race condition handling: new request cancels pending requests
-- [ ] Test FrameResult with CANCELLED status for cancelled requests
-- [ ] Test FrameResult with error statuses (DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
-- [ ] Test thread safety of cache operations
-- [ ] Test prefetch queue management with cancellation
-- [ ] Test prefetch thread lifecycle (start/stop/cleanup)
+- [x] Test callback invocation with first frame (immediate) using FrameResult
+- [x] Test background prefetching of remaining frames with FrameResult objects
+- [x] Test strategy update cancels stale prefetch requests
+- [x] Test race condition handling: new request cancels pending requests
+- [x] Test FrameResult with CANCELLED status for cancelled requests
+- [x] Test FrameResult with error statuses (DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- [x] Test thread safety of cache operations
+- [x] Test prefetch queue management with cancellation
+- [x] Test prefetch thread lifecycle (start/stop/cleanup)
+- [ ] Test synchronization: background worker waits for sync signal before processing queued frames
+- [ ] Test synchronization: worker can be cancelled while waiting for sync signal
+- [ ] Test `signal_sync_complete()` allows worker to proceed with queued frames
+- [ ] Test `signal_sync_complete()` has no effect if called after cancellation
 
 ### VideoDecoder (`decode/video_decoder.py`)
 - [x] Implement PyAV container opening from file path
@@ -264,28 +276,31 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 5: Controllers
 
 ### PlaybackController (`playback/playback_controller.py`)
-- [ ] Use PlaybackState enum from `common/types.py`
-- [ ] Implement state machine (STOPPED → PLAYING → PAUSED → STOPPED)
-- [ ] Implement play() method
-- [ ] Implement pause() method
-- [ ] Implement stop() method
-- [ ] Implement frame_step_forward() method
-- [ ] Implement frame_step_backward() method
-- [ ] Implement tick/update loop for playback
-- [ ] Implement frame request delegation to decoders
-- [ ] Implement lockstep synchronization (both videos advance together)
-- [ ] Integrate with TimelineController for position math
-- [ ] Integrate with VideoDecoders for frame retrieval
-- [ ] Integrate with FrameCaches
-- [ ] Create and update PrefillStrategy instances for each video's FrameCache
-  - [ ] Query TimelineController for resolved frame numbers for both videos
-  - [ ] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
-  - [ ] Submit strategies to FrameCache via `request_prefill_frame(strategy, callback, decoder)` every time position changes
-  - [ ] Provide frame callbacks that receive `FrameResult` objects from FrameCache
-  - [ ] Handle FrameResult statuses appropriately (SUCCESS, CANCELLED, errors)
-  - [ ] Update strategies when position changes or playback state changes
-- [ ] Implement frame callback handling to coordinate frame display
-- [ ] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
+- [x] Use PlaybackState enum from `common/types.py`
+- [x] Implement state machine (STOPPED → PLAYING → PAUSED → STOPPED)
+- [x] Implement play() method
+- [x] Implement pause() method
+- [x] Implement stop() method
+- [x] Implement frame_step_forward() method
+- [x] Implement frame_step_backward() method
+- [x] Implement tick/update loop for playback
+- [x] Implement frame request delegation via FrameCache (no direct decoder calls)
+- [x] Implement lockstep synchronization (both videos advance together)
+- [x] Integrate with TimelineController for position math
+- [x] Integrate with FrameCaches (decoders accessed via FrameCache)
+- [x] Create and update PrefillStrategy instances for each video's FrameCache
+  - [x] Query TimelineController for resolved frame numbers for both videos
+  - [x] Create separate PrefillStrategy instances per video (accounting for different framerates/offsets)
+  - [x] Submit strategies to FrameCache via `request_prefill_frame(strategy, callback, decoder)` every time position changes
+  - [x] Provide frame callbacks that receive `FrameResult` objects from FrameCache
+  - [x] Handle FrameResult statuses appropriately (SUCCESS, CANCELLED, errors)
+  - [x] Update strategies when position changes or playback state changes
+- [x] Implement frame callback handling to coordinate frame display
+- [x] Implement synchronization mechanism to ensure both frame caches deliver first frames before display
+- [ ] Implement `signal_sync_complete()` call to both FrameCaches after both first frames arrive
+- [ ] Ensure sync signal is sent even if one video has error (error frame passed to callback)
+- [x] Integrate with ErrorHandler for error reporting
+- [x] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
 **Unit Tests Required:**
 - [ ] Test initial state is STOPPED
@@ -298,8 +313,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Test frame_step_forward when playing
 - [ ] Test frame_step_backward when paused
 - [ ] Test frame_step_backward when playing
-- [ ] Test frame_step_forward requests correct frames from decoders (with offset)
-- [ ] Test frame_step_backward requests correct frames from decoders (with offset)
+- [ ] Test frame_step_forward requests correct frames via FrameCache (with offset)
+- [ ] Test frame_step_backward requests correct frames via FrameCache (with offset)
 - [ ] Test play() maintains lockstep between videos
 - [ ] Test tick loop advances both videos in sync
 - [ ] Test playback respects sync offsets
@@ -310,6 +325,12 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Test `generate_protected_frames()` is called on position changes
 - [ ] Test PrefillStrategy updates when playback state changes
 - [ ] Test PrefillStrategy handles different framerates correctly
+- [ ] Test synchronization: both frame caches deliver first frames before user callback
+- [ ] Test synchronization: `signal_sync_complete()` called on both caches after both first frames arrive
+- [ ] Test synchronization: sync signal sent even when one video has error
+- [ ] Test CANCELLED FrameResult status handling (discarded)
+- [ ] Test error FrameResult status handling (ErrorHandler integration)
+- [ ] Test user callback receives FrameResult objects for both videos
 
 ---
 

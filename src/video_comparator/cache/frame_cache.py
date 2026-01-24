@@ -10,14 +10,16 @@ Responsibilities:
 
 import queue
 import threading
-from typing import Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import numpy as np
 
 from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy
 from video_comparator.common.types import FrameRequestStatus
-from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
+
+if TYPE_CHECKING:
+    from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
 
 
 class FrameCache:
@@ -106,7 +108,7 @@ class FrameCache:
         self,
         strategy: PrefillStrategy,
         frame_callback: Callable[[FrameResult], None],
-        decoder: VideoDecoder,
+        decoder: "VideoDecoder",
     ) -> None:
         """Request prefetching of frames according to strategy.
 
@@ -174,6 +176,19 @@ class FrameCache:
             self._prefetch_queue.put(None)
             self._prefetch_thread.join(timeout=5.0)
 
+    def signal_sync_complete(self) -> None:
+        """Signal that synchronization is complete and background prefetch worker can proceed.
+
+        This method is called by PlaybackController when both frame caches have delivered
+        their first frames. The background prefetch worker waits for this signal before
+        processing queued frames, ensuring both videos are synchronized before any
+        additional prefetching occurs.
+
+        If called after cancellation (new request arrived), this has no effect as the
+        worker has already been cancelled.
+        """
+        pass
+
     def _cancel_pending_requests(self) -> None:
         """Cancel all pending prefetch requests."""
         self._cancellation_event.set()
@@ -231,7 +246,7 @@ class FrameCache:
                 if not self._cancellation_event.is_set() and callback is not None:
                     callback(result)
 
-    def _fetch_frame_sync(self, frame_index: int, decoder: VideoDecoder) -> FrameResult:
+    def _fetch_frame_sync(self, frame_index: int, decoder: "VideoDecoder") -> FrameResult:
         """Fetch a frame synchronously, handling all error cases.
 
         Args:

@@ -7,13 +7,15 @@ Responsibilities:
 - Handle differing fps/timebases
 """
 
-from typing import Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional, Type
 
 import av
 import numpy as np
 
-from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.media.video_metadata import VideoMetadata
+
+if TYPE_CHECKING:
+    from video_comparator.cache.frame_cache import FrameCache
 
 
 class DecodeError(Exception):
@@ -34,7 +36,7 @@ class VideoDecoder:
     def __init__(
         self,
         metadata: VideoMetadata,
-        frame_cache: Optional[FrameCache] = None,
+        frame_cache: Optional["FrameCache"] = None,
     ) -> None:
         """Initialize video decoder with metadata and optional cache.
 
@@ -48,7 +50,7 @@ class VideoDecoder:
             raise FileNotFoundError(f"Video file not found: {metadata.file_path}")
 
         self.metadata: VideoMetadata = metadata
-        self.frame_cache: Optional[FrameCache] = frame_cache
+        self.frame_cache: Optional["FrameCache"] = frame_cache
         self._container: Optional[Any] = None
         self._video_stream: Optional[Any] = None
 
