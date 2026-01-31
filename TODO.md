@@ -337,22 +337,22 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 6: Media Loading
 
 ### MediaLoader (`media/media_loader.py`)
-- [ ] Implement file selection dialog (wx.FileDialog)
-- [ ] Implement file validation (existence, accessibility, readable)
-- [ ] Implement file format validation (basic extension check)
-- [ ] Integrate with MetadataExtractor for probing
-- [ ] Integrate with ErrorHandler for user-facing errors
-- [ ] Return VideoMetadata on successful load
+- [x] Implement file selection dialog (wx.FileDialog)
+- [x] Implement file validation (existence, accessibility, readable)
+- [x] Implement file format validation (basic extension check)
+- [x] Integrate with MetadataExtractor for probing
+- [x] Integrate with ErrorHandler for user-facing errors
+- [x] Return VideoMetadata on successful load
 
 **Unit Tests Required:**
-- [ ] Test file selection dialog (mock wx.FileDialog)
-- [ ] Test file validation with existing file
-- [ ] Test file validation with missing file (error handling)
-- [ ] Test file validation with unreadable file (error handling)
-- [ ] Test metadata extraction integration
-- [ ] Test error handling for unsupported formats
-- [ ] Test error handling for files with no video stream
-- [ ] Test successful load returns VideoMetadata
+- [x] Test file selection dialog (mock wx.FileDialog)
+- [x] Test file validation with existing file
+- [x] Test file validation with missing file (error handling)
+- [x] Test file validation with unreadable file (error handling)
+- [x] Test metadata extraction integration
+- [x] Test error handling for unsupported formats
+- [x] Test error handling for files with no video stream
+- [x] Test successful load returns VideoMetadata
 
 ---
 
