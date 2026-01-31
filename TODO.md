@@ -359,40 +359,40 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 7: Rendering
 
 ### VideoPane (`render/video_pane.py`)
-- [ ] Implement wx.Panel subclass
-- [ ] Implement OnPaint event handler
-- [ ] Implement frame rendering using wx.PaintDC
-- [ ] Implement zoom transform application
-- [ ] Implement pan transform application
-- [ ] Implement scaling mode support (independent vs match_larger)
-- [ ] Implement matched bounding box calculation
-- [ ] Implement overlay rendering (filename, dimensions, time/frame, zoom level)
-- [ ] Implement mouse event handlers:
-  - [ ] Mouse drag (click-and-drag) for panning the zoomed region
-  - [ ] Mouse wheel scroll for zooming in/out
-  - [ ] Shift-drag rectangle selection for zooming to a specific region
-- [ ] Implement zoom state persistence across seeks/steps
-- [ ] Integrate with ScalingCalculator
-- [ ] Integrate with VideoMetadata for overlay info
-- [ ] Define per-class exceptions for rendering errors (e.g., `RenderingError`)
+- [x] Implement wx.Panel subclass
+- [x] Implement OnPaint event handler
+- [x] Implement frame rendering using wx.PaintDC
+- [x] Implement zoom transform application
+- [x] Implement pan transform application
+- [x] Implement scaling mode support (independent vs match_larger)
+- [x] Implement matched bounding box calculation
+- [x] Implement overlay rendering (filename, dimensions, time/frame, zoom level)
+- [x] Implement mouse event handlers:
+  - [x] Mouse drag (click-and-drag) for panning the zoomed region
+  - [x] Mouse wheel scroll for zooming in/out
+  - [x] Shift-drag rectangle selection for zooming to a specific region
+- [x] Implement zoom state persistence across seeks/steps
+- [x] Integrate with ScalingCalculator
+- [x] Integrate with VideoMetadata for overlay info
+- [x] Define per-class exceptions for rendering errors (e.g., `RenderingError`)
 
 **Unit Tests Required:**
-- [ ] Test VideoPane initialization (mock wx.Panel)
-- [ ] Test frame rendering with valid frame (mock wx.PaintDC)
-- [ ] Test frame rendering with None frame (empty state)
-- [ ] Test zoom transform application (various zoom levels)
-- [ ] Test pan transform application (various pan positions)
-- [ ] Test independent scaling mode rendering
-- [ ] Test match_larger scaling mode rendering
-- [ ] Test matched bounding box calculation
-- [ ] Test overlay text rendering (mock wx.PaintDC)
-- [ ] Test mouse drag pan interaction (mock mouse events)
-- [ ] Test mouse wheel zoom in/out (mock wheel events)
-- [ ] Test Shift-drag rectangle selection and zoom to region (mock mouse events)
-- [ ] Test zoom state persistence after seek
-- [ ] Test zoom state persistence after frame step
-- [ ] Test coordinate transformations (screen to video space)
-- [ ] Test edge cases (very large zoom, extreme pan positions)
+- [x] Test VideoPane initialization (mock wx.Panel)
+- [x] Test frame rendering with valid frame (mock wx.PaintDC)
+- [x] Test frame rendering with None frame (empty state)
+- [x] Test zoom transform application (various zoom levels)
+- [x] Test pan transform application (various pan positions)
+- [x] Test independent scaling mode rendering
+- [x] Test match_larger scaling mode rendering
+- [x] Test matched bounding box calculation
+- [x] Test overlay text rendering (mock wx.PaintDC)
+- [x] Test mouse drag pan interaction (mock mouse events)
+- [x] Test mouse wheel zoom in/out (mock wheel events)
+- [x] Test Shift-drag rectangle selection and zoom to region (mock mouse events)
+- [x] Test zoom state persistence after seek
+- [x] Test zoom state persistence after frame step
+- [x] Test coordinate transformations (screen to video space)
+- [x] Test edge cases (very large zoom, extreme pan positions)
 
 **Note:** wxPython components should be mocked in unit tests. Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators.
 
