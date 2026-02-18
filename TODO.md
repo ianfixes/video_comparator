@@ -532,44 +532,44 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 11: Application Shell
 
 ### MainFrame (`app/main_frame.py`)
-- [ ] Implement wx.Frame subclass
-- [ ] Implement menu bar creation
-- [ ] Implement toolbar creation (if needed)
-- [ ] Implement window layout (sizers)
-- [ ] Integrate LayoutManager for video pane layout
-- [ ] Integrate ControlPanel
-- [ ] Integrate ShortcutManager
-- [ ] Implement window close handler
-- [ ] Implement window resize handler
+- [x] Implement wx.Frame subclass
+- [x] Implement menu bar creation
+- [x] Implement toolbar creation (if needed)
+- [x] Implement window layout (sizers)
+- [x] Integrate LayoutManager for video pane layout
+- [x] Integrate ControlPanel
+- [x] Integrate ShortcutManager
+- [x] Implement window close handler
+- [x] Implement window resize handler
 
 **Unit Tests Required:**
-- [ ] Test MainFrame initialization
-- [ ] Test menu bar creation
-- [ ] Test window layout contains all components
-- [ ] Test window close handler
-- [ ] Test window resize updates layout
-- [ ] Test integration with LayoutManager
-- [ ] Test integration with ControlPanel
-- [ ] Test integration with ShortcutManager
+- [x] Test MainFrame initialization
+- [x] Test menu bar creation
+- [x] Test window layout contains all components
+- [x] Test window close handler
+- [x] Test window resize updates layout
+- [x] Test integration with LayoutManager
+- [x] Test integration with ControlPanel
+- [x] Test integration with ShortcutManager
 
 ### Application (`app/application.py`)
-- [ ] Implement wx.App subclass or wrapper
-- [ ] Implement dependency wiring (create all subsystems)
-- [ ] Implement MainFrame creation and display
-- [ ] Implement application initialization
-- [ ] Implement application shutdown/cleanup
-- [ ] Implement main event loop
-- [ ] Integrate SettingsManager for loading settings
-- [ ] Integrate ErrorHandler for global error handling
+- [x] Implement wx.App subclass or wrapper
+- [x] Implement dependency wiring (create all subsystems)
+- [x] Implement MainFrame creation and display
+- [x] Implement application initialization
+- [x] Implement application shutdown/cleanup
+- [x] Implement main event loop
+- [x] Integrate SettingsManager for loading settings
+- [x] Integrate ErrorHandler for global error handling
 
 **Unit Tests Required:**
-- [ ] Test Application initialization
-- [ ] Test dependency wiring creates all subsystems
-- [ ] Test MainFrame is created and shown
-- [ ] Test application can start without loading media (smoke test)
-- [ ] Test application shutdown cleanup
-- [ ] Test settings loading on startup
-- [ ] Test error handling integration
+- [x] Test Application initialization
+- [x] Test dependency wiring creates all subsystems
+- [x] Test MainFrame is created and shown
+- [x] Test application can start without loading media (smoke test)
+- [x] Test application shutdown cleanup
+- [x] Test settings loading on startup
+- [x] Test error handling integration
 
 ---
 
