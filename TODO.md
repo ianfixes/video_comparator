@@ -510,22 +510,22 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 10: Configuration
 
 ### SettingsManager (`config/settings_manager.py`)
-- [ ] Implement settings file path resolution
-- [ ] Implement settings loading from file (JSON or similar)
-- [ ] Implement settings saving to file
-- [ ] Implement default settings creation
-- [ ] Implement settings validation on load
-- [ ] Handle missing/corrupted settings file gracefully
+- [x] Implement settings file path resolution
+- [x] Implement settings loading from file (JSON or similar)
+- [x] Implement settings saving to file
+- [x] Implement default settings creation
+- [x] Implement settings validation on load
+- [x] Handle missing/corrupted settings file gracefully
 
 **Unit Tests Required:**
-- [ ] Test SettingsManager initialization
-- [ ] Test default settings creation
-- [ ] Test settings loading from valid file
-- [ ] Test settings loading from missing file (uses defaults)
-- [ ] Test settings loading from corrupted file (error handling)
-- [ ] Test settings saving to file
-- [ ] Test settings validation on load
-- [ ] Test enum value deserialization
+- [x] Test SettingsManager initialization
+- [x] Test default settings creation
+- [x] Test settings loading from valid file
+- [x] Test settings loading from missing file (uses defaults)
+- [x] Test settings loading from corrupted file (error handling)
+- [x] Test settings saving to file
+- [x] Test settings validation on load
+- [x] Test enum value deserialization
 
 ---
 
