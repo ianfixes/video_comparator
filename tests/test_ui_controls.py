@@ -5,10 +5,16 @@ from unittest.mock import MagicMock, patch
 
 import wx
 
+from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.cache.frame_result import FrameRequestStatus, FrameResult
+from video_comparator.common.types import PlaybackState
+from video_comparator.decode.video_decoder import VideoDecoder
+from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
+from video_comparator.playback.playback_controller import PlaybackController
 from video_comparator.render.video_pane import VideoPane
 from video_comparator.sync.timeline_controller import TimelineController
-from video_comparator.ui.controls import SyncControls, TimelineSlider, ZoomControls
+from video_comparator.ui.controls import ControlPanel, SyncControls, TimelineSlider, ZoomControls
 
 
 class TestTimelineSlider(unittest.TestCase):
@@ -731,3 +737,293 @@ class TestZoomControls(unittest.TestCase):
             self.assertEqual(controls.get_zoom_out_button(), mock_button)
             self.assertEqual(controls.get_zoom_reset_button(), mock_button)
             self.assertEqual(controls.get_zoom_label(), mock_static_text)
+
+
+class TestControlPanel(unittest.TestCase):
+    """Test cases for ControlPanel class."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        self.parent = MagicMock(spec=wx.Window)
+        self.metadata1 = VideoMetadata(
+            file_path=None,
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=1.0 / 30.0,
+        )
+        self.metadata2 = VideoMetadata(
+            file_path=None,
+            duration=12.0,
+            fps=25.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=1.0 / 25.0,
+        )
+        self.timeline_controller = TimelineController(self.metadata1, self.metadata2)
+
+        self.decoder1 = MagicMock(spec=VideoDecoder)
+        self.decoder2 = MagicMock(spec=VideoDecoder)
+        self.frame_cache1 = MagicMock(spec=FrameCache)
+        self.frame_cache2 = MagicMock(spec=FrameCache)
+        self.error_handler = MagicMock(spec=ErrorHandler)
+
+        self.playback_controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder1,
+            self.decoder2,
+            self.frame_cache1,
+            self.frame_cache2,
+            self.error_handler,
+        )
+
+        from video_comparator.render.scaling_calculator import ScalingCalculator
+
+        scaling_calculator = ScalingCalculator()
+        self.panel_patcher = patch("video_comparator.render.video_pane.wx.Panel.__init__", return_value=None)
+        self.bind_patcher = patch.object(VideoPane, "Bind", return_value=None)
+        self.getsize_patcher = patch.object(VideoPane, "GetSize", return_value=wx.Size(800, 600))
+        self.refresh_patcher = patch.object(VideoPane, "Refresh", return_value=None)
+        self.capture_patcher = patch.object(VideoPane, "CaptureMouse", return_value=None)
+        self.release_patcher = patch.object(VideoPane, "ReleaseMouse", return_value=None)
+        self.hascapture_patcher = patch.object(VideoPane, "HasCapture", return_value=False)
+
+        self.panel_patcher.start()
+        self.bind_patcher.start()
+        self.getsize_patcher.start()
+        self.refresh_patcher.start()
+        self.capture_patcher.start()
+        self.release_patcher.start()
+        self.hascapture_patcher.start()
+
+        self.video_pane1 = VideoPane(self.parent, scaling_calculator)
+        self.video_pane2 = VideoPane(self.parent, scaling_calculator)
+
+    def tearDown(self) -> None:
+        """Clean up test fixtures."""
+        self.hascapture_patcher.stop()
+        self.release_patcher.stop()
+        self.capture_patcher.stop()
+        self.refresh_patcher.stop()
+        self.getsize_patcher.stop()
+        self.bind_patcher.stop()
+        self.panel_patcher.stop()
+
+    def test_initialization(self) -> None:
+        """Test ControlPanel initialization."""
+        with patch("video_comparator.ui.controls.wx.Panel") as mock_panel_class, patch(
+            "video_comparator.ui.controls.wx.Button"
+        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_panel = MagicMock()
+            mock_panel_class.return_value = mock_panel
+            mock_button = MagicMock()
+            mock_button_class.return_value = mock_button
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.assertEqual(control_panel.parent, self.parent)
+            self.assertEqual(control_panel.playback_controller, self.playback_controller)
+            self.assertEqual(control_panel.timeline_controller, self.timeline_controller)
+            mock_panel_class.assert_called_once_with(self.parent)
+            self.assertEqual(mock_button_class.call_count, 5)
+            self.assertIsNotNone(control_panel.timeline_slider)
+            self.assertIsNotNone(control_panel.sync_controls)
+            self.assertIsNotNone(control_panel.zoom_controls)
+
+    def test_play_button_triggers_playback_controller_play(self) -> None:
+        """Test play button triggers PlaybackController.play()."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ), patch("video_comparator.ui.controls.SyncControls"), patch("video_comparator.ui.controls.ZoomControls"):
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            mock_event = MagicMock()
+            control_panel._on_play(mock_event)
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.PLAYING)
+
+    def test_pause_button_triggers_playback_controller_pause(self) -> None:
+        """Test pause button triggers PlaybackController.pause()."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ), patch("video_comparator.ui.controls.SyncControls"), patch("video_comparator.ui.controls.ZoomControls"):
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.playback_controller.play()
+            mock_event = MagicMock()
+            control_panel._on_pause(mock_event)
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.PAUSED)
+
+    def test_stop_button_triggers_playback_controller_stop(self) -> None:
+        """Test stop button triggers PlaybackController.stop()."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_timeline_slider = MagicMock()
+            mock_timeline_slider_class.return_value = mock_timeline_slider
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.playback_controller.play()
+            mock_event = MagicMock()
+            control_panel._on_stop(mock_event)
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.STOPPED)
+            mock_timeline_slider.update_position.assert_called_once()
+
+    def test_frame_step_forward_button_triggers_step_forward(self) -> None:
+        """Test frame-step forward button triggers step_forward()."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_timeline_slider = MagicMock()
+            mock_timeline_slider_class.return_value = mock_timeline_slider
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            initial_position = self.timeline_controller.current_position
+            mock_event = MagicMock()
+            control_panel._on_step_forward(mock_event)
+
+            self.assertGreater(self.timeline_controller.current_position, initial_position)
+            mock_timeline_slider.update_position.assert_called_once()
+
+    def test_frame_step_backward_button_triggers_step_backward(self) -> None:
+        """Test frame-step backward button triggers step_backward()."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_timeline_slider = MagicMock()
+            mock_timeline_slider_class.return_value = mock_timeline_slider
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.timeline_controller.set_position(5.0)
+            initial_position = self.timeline_controller.current_position
+            mock_event = MagicMock()
+            control_panel._on_step_backward(mock_event)
+
+            self.assertLess(self.timeline_controller.current_position, initial_position)
+            mock_timeline_slider.update_position.assert_called_once()
+
+    def test_all_controls_are_properly_wired(self) -> None:
+        """Test all controls are properly wired."""
+        with patch("video_comparator.ui.controls.wx.Panel") as mock_panel_class, patch(
+            "video_comparator.ui.controls.wx.Button"
+        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_panel = MagicMock()
+            mock_panel_class.return_value = mock_panel
+            mock_button = MagicMock()
+            mock_button_class.return_value = mock_button
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.assertEqual(mock_button.Bind.call_count, 5)
+
+    def test_button_states_update_with_playback_state(self) -> None:
+        """Test button states update with playback state."""
+        with patch("video_comparator.ui.controls.wx.Panel"), patch(
+            "video_comparator.ui.controls.wx.Button"
+        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            mock_play_button = MagicMock()
+            mock_pause_button = MagicMock()
+            mock_stop_button = MagicMock()
+            mock_button_class.side_effect = [
+                mock_play_button,
+                mock_pause_button,
+                mock_stop_button,
+                MagicMock(),
+                MagicMock(),
+            ]
+
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.STOPPED)
+            control_panel._update_button_states()
+
+            mock_play_button.Enable.assert_called_with(True)
+            mock_pause_button.Enable.assert_called_with(False)
+            mock_stop_button.Enable.assert_called_with(False)
+
+            mock_play_button.reset_mock()
+            mock_pause_button.reset_mock()
+            mock_stop_button.reset_mock()
+
+            self.playback_controller.play()
+            control_panel._update_button_states()
+
+            mock_play_button.Enable.assert_called_with(False)
+            mock_pause_button.Enable.assert_called_with(True)
+            mock_stop_button.Enable.assert_called_with(True)

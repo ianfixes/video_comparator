@@ -409,10 +409,149 @@ class ControlPanel:
         video_pane1: VideoPane,
         video_pane2: VideoPane,
     ) -> None:
-        """Initialize control panel with parent, controllers, and video panes."""
+        """Initialize control panel with parent, controllers, and video panes.
+
+        Args:
+            parent: Parent wx.Window widget
+            playback_controller: PlaybackController for playback control
+            timeline_controller: TimelineController for timeline management
+            video_pane1: First VideoPane widget
+            video_pane2: Second VideoPane widget
+        """
         self.parent: wx.Window = parent
         self.playback_controller: PlaybackController = playback_controller
         self.timeline_controller: TimelineController = timeline_controller
-        self.timeline_slider: Optional[TimelineSlider] = None
-        self.sync_controls: Optional[SyncControls] = None
-        self.zoom_controls: Optional[ZoomControls] = None
+
+        self.panel: wx.Panel = wx.Panel(parent)
+
+        self.play_button: wx.Button = wx.Button(self.panel, label="Play")
+        self.pause_button: wx.Button = wx.Button(self.panel, label="Pause")
+        self.stop_button: wx.Button = wx.Button(self.panel, label="Stop")
+        self.step_forward_button: wx.Button = wx.Button(self.panel, label="Step Forward")
+        self.step_backward_button: wx.Button = wx.Button(self.panel, label="Step Backward")
+
+        self.play_button.Bind(wx.EVT_BUTTON, self._on_play)
+        self.pause_button.Bind(wx.EVT_BUTTON, self._on_pause)
+        self.stop_button.Bind(wx.EVT_BUTTON, self._on_stop)
+        self.step_forward_button.Bind(wx.EVT_BUTTON, self._on_step_forward)
+        self.step_backward_button.Bind(wx.EVT_BUTTON, self._on_step_backward)
+
+        self.timeline_slider: TimelineSlider = TimelineSlider(self.panel, timeline_controller)
+        self.sync_controls: SyncControls = SyncControls(self.panel, timeline_controller)
+        self.zoom_controls: ZoomControls = ZoomControls(self.panel, video_pane1, video_pane2)
+
+        self._update_button_states()
+
+    def _on_play(self, event: wx.CommandEvent) -> None:
+        """Handle play button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.playback_controller.play()
+        self._update_button_states()
+
+    def _on_pause(self, event: wx.CommandEvent) -> None:
+        """Handle pause button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.playback_controller.pause()
+        self._update_button_states()
+
+    def _on_stop(self, event: wx.CommandEvent) -> None:
+        """Handle stop button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.playback_controller.stop()
+        self._update_button_states()
+        if self.timeline_slider:
+            self.timeline_slider.update_position()
+
+    def _on_step_forward(self, event: wx.CommandEvent) -> None:
+        """Handle step forward button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.playback_controller.frame_step_forward()
+        if self.timeline_slider:
+            self.timeline_slider.update_position()
+
+    def _on_step_backward(self, event: wx.CommandEvent) -> None:
+        """Handle step backward button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.playback_controller.frame_step_backward()
+        if self.timeline_slider:
+            self.timeline_slider.update_position()
+
+    def _update_button_states(self) -> None:
+        """Update button enabled/disabled states based on playback state."""
+        from video_comparator.common.types import PlaybackState
+
+        state = self.playback_controller.state
+
+        self.play_button.Enable(state != PlaybackState.PLAYING)
+        self.pause_button.Enable(state == PlaybackState.PLAYING)
+        self.stop_button.Enable(state != PlaybackState.STOPPED)
+
+    def update_button_states(self) -> None:
+        """Update button states from playback controller.
+
+        This should be called when playback state changes externally.
+        """
+        self._update_button_states()
+
+    def get_panel(self) -> wx.Panel:
+        """Get the panel widget for layout purposes.
+
+        Returns:
+            The wx.Panel widget
+        """
+        return self.panel
+
+    def get_play_button(self) -> wx.Button:
+        """Get the play button widget.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.play_button
+
+    def get_pause_button(self) -> wx.Button:
+        """Get the pause button widget.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.pause_button
+
+    def get_stop_button(self) -> wx.Button:
+        """Get the stop button widget.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.stop_button
+
+    def get_step_forward_button(self) -> wx.Button:
+        """Get the step forward button widget.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.step_forward_button
+
+    def get_step_backward_button(self) -> wx.Button:
+        """Get the step backward button widget.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.step_backward_button

@@ -466,22 +466,22 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test zoom level display updates correctly
 
 ### ControlPanel (`ui/controls.py`)
-- [ ] Implement container widget (wx.Panel)
-- [ ] Implement play/pause/stop buttons
-- [ ] Implement frame-step forward/backward buttons
-- [ ] Integrate TimelineSlider, SyncControls, ZoomControls
-- [ ] Integrate with PlaybackController for button actions
-- [ ] Implement button event wiring
+- [x] Implement container widget (wx.Panel)
+- [x] Implement play/pause/stop buttons
+- [x] Implement frame-step forward/backward buttons
+- [x] Integrate TimelineSlider, SyncControls, ZoomControls
+- [x] Integrate with PlaybackController for button actions
+- [x] Implement button event wiring
 
 **Unit Tests Required:**
-- [ ] Test ControlPanel initialization
-- [ ] Test play button triggers PlaybackController.play()
-- [ ] Test pause button triggers PlaybackController.pause()
-- [ ] Test stop button triggers PlaybackController.stop()
-- [ ] Test frame-step forward button triggers step_forward()
-- [ ] Test frame-step backward button triggers step_backward()
-- [ ] Test all controls are properly wired
-- [ ] Test button states update with playback state
+- [x] Test ControlPanel initialization
+- [x] Test play button triggers PlaybackController.play()
+- [x] Test pause button triggers PlaybackController.pause()
+- [x] Test stop button triggers PlaybackController.stop()
+- [x] Test frame-step forward button triggers step_forward()
+- [x] Test frame-step backward button triggers step_backward()
+- [x] Test all controls are properly wired
+- [x] Test button states update with playback state
 
 ---
 
