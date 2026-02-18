@@ -214,3 +214,62 @@ class TestApplication(unittest.TestCase):
             ):
                 app.initialize()
                 self.assertEqual(self.error_handler.parent_window, mock_main_frame)
+
+    def test_initialization_never_creates_panel_without_parent(self) -> None:
+        """Test that initialization never creates wx.Panel with None as parent (macOS requirement).
+
+        This test exposes the bug where wx.Panel(None) is called, which causes
+        an assertion error on macOS. The test verifies that all Panel creations
+        have a valid parent (not None).
+        """
+        with patch("video_comparator.app.application.wx.App") as mock_app_class:
+            mock_app = MagicMock()
+            mock_app_class.return_value = mock_app
+            app = Application(
+                settings_manager=self.settings_manager,
+                error_handler=self.error_handler,
+            )
+
+            panel_calls = []
+
+            def track_panel_calls(*args, **kwargs):
+                """Track all wx.Panel calls to verify parent is never None."""
+                panel_calls.append((args, kwargs))
+                if args and args[0] is None:
+                    raise AssertionError(
+                        "wx.Panel was called with None as parent, which causes "
+                        "assertion error on macOS. All panels must have a valid parent."
+                    )
+                return MagicMock()
+
+            mock_video_pane = MagicMock()
+            mock_control_panel_widget = MagicMock()
+            mock_control_panel = MagicMock()
+            mock_control_panel.get_panel.return_value = mock_control_panel_widget
+
+            with patch("video_comparator.app.application.VideoPane", return_value=mock_video_pane), patch(
+                "video_comparator.app.application.LayoutManager"
+            ), patch("video_comparator.app.application.TimelineController"), patch(
+                "video_comparator.app.application.PlaybackController"
+            ), patch(
+                "video_comparator.app.application.ControlPanel", return_value=mock_control_panel
+            ), patch(
+                "video_comparator.app.application.ShortcutManager"
+            ), patch(
+                "video_comparator.app.application.MainFrame"
+            ), patch(
+                "video_comparator.app.application.wx.Panel", side_effect=track_panel_calls
+            ), patch.object(
+                mock_video_pane, "Reparent"
+            ), patch.object(
+                mock_control_panel_widget, "Reparent"
+            ):
+                app.initialize()
+
+            # Verify that if any Panel was created, it was never with None as parent
+            for args, kwargs in panel_calls:
+                if args:
+                    self.assertIsNotNone(
+                        args[0],
+                        "wx.Panel was called with None as parent. " "On macOS, all windows must have a valid parent.",
+                    )

@@ -6,6 +6,9 @@ authors = ["Ian Katz <ianfixes@gmail.com>"]
 readme = "README.md"
 packages = [{include = "video_comparator", from = "src"}]
 
+[tool.poetry.scripts]
+video-comparator = "video_comparator.__main__:main"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 wxPython = "^4.2.1"
