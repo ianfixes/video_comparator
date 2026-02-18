@@ -421,18 +421,18 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test layout updates propagate to VideoPanes
 
 ### TimelineSlider (`ui/controls.py`)
-- [ ] Implement wx.Slider widget wrapper
-- [ ] Implement slider value change handler
-- [ ] Implement timeline range calculation (0 to max duration)
-- [ ] Integrate with TimelineController for position updates
-- [ ] Implement position display (current time/frame)
+- [x] Implement wx.Slider widget wrapper
+- [x] Implement slider value change handler
+- [x] Implement timeline range calculation (0 to max duration)
+- [x] Integrate with TimelineController for position updates
+- [x] Implement position display (current time/frame)
 
 **Unit Tests Required:**
-- [ ] Test TimelineSlider initialization
-- [ ] Test slider range calculation from video metadata
-- [ ] Test slider value change triggers TimelineController seek
-- [ ] Test position display updates correctly
-- [ ] Test slider with videos of different durations
+- [x] Test TimelineSlider initialization
+- [x] Test slider range calculation from video metadata
+- [x] Test slider value change triggers TimelineController seek
+- [x] Test position display updates correctly
+- [x] Test slider with videos of different durations
 
 ### SyncControls (`ui/controls.py`)
 - [ ] Implement sync offset slider widget
