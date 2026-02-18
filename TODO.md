@@ -401,24 +401,24 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 8: UI Components
 
 ### LayoutManager (`ui/layout_manager.py`)
-- [ ] Implement orientation toggle (horizontal ↔ vertical)
-- [ ] Implement scaling mode toggle (independent ↔ match_larger)
-- [ ] Implement pane sizing calculation for horizontal layout
-- [ ] Implement pane sizing calculation for vertical layout
-- [ ] Implement matched bounding box calculation
-- [ ] Integrate with VideoPane widgets for layout updates
+- [x] Implement orientation toggle (horizontal ↔ vertical)
+- [x] Implement scaling mode toggle (independent ↔ match_larger)
+- [x] Implement pane sizing calculation for horizontal layout
+- [x] Implement pane sizing calculation for vertical layout
+- [x] Implement matched bounding box calculation
+- [x] Integrate with VideoPane widgets for layout updates
 
 **Unit Tests Required:**
-- [ ] Test initial orientation (horizontal)
-- [ ] Test initial scaling mode (independent)
-- [ ] Test orientation toggle horizontal → vertical
-- [ ] Test orientation toggle vertical → horizontal
-- [ ] Test scaling mode toggle independent → match_larger
-- [ ] Test scaling mode toggle match_larger → independent
-- [ ] Test pane sizing for horizontal layout
-- [ ] Test pane sizing for vertical layout
-- [ ] Test matched bounding box calculation
-- [ ] Test layout updates propagate to VideoPanes
+- [x] Test initial orientation (horizontal)
+- [x] Test initial scaling mode (independent)
+- [x] Test orientation toggle horizontal → vertical
+- [x] Test orientation toggle vertical → horizontal
+- [x] Test scaling mode toggle independent → match_larger
+- [x] Test scaling mode toggle match_larger → independent
+- [x] Test pane sizing for horizontal layout
+- [x] Test pane sizing for vertical layout
+- [x] Test matched bounding box calculation
+- [x] Test layout updates propagate to VideoPanes
 
 ### TimelineSlider (`ui/controls.py`)
 - [ ] Implement wx.Slider widget wrapper
