@@ -435,19 +435,19 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test slider with videos of different durations
 
 ### SyncControls (`ui/controls.py`)
-- [ ] Implement sync offset slider widget
-- [ ] Implement +1 frame button
-- [ ] Implement -1 frame button
-- [ ] Implement offset display
-- [ ] Integrate with TimelineController for offset updates
+- [x] Implement sync offset slider widget
+- [x] Implement +1 frame button
+- [x] Implement -1 frame button
+- [x] Implement offset display
+- [x] Integrate with TimelineController for offset updates
 
 **Unit Tests Required:**
-- [ ] Test SyncControls initialization
-- [ ] Test offset slider updates TimelineController
-- [ ] Test +1 button increments offset
-- [ ] Test -1 button decrements offset
-- [ ] Test offset display shows current offset
-- [ ] Test offset range limits (if any)
+- [x] Test SyncControls initialization
+- [x] Test offset slider updates TimelineController
+- [x] Test +1 button increments offset
+- [x] Test -1 button decrements offset
+- [x] Test offset display shows current offset
+- [x] Test offset range limits (if any)
 
 ### ZoomControls (`ui/controls.py`)
 - [ ] Implement zoom in button
