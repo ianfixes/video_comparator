@@ -77,21 +77,50 @@ class Application:
 
         settings = self.settings_manager.load()
 
+        self._create_main_frame_early()
         self._create_video_panes()
         self._create_layout_manager(settings)
         self._create_controllers(settings)
         self._create_control_panel()
         self._create_shortcut_manager()
-        self._create_main_frame()
+        self._finalize_main_frame()
+
+    def _create_main_frame_early(self) -> None:
+        """Create MainFrame early so it can serve as parent for child widgets.
+
+        MainFrame is created with temporary/dummy components initially,
+        then properly configured in _finalize_main_frame().
+        """
+        if self.app is None:
+            raise RuntimeError("wx.App must be initialized before creating main frame")
+
+        from video_comparator.common.types import LayoutOrientation, ScalingMode
+        from video_comparator.input.shortcut_manager import ShortcutManager
+        from video_comparator.ui.controls import ControlPanel
+        from video_comparator.ui.layout_manager import LayoutManager
+
+        dummy_layout_manager = LayoutManager(
+            MagicMock(), MagicMock(), LayoutOrientation.HORIZONTAL, ScalingMode.INDEPENDENT
+        )
+        dummy_control_panel = MagicMock(spec=ControlPanel)
+        dummy_shortcut_manager = MagicMock(spec=ShortcutManager)
+
+        self.main_frame = MainFrame(
+            layout_manager=dummy_layout_manager,
+            control_panel=dummy_control_panel,
+            shortcut_manager=dummy_shortcut_manager,
+            defer_layout=True,
+        )
 
     def _create_video_panes(self) -> None:
         """Create video pane widgets."""
         if self.app is None:
             raise RuntimeError("wx.App must be initialized before creating video panes")
+        if self.main_frame is None:
+            raise RuntimeError("MainFrame must be created before creating video panes")
 
-        dummy_parent = wx.Panel(None)
-        self.video_pane1 = VideoPane(dummy_parent, self.scaling_calculator)
-        self.video_pane2 = VideoPane(dummy_parent, self.scaling_calculator)
+        self.video_pane1 = VideoPane(self.main_frame, self.scaling_calculator)
+        self.video_pane2 = VideoPane(self.main_frame, self.scaling_calculator)
 
     def _create_layout_manager(self, settings: Settings) -> None:
         """Create layout manager with video panes.
@@ -151,11 +180,12 @@ class Application:
 
         if self.app is None:
             raise RuntimeError("wx.App must be initialized before creating control panel")
+        if self.main_frame is None:
+            raise RuntimeError("MainFrame must be created before creating control panel")
 
-        dummy_parent = wx.Panel(None)
         if self.playback_controller is not None:
             self.control_panel = ControlPanel(
-                parent=dummy_parent,
+                parent=self.main_frame,
                 playback_controller=self.playback_controller,
                 timeline_controller=self.timeline_controller,
                 video_pane1=self.video_pane1,
@@ -167,7 +197,7 @@ class Application:
             mock_playback_controller = MagicMock()
             mock_playback_controller.state = PlaybackState.STOPPED
             self.control_panel = ControlPanel(
-                parent=dummy_parent,
+                parent=self.main_frame,
                 playback_controller=mock_playback_controller,
                 timeline_controller=self.timeline_controller,
                 video_pane1=self.video_pane1,
@@ -210,33 +240,23 @@ class Application:
             custom_bindings=custom_bindings,
         )
 
-    def _create_main_frame(self) -> None:
-        """Create and show the main frame."""
+    def _finalize_main_frame(self) -> None:
+        """Finalize MainFrame setup with all components and show it."""
         if self.layout_manager is None:
-            raise RuntimeError("Layout manager must be created before main frame")
+            raise RuntimeError("Layout manager must be created before finalizing main frame")
         if self.control_panel is None:
-            raise RuntimeError("Control panel must be created before main frame")
+            raise RuntimeError("Control panel must be created before finalizing main frame")
         if self.shortcut_manager is None:
-            raise RuntimeError("Shortcut manager must be created before main frame")
+            raise RuntimeError("Shortcut manager must be created before finalizing main frame")
+        if self.main_frame is None:
+            raise RuntimeError("MainFrame must be created before finalizing")
 
-        if self.app is None:
-            raise RuntimeError("wx.App must be initialized before creating main frame")
+        self.main_frame.layout_manager = self.layout_manager
+        self.main_frame.control_panel = self.control_panel
+        self.main_frame.shortcut_manager = self.shortcut_manager
 
-        self.main_frame = MainFrame(
-            layout_manager=self.layout_manager,
-            control_panel=self.control_panel,
-            shortcut_manager=self.shortcut_manager,
-        )
-
-        if self.video_pane1 is not None and self.video_pane2 is not None:
-            self.video_pane1.Reparent(self.main_frame)
-            self.video_pane2.Reparent(self.main_frame)
-
-        control_panel_widget = self.control_panel.get_panel()
-        control_panel_widget.Reparent(self.main_frame)
-
+        self.main_frame.update_layout()
         self.error_handler.parent_window = self.main_frame
-
         self.main_frame.Show()
 
     def _create_placeholder_metadata(self) -> VideoMetadata:

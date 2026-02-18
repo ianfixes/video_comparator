@@ -25,6 +25,7 @@ class MainFrame(wx.Frame):
         control_panel: ControlPanel,
         shortcut_manager: ShortcutManager,
         parent: Optional[wx.Window] = None,
+        defer_layout: bool = False,
     ) -> None:
         """Initialize main frame with parent and required subsystems.
 
@@ -33,6 +34,7 @@ class MainFrame(wx.Frame):
             control_panel: Container for playback and control widgets
             shortcut_manager: Manages keyboard shortcuts
             parent: Optional wx.Window parent (typically None for top-level frame)
+            defer_layout: If True, skip layout creation (for use with temporary components)
         """
         super().__init__(parent, title="Video Comparator", size=(1200, 800))
         self.layout_manager: LayoutManager = layout_manager
@@ -40,7 +42,8 @@ class MainFrame(wx.Frame):
         self.shortcut_manager: ShortcutManager = shortcut_manager
 
         self._create_menu_bar()
-        self._create_layout()
+        if not defer_layout:
+            self._create_layout()
         self._bind_events()
 
     def _create_menu_bar(self) -> None:
@@ -85,6 +88,9 @@ class MainFrame(wx.Frame):
         video_pane1 = self.layout_manager.video_pane1
         video_pane2 = self.layout_manager.video_pane2
 
+        video_pane1.Reparent(video_container)
+        video_pane2.Reparent(video_container)
+
         video_sizer.Add(video_pane1, proportion=1, flag=wx.EXPAND)
         video_sizer.Add(video_pane2, proportion=1, flag=wx.EXPAND)
 
@@ -96,6 +102,14 @@ class MainFrame(wx.Frame):
 
         self.SetSizer(main_sizer)
         self.Layout()
+
+    def update_layout(self) -> None:
+        """Update the window layout with current components.
+
+        This method should be called after components (layout_manager, control_panel)
+        have been updated to refresh the layout.
+        """
+        self._create_layout()
 
     def _bind_events(self) -> None:
         """Bind window events."""
