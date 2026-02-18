@@ -1,6 +1,7 @@
 """Unit tests for VideoPane class."""
 
 import unittest
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -28,7 +29,8 @@ def create_video_pane(parent, calculator, metadata=None):
     ), patch.object(
         VideoPane, "HasCapture", return_value=False
     ):
-        yield VideoPane(parent, calculator, metadata)
+        pane = VideoPane(parent, calculator, metadata)
+        yield pane
 
 
 class TestVideoPane(unittest.TestCase):
@@ -50,12 +52,15 @@ class TestVideoPane(unittest.TestCase):
         )
         self.panel_patcher = patch("video_comparator.render.video_pane.wx.Panel.__init__", return_value=None)
         self.bind_patcher = patch.object(VideoPane, "Bind", return_value=None)
+        self.refresh_patcher = patch.object(VideoPane, "Refresh", return_value=None)
         self.panel_patcher.start()
         self.bind_patcher.start()
+        self.refresh_patcher.start()
         self.pane = VideoPane(self.parent, self.scaling_calculator, self.metadata)
 
     def tearDown(self) -> None:
         """Clean up test fixtures."""
+        self.refresh_patcher.stop()
         self.bind_patcher.stop()
         self.panel_patcher.stop()
 
@@ -97,31 +102,49 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                mock_bitmap = MagicMock(spec=wx.Bitmap)
+                mock_bitmap = MagicMock()
                 mock_convert.return_value = mock_bitmap
 
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
                 mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
+                    mock_image = MagicMock()
+                    mock_bitmap.ConvertToImage.return_value = mock_image
+                    mock_image.Scale.return_value = MagicMock()
 
-                self.pane._render_frame(mock_dc)
+                    self.pane._render_frame(mock_dc)
 
-                mock_convert.assert_called_once()
-                mock_dc.Clear.assert_called_once()
-                mock_dc.DrawBitmap.assert_called()
+                    mock_convert.assert_called_once()
+                    mock_dc.Clear.assert_called_once()
+                    mock_dc.DrawBitmap.assert_called()
 
     def test_frame_rendering_with_none_frame(self) -> None:
         """Test frame rendering with None frame (empty state)."""
         self.pane.set_frame(None)
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
-            mock_dc = MagicMock(spec=wx.PaintDC)
+            mock_dc = MagicMock()
             mock_dc.GetTextExtent.return_value = (100, 20)
+            with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                "video_comparator.render.video_pane.wx.Font"
+            ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class:
+                mock_colour_class.return_value = MagicMock()
+                mock_font_class.return_value = MagicMock()
+                mock_brush_class.return_value = MagicMock()
 
-            self.pane._render_frame(mock_dc)
+                self.pane._render_frame(mock_dc)
 
-            mock_dc.Clear.assert_called_once()
-            mock_dc.DrawText.assert_called()
-            mock_dc.DrawBitmap.assert_not_called()
+                mock_dc.Clear.assert_called_once()
+                mock_dc.DrawText.assert_called()
+                mock_dc.DrawBitmap.assert_not_called()
 
     def test_frame_rendering_without_metadata(self) -> None:
         """Test frame rendering without metadata shows empty state."""
@@ -131,12 +154,18 @@ class TestVideoPane(unittest.TestCase):
             frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
             pane.set_frame(frame)
 
-            mock_dc = MagicMock(spec=wx.PaintDC)
+            mock_dc = MagicMock()
             mock_dc.GetTextExtent.return_value = (100, 20)
+            with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                "video_comparator.render.video_pane.wx.Font"
+            ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class:
+                mock_colour_class.return_value = MagicMock()
+                mock_font_class.return_value = MagicMock()
+                mock_brush_class.return_value = MagicMock()
 
-            pane._render_frame(mock_dc)
+                pane._render_frame(mock_dc)
 
-            mock_dc.DrawText.assert_called()
+                mock_dc.DrawText.assert_called()
 
     def test_zoom_transform_application(self) -> None:
         """Test zoom transform application."""
@@ -146,19 +175,37 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                mock_bitmap = MagicMock(spec=wx.Bitmap)
+                mock_bitmap = MagicMock()
                 mock_image = MagicMock()
-                mock_bitmap.ConvertToImage.return_value = mock_image
-                mock_image.Scale.return_value = MagicMock()
+                mock_scaled_image = MagicMock()
+                mock_image.Scale.return_value = mock_scaled_image
                 mock_convert.return_value = mock_bitmap
 
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
                 mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
 
-                self.pane._render_frame(mock_dc)
+                    new_bitmap_mock = MagicMock()
+                    new_bitmap_mock.ConvertToImage.return_value = mock_image
 
-                mock_bitmap.ConvertToImage.assert_called()
-                mock_image.Scale.assert_called()
+                    def bitmap_side_effect(arg):
+                        if arg == mock_bitmap:
+                            return new_bitmap_mock
+                        return MagicMock()
+
+                    mock_bitmap_class.side_effect = bitmap_side_effect
+
+                    self.pane._render_frame(mock_dc)
+
+                    new_bitmap_mock.ConvertToImage.assert_called()
+                    mock_image.Scale.assert_called()
 
     def test_pan_transform_application(self) -> None:
         """Test pan transform application."""
@@ -169,22 +216,31 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                mock_bitmap = MagicMock(spec=wx.Bitmap)
+                mock_bitmap = MagicMock()
                 mock_image = MagicMock()
                 mock_bitmap.ConvertToImage.return_value = mock_image
                 mock_image.Scale.return_value = MagicMock()
                 mock_convert.return_value = mock_bitmap
 
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
                 mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
 
-                self.pane._render_frame(mock_dc)
+                    self.pane._render_frame(mock_dc)
 
-                call_args = mock_dc.DrawBitmap.call_args
-                self.assertIsNotNone(call_args)
-                draw_x, draw_y = call_args[0][1:3]
-                self.assertGreater(draw_x, 0)
-                self.assertGreater(draw_y, 0)
+                    call_args = mock_dc.DrawBitmap.call_args
+                    self.assertIsNotNone(call_args)
+                    draw_x, draw_y = call_args[0][1:3]
+                    self.assertGreater(draw_x, 0)
+                    self.assertGreater(draw_y, 0)
 
     def test_independent_scaling_mode_rendering(self) -> None:
         """Test independent scaling mode rendering."""
@@ -197,18 +253,29 @@ class TestVideoPane(unittest.TestCase):
                 mock_calc.return_value = (0.4, 0.4)
 
                 with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                    mock_bitmap = MagicMock(spec=wx.Bitmap)
+                    mock_bitmap = MagicMock()
                     mock_image = MagicMock()
                     mock_bitmap.ConvertToImage.return_value = mock_image
                     mock_image.Scale.return_value = MagicMock()
                     mock_convert.return_value = mock_bitmap
 
-                    mock_dc = MagicMock(spec=wx.PaintDC)
+                    mock_dc = MagicMock()
                     mock_dc.GetTextExtent.return_value = (100, 20)
+                    with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                        "video_comparator.render.video_pane.wx.Font"
+                    ) as mock_font_class, patch(
+                        "video_comparator.render.video_pane.wx.Brush"
+                    ) as mock_brush_class, patch(
+                        "video_comparator.render.video_pane.wx.Bitmap"
+                    ) as mock_bitmap_class:
+                        mock_colour_class.return_value = MagicMock()
+                        mock_font_class.return_value = MagicMock()
+                        mock_brush_class.return_value = MagicMock()
+                        mock_bitmap_class.return_value = MagicMock()
 
-                    self.pane._render_frame(mock_dc)
+                        self.pane._render_frame(mock_dc)
 
-                    mock_calc.assert_called_once_with((1920, 1080), (800, 600), ScalingMode.INDEPENDENT, None)
+                        mock_calc.assert_called_once_with((1920, 1080), (800, 600), ScalingMode.INDEPENDENT, None)
 
     def test_match_larger_scaling_mode_rendering(self) -> None:
         """Test match_larger scaling mode rendering."""
@@ -222,18 +289,31 @@ class TestVideoPane(unittest.TestCase):
                 mock_calc.return_value = (1.33, 1.33)
 
                 with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                    mock_bitmap = MagicMock(spec=wx.Bitmap)
+                    mock_bitmap = MagicMock()
                     mock_image = MagicMock()
                     mock_bitmap.ConvertToImage.return_value = mock_image
                     mock_image.Scale.return_value = MagicMock()
                     mock_convert.return_value = mock_bitmap
 
-                    mock_dc = MagicMock(spec=wx.PaintDC)
+                    mock_dc = MagicMock()
                     mock_dc.GetTextExtent.return_value = (100, 20)
+                    with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                        "video_comparator.render.video_pane.wx.Font"
+                    ) as mock_font_class, patch(
+                        "video_comparator.render.video_pane.wx.Brush"
+                    ) as mock_brush_class, patch(
+                        "video_comparator.render.video_pane.wx.Bitmap"
+                    ) as mock_bitmap_class:
+                        mock_colour_class.return_value = MagicMock()
+                        mock_font_class.return_value = MagicMock()
+                        mock_brush_class.return_value = MagicMock()
+                        mock_bitmap_class.return_value = MagicMock()
 
-                    self.pane._render_frame(mock_dc)
+                        self.pane._render_frame(mock_dc)
 
-                    mock_calc.assert_called_once_with((1920, 1080), (800, 600), ScalingMode.MATCH_LARGER, (2560, 1440))
+                        mock_calc.assert_called_once_with(
+                            (1920, 1080), (800, 600), ScalingMode.MATCH_LARGER, (2560, 1440)
+                        )
 
     def test_overlay_text_rendering(self) -> None:
         """Test overlay text rendering."""
@@ -243,29 +323,40 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                mock_bitmap = MagicMock(spec=wx.Bitmap)
+                mock_bitmap = MagicMock()
                 mock_image = MagicMock()
                 mock_bitmap.ConvertToImage.return_value = mock_image
                 mock_image.Scale.return_value = MagicMock()
                 mock_convert.return_value = mock_bitmap
 
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
                 mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
 
-                self.pane._render_frame(mock_dc)
+                    self.pane._render_frame(mock_dc)
 
-                self.assertGreater(mock_dc.DrawText.call_count, 0)
-                draw_text_calls = [str(call) for call in mock_dc.DrawText.call_args_list]
-                self.assertTrue(any("1920x1080" in str(call) for call in draw_text_calls))
-                self.assertTrue(any("5.5" in str(call) for call in draw_text_calls))
-                self.assertTrue(any("165" in str(call) for call in draw_text_calls))
+                    self.assertGreater(mock_dc.DrawText.call_count, 0)
+                    draw_text_calls = [str(call) for call in mock_dc.DrawText.call_args_list]
+                    self.assertTrue(any("1920x1080" in str(call) for call in draw_text_calls))
+                    self.assertTrue(any("5.5" in str(call) for call in draw_text_calls))
+                    self.assertTrue(any("165" in str(call) for call in draw_text_calls))
 
     def test_mouse_drag_pan_interaction(self) -> None:
         """Test mouse drag pan interaction."""
-        mock_event = MagicMock(spec=wx.MouseEvent)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event = MagicMock(spec=wx.MouseEvent)
         mock_event.Dragging.return_value = True
         mock_event.GetPosition.return_value = wx.Point(100, 50)
-        mock_event.ShiftDown.return_value = False
+        mock_event.shiftDown.return_value = False
 
         self.pane.drag_start_pos = (50, 25)
         self.pane.is_dragging = True
@@ -282,7 +373,9 @@ class TestVideoPane(unittest.TestCase):
 
     def test_mouse_wheel_zoom_in_out(self) -> None:
         """Test mouse wheel zoom in/out."""
-        mock_event = MagicMock(spec=wx.MouseEvent)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event = MagicMock(spec=wx.MouseEvent)
         mock_event.GetWheelRotation.return_value = 120
         mock_event.GetPosition.return_value = wx.Point(400, 300)
 
@@ -307,10 +400,12 @@ class TestVideoPane(unittest.TestCase):
 
     def test_shift_drag_rectangle_selection_and_zoom_to_region(self) -> None:
         """Test Shift-drag rectangle selection and zoom to region."""
-        mock_event = MagicMock(spec=wx.MouseEvent)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event = MagicMock(spec=wx.MouseEvent)
         mock_event.Dragging.return_value = True
         mock_event.GetPosition.return_value = wx.Point(200, 150)
-        mock_event.ShiftDown.return_value = True
+        mock_event.shiftDown.return_value = True
 
         self.pane.drag_start_pos = (100, 50)
         self.pane.is_shift_dragging = True
@@ -322,7 +417,9 @@ class TestVideoPane(unittest.TestCase):
                 self.assertIsNotNone(self.pane.selection_rect)
                 mock_refresh.assert_called_once()
 
-        mock_event_up = MagicMock(spec=wx.MouseEvent)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event_up = MagicMock(spec=wx.MouseEvent)
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "Refresh") as mock_refresh:
                 self.pane._zoom_to_selection_rect()
@@ -378,7 +475,9 @@ class TestVideoPane(unittest.TestCase):
 
     def test_edge_case_very_large_zoom(self) -> None:
         """Test edge case: very large zoom."""
-        mock_event = MagicMock(spec=wx.MouseEvent)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event = MagicMock(spec=wx.MouseEvent)
         mock_event.GetWheelRotation.return_value = 10000
         mock_event.GetPosition.return_value = wx.Point(400, 300)
 
@@ -399,18 +498,27 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
-                mock_bitmap = MagicMock(spec=wx.Bitmap)
+                mock_bitmap = MagicMock()
                 mock_image = MagicMock()
                 mock_bitmap.ConvertToImage.return_value = mock_image
                 mock_image.Scale.return_value = MagicMock()
                 mock_convert.return_value = mock_bitmap
 
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
                 mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
 
-                self.pane._render_frame(mock_dc)
+                    self.pane._render_frame(mock_dc)
 
-                mock_dc.DrawBitmap.assert_called()
+                    mock_dc.DrawBitmap.assert_called()
 
     def test_set_frame(self) -> None:
         """Test set_frame method."""
@@ -526,10 +634,20 @@ class TestVideoPane(unittest.TestCase):
         """Test drawing selection rectangle."""
         self.pane.selection_rect = (100, 50, 200, 150)
 
-        mock_dc = MagicMock(spec=wx.PaintDC)
-        self.pane._draw_selection_rect(mock_dc)
+        mock_dc = MagicMock()
+        with patch("video_comparator.render.video_pane.wx.Pen") as mock_pen_class, patch(
+            "video_comparator.render.video_pane.wx.Colour"
+        ) as mock_colour_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class:
+            mock_pen = MagicMock()
+            mock_pen_class.return_value = mock_pen
+            mock_colour_class.return_value = MagicMock()
+            mock_brush_class.return_value = MagicMock()
 
-        mock_dc.DrawRectangle.assert_called_once_with(100, 50, 200, 150)
+            self.pane._draw_selection_rect(mock_dc)
+
+            mock_dc.SetPen.assert_called_once()
+            mock_dc.SetBrush.assert_called_once()
+            mock_dc.DrawRectangle.assert_called_once_with(100, 50, 200, 150)
 
     def test_draw_selection_rect_none(self) -> None:
         """Test drawing selection rectangle when None."""
@@ -545,7 +663,7 @@ class TestVideoPane(unittest.TestCase):
         mock_event = MagicMock(spec=wx.PaintEvent)
 
         with patch("video_comparator.render.video_pane.wx.PaintDC") as mock_dc_class:
-            mock_dc = MagicMock(spec=wx.PaintDC)
+            mock_dc = MagicMock()
             mock_dc_class.return_value = mock_dc
 
             with patch.object(self.pane, "_render_frame") as mock_render:
@@ -560,7 +678,7 @@ class TestVideoPane(unittest.TestCase):
         self.pane.selection_rect = (100, 50, 200, 150)
 
         with patch("video_comparator.render.video_pane.wx.PaintDC") as mock_dc_class:
-            mock_dc = MagicMock(spec=wx.PaintDC)
+            mock_dc = MagicMock()
             mock_dc_class.return_value = mock_dc
 
             with patch.object(self.pane, "_render_frame"):
@@ -576,7 +694,12 @@ class TestVideoPane(unittest.TestCase):
 
         with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
             with patch.object(self.pane, "_frame_to_bitmap", side_effect=Exception("Test error")):
-                mock_dc = MagicMock(spec=wx.PaintDC)
+                mock_dc = MagicMock()
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Brush"
+                ) as mock_brush_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
 
-                with self.assertRaises(RenderingError):
-                    self.pane._render_frame(mock_dc)
+                    with self.assertRaises(RenderingError):
+                        self.pane._render_frame(mock_dc)
