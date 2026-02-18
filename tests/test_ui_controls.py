@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, patch
 import wx
 
 from video_comparator.media.video_metadata import VideoMetadata
+from video_comparator.render.video_pane import VideoPane
 from video_comparator.sync.timeline_controller import TimelineController
-from video_comparator.ui.controls import SyncControls, TimelineSlider
+from video_comparator.ui.controls import SyncControls, TimelineSlider, ZoomControls
 
 
 class TestTimelineSlider(unittest.TestCase):
@@ -522,3 +523,211 @@ class TestSyncControls(unittest.TestCase):
             self.assertEqual(controls.get_increment_button(), mock_button)
             self.assertEqual(controls.get_decrement_button(), mock_button)
             self.assertEqual(controls.get_offset_label(), mock_static_text)
+
+
+class TestZoomControls(unittest.TestCase):
+    """Test cases for ZoomControls class."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        self.parent = MagicMock(spec=wx.Window)
+        from video_comparator.render.scaling_calculator import ScalingCalculator
+
+        scaling_calculator = ScalingCalculator()
+        self.panel_patcher = patch("video_comparator.render.video_pane.wx.Panel.__init__", return_value=None)
+        self.bind_patcher = patch.object(VideoPane, "Bind", return_value=None)
+        self.getsize_patcher = patch.object(VideoPane, "GetSize", return_value=wx.Size(800, 600))
+        self.refresh_patcher = patch.object(VideoPane, "Refresh", return_value=None)
+        self.capture_patcher = patch.object(VideoPane, "CaptureMouse", return_value=None)
+        self.release_patcher = patch.object(VideoPane, "ReleaseMouse", return_value=None)
+        self.hascapture_patcher = patch.object(VideoPane, "HasCapture", return_value=False)
+
+        self.panel_patcher.start()
+        self.bind_patcher.start()
+        self.getsize_patcher.start()
+        self.refresh_patcher.start()
+        self.capture_patcher.start()
+        self.release_patcher.start()
+        self.hascapture_patcher.start()
+
+        self.video_pane1 = VideoPane(self.parent, scaling_calculator)
+        self.video_pane2 = VideoPane(self.parent, scaling_calculator)
+
+    def tearDown(self) -> None:
+        """Clean up test fixtures."""
+        self.hascapture_patcher.stop()
+        self.release_patcher.stop()
+        self.capture_patcher.stop()
+        self.refresh_patcher.stop()
+        self.getsize_patcher.stop()
+        self.bind_patcher.stop()
+        self.panel_patcher.stop()
+
+    def test_initialization(self) -> None:
+        """Test ZoomControls initialization."""
+        with patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_button = MagicMock()
+            mock_button_class.return_value = mock_button
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+
+            self.assertEqual(controls.parent, self.parent)
+            self.assertEqual(controls.video_pane1, self.video_pane1)
+            self.assertEqual(controls.video_pane2, self.video_pane2)
+            self.assertTrue(controls.synchronized)
+            self.assertEqual(mock_button_class.call_count, 3)
+            self.assertEqual(mock_static_text_class.call_count, 1)
+
+    def test_initialization_with_independent_mode(self) -> None:
+        """Test ZoomControls initialization with independent mode."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=False)
+
+            self.assertFalse(controls.synchronized)
+
+    def test_zoom_in_button_increases_zoom_level(self) -> None:
+        """Test zoom in button increases zoom level."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            initial_zoom = self.video_pane1.get_zoom_level()
+
+            mock_event = MagicMock()
+            controls._on_zoom_in(mock_event)
+
+            new_zoom = self.video_pane1.get_zoom_level()
+            self.assertGreater(new_zoom, initial_zoom)
+
+    def test_zoom_out_button_decreases_zoom_level(self) -> None:
+        """Test zoom out button decreases zoom level."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 2.0
+            initial_zoom = self.video_pane1.get_zoom_level()
+
+            mock_event = MagicMock()
+            controls._on_zoom_out(mock_event)
+
+            new_zoom = self.video_pane1.get_zoom_level()
+            self.assertLess(new_zoom, initial_zoom)
+
+    def test_zoom_reset_button_returns_to_one(self) -> None:
+        """Test zoom reset button returns to 1.0."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 3.5
+            self.video_pane2.zoom_level = 3.5
+
+            mock_event = MagicMock()
+            controls._on_zoom_reset(mock_event)
+
+            self.assertEqual(self.video_pane1.get_zoom_level(), 1.0)
+            self.assertEqual(self.video_pane2.get_zoom_level(), 1.0)
+
+    def test_zoom_updates_both_video_panes_when_synchronized(self) -> None:
+        """Test zoom updates both VideoPanes when synchronized."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=True)
+            initial_zoom1 = self.video_pane1.get_zoom_level()
+            initial_zoom2 = self.video_pane2.get_zoom_level()
+
+            mock_event = MagicMock()
+            controls._on_zoom_in(mock_event)
+
+            new_zoom1 = self.video_pane1.get_zoom_level()
+            new_zoom2 = self.video_pane2.get_zoom_level()
+            self.assertGreater(new_zoom1, initial_zoom1)
+            self.assertGreater(new_zoom2, initial_zoom2)
+
+    def test_zoom_updates_individual_video_pane_when_independent(self) -> None:
+        """Test zoom updates individual VideoPane when independent."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=False)
+            initial_zoom1 = self.video_pane1.get_zoom_level()
+            initial_zoom2 = self.video_pane2.get_zoom_level()
+
+            mock_event = MagicMock()
+            controls._on_zoom_in(mock_event)
+
+            new_zoom1 = self.video_pane1.get_zoom_level()
+            new_zoom2 = self.video_pane2.get_zoom_level()
+            self.assertGreater(new_zoom1, initial_zoom1)
+            self.assertEqual(new_zoom2, initial_zoom2)
+
+    def test_zoom_level_display_updates_correctly(self) -> None:
+        """Test zoom level display updates correctly."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 2.5
+            self.video_pane2.zoom_level = 3.0
+
+            controls._update_zoom_display()
+
+            mock_static_text.SetLabel.assert_called()
+            call_args = mock_static_text.SetLabel.call_args[0][0]
+            self.assertIn("Zoom", call_args)
+            self.assertIn("2.50", call_args)
+            self.assertIn("3.00", call_args)
+            self.assertIn("x", call_args)
+            self.assertEqual(call_args, "Zoom: 2.50x / 3.00x")
+
+    def test_zoom_level_display_shows_both_values_when_synchronized(self) -> None:
+        """Test zoom level display shows both values when synchronized."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=True)
+            self.video_pane1.zoom_level = 1.5
+            self.video_pane2.zoom_level = 1.5
+            controls._update_zoom_display()
+
+            call_args = mock_static_text.SetLabel.call_args[0][0]
+            self.assertIn("1.50", call_args)
+            self.assertEqual(call_args.count("1.50"), 2)
+            self.assertEqual(call_args, "Zoom: 1.50x / 1.50x")
+
+    def test_zoom_level_display_shows_both_values_when_independent(self) -> None:
+        """Test zoom level display shows both values when independent."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=False)
+            self.video_pane1.zoom_level = 2.0
+            self.video_pane2.zoom_level = 1.0
+            controls._update_zoom_display()
+
+            call_args = mock_static_text.SetLabel.call_args[0][0]
+            self.assertIn("2.00", call_args)
+            self.assertIn("1.00", call_args)
+            self.assertEqual(call_args, "Zoom: 2.00x / 1.00x")
+
+    def test_get_widgets_return_correct_widgets(self) -> None:
+        """Test getter methods return correct widgets."""
+        with patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_button = MagicMock()
+            mock_button_class.return_value = mock_button
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+
+            self.assertEqual(controls.get_zoom_in_button(), mock_button)
+            self.assertEqual(controls.get_zoom_out_button(), mock_button)
+            self.assertEqual(controls.get_zoom_reset_button(), mock_button)
+            self.assertEqual(controls.get_zoom_label(), mock_static_text)

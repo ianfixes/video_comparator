@@ -450,20 +450,20 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test offset range limits (if any)
 
 ### ZoomControls (`ui/controls.py`)
-- [ ] Implement zoom in button
-- [ ] Implement zoom out button
-- [ ] Implement zoom reset button
-- [ ] Implement zoom level display
-- [ ] Integrate with VideoPane widgets for zoom updates
+- [x] Implement zoom in button
+- [x] Implement zoom out button
+- [x] Implement zoom reset button
+- [x] Implement zoom level display
+- [x] Integrate with VideoPane widgets for zoom updates
 
 **Unit Tests Required:**
-- [ ] Test ZoomControls initialization
-- [ ] Test zoom in button increases zoom level
-- [ ] Test zoom out button decreases zoom level
-- [ ] Test zoom reset button returns to 1.0
-- [ ] Test zoom updates both VideoPanes (if synchronized)
-- [ ] Test zoom updates individual VideoPane (if independent)
-- [ ] Test zoom level display updates correctly
+- [x] Test ZoomControls initialization
+- [x] Test zoom in button increases zoom level
+- [x] Test zoom out button decreases zoom level
+- [x] Test zoom reset button returns to 1.0
+- [x] Test zoom updates both VideoPanes (if synchronized)
+- [x] Test zoom updates individual VideoPane (if independent)
+- [x] Test zoom level display updates correctly
 
 ### ControlPanel (`ui/controls.py`)
 - [ ] Implement container widget (wx.Panel)

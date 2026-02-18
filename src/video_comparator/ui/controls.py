@@ -271,18 +271,131 @@ class SyncControls:
 
 
 class ZoomControls:
-    """Zoom control buttons."""
+    """Zoom control buttons with zoom level display."""
+
+    ZOOM_FACTOR: float = 1.1
 
     def __init__(
         self,
         parent: wx.Window,
         video_pane1: VideoPane,
         video_pane2: VideoPane,
+        synchronized: bool = True,
     ) -> None:
-        """Initialize zoom controls with parent and video panes."""
+        """Initialize zoom controls with parent and video panes.
+
+        Args:
+            parent: Parent wx.Window widget
+            video_pane1: First VideoPane widget
+            video_pane2: Second VideoPane widget
+            synchronized: If True, zoom operations affect both panes; if False, only pane1 (default: True)
+        """
         self.parent: wx.Window = parent
         self.video_pane1: VideoPane = video_pane1
         self.video_pane2: VideoPane = video_pane2
+        self.synchronized: bool = synchronized
+
+        self.zoom_in_button: wx.Button = wx.Button(parent, label="Zoom In")
+        self.zoom_out_button: wx.Button = wx.Button(parent, label="Zoom Out")
+        self.zoom_reset_button: wx.Button = wx.Button(parent, label="Reset Zoom")
+
+        self.zoom_label: wx.StaticText = wx.StaticText(parent, label="Zoom: 1.00x")
+
+        self.zoom_in_button.Bind(wx.EVT_BUTTON, self._on_zoom_in)
+        self.zoom_out_button.Bind(wx.EVT_BUTTON, self._on_zoom_out)
+        self.zoom_reset_button.Bind(wx.EVT_BUTTON, self._on_zoom_reset)
+
+        self._update_zoom_display()
+
+    def _on_zoom_in(self, event: wx.CommandEvent) -> None:
+        """Handle zoom in button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self._apply_zoom(self.ZOOM_FACTOR)
+
+    def _on_zoom_out(self, event: wx.CommandEvent) -> None:
+        """Handle zoom out button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self._apply_zoom(1.0 / self.ZOOM_FACTOR)
+
+    def _on_zoom_reset(self, event: wx.CommandEvent) -> None:
+        """Handle zoom reset button click event.
+
+        Args:
+            event: wx.CommandEvent from button
+        """
+        self.video_pane1.reset_zoom_pan()
+        if self.synchronized:
+            self.video_pane2.reset_zoom_pan()
+        self._update_zoom_display()
+
+    def _apply_zoom(self, zoom_factor: float) -> None:
+        """Apply zoom factor to video pane(s).
+
+        Args:
+            zoom_factor: Multiplier for zoom level (>1.0 zooms in, <1.0 zooms out)
+        """
+        sz1 = self.video_pane1.GetSize()
+        center1 = (sz1.GetWidth() // 2, sz1.GetHeight() // 2)
+        self.video_pane1._zoom_at_point(center1, zoom_factor)
+
+        if self.synchronized:
+            sz2 = self.video_pane2.GetSize()
+            center2 = (sz2.GetWidth() // 2, sz2.GetHeight() // 2)
+            self.video_pane2._zoom_at_point(center2, zoom_factor)
+
+        self._update_zoom_display()
+
+    def _update_zoom_display(self) -> None:
+        """Update the zoom level display label."""
+        zoom1 = self.video_pane1.get_zoom_level()
+        zoom2 = self.video_pane2.get_zoom_level()
+        label_text = f"Zoom: {zoom1:.2f}x / {zoom2:.2f}x"
+        self.zoom_label.SetLabel(label_text)
+
+    def update_zoom_display(self) -> None:
+        """Update zoom display from video panes.
+
+        This should be called when zoom changes externally (e.g., from mouse wheel).
+        """
+        self._update_zoom_display()
+
+    def get_zoom_in_button(self) -> wx.Button:
+        """Get the zoom in button widget for layout purposes.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.zoom_in_button
+
+    def get_zoom_out_button(self) -> wx.Button:
+        """Get the zoom out button widget for layout purposes.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.zoom_out_button
+
+    def get_zoom_reset_button(self) -> wx.Button:
+        """Get the zoom reset button widget for layout purposes.
+
+        Returns:
+            The wx.Button widget
+        """
+        return self.zoom_reset_button
+
+    def get_zoom_label(self) -> wx.StaticText:
+        """Get the zoom level display label widget for layout purposes.
+
+        Returns:
+            The wx.StaticText widget showing current zoom level
+        """
+        return self.zoom_label
 
 
 class ControlPanel:
