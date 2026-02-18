@@ -90,6 +90,30 @@ class TimelineController:
         frame = int(timestamp * self.metadata_video2.fps) + self.sync_offset_frames
         return max(0, min(frame, self.metadata_video2.total_frames - 1))
 
+    def get_effective_range(self) -> Tuple[float, float]:
+        """Get the effective timeline range accounting for sync offsets.
+
+        The range represents the maximum navigable timeline positions. When sync offsets
+        are present, the range may extend beyond the shorter video's duration to cover
+        the full overlap region. Frame conversion logic handles clamping to valid frame ranges.
+
+        Returns:
+            Tuple of (min_position, max_position) in seconds
+        """
+        offset_time = self.sync_offset_frames / self.metadata_video2.fps
+
+        min_position = 0.0
+
+        if self.sync_offset_frames < 0:
+            max_pos_video2 = self.metadata_video2.duration - offset_time
+            max_position = max(self.metadata_video1.duration, max_pos_video2)
+        elif self.sync_offset_frames > 0:
+            max_position = min(self.metadata_video1.duration, self.metadata_video2.duration - offset_time)
+        else:
+            max_position = min(self.metadata_video1.duration, self.metadata_video2.duration)
+
+        return (min_position, max_position)
+
     def set_position(self, timestamp: float) -> None:
         """Set the current timeline position.
 
@@ -99,9 +123,9 @@ class TimelineController:
         Raises:
             InvalidPositionError: If timestamp is out of valid range
         """
-        max_duration = min(self.metadata_video1.duration, self.metadata_video2.duration)
-        if timestamp < 0.0 or timestamp > max_duration:
-            raise InvalidPositionError(f"Position {timestamp} out of range [0.0, {max_duration}]")
+        min_position, max_position = self.get_effective_range()
+        if timestamp < min_position or timestamp > max_position:
+            raise InvalidPositionError(f"Position {timestamp} out of range [{min_position}, {max_position}]")
         self.current_position = timestamp
 
     def set_sync_offset(self, offset_frames: int) -> None:

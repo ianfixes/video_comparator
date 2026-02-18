@@ -169,6 +169,7 @@ class TestTimelineSlider(unittest.TestCase):
             "video_comparator.ui.controls.wx.StaticText"
         ) as mock_static_text_class:
             mock_slider = MagicMock()
+            mock_slider.GetMin.return_value = 0
             mock_slider.GetMax.return_value = 10000
             mock_slider.GetValue.return_value = 0
             mock_slider_class.return_value = mock_slider
@@ -189,6 +190,7 @@ class TestTimelineSlider(unittest.TestCase):
             "video_comparator.ui.controls.wx.StaticText"
         ) as mock_static_text_class:
             mock_slider = MagicMock()
+            mock_slider.GetMin.return_value = 0
             mock_slider.GetMax.return_value = 10000
             mock_slider.GetValue.return_value = 0
             mock_slider_class.return_value = mock_slider

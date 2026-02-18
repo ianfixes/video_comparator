@@ -36,25 +36,30 @@ class TimelineSlider:
         self.timeline_controller: TimelineController = timeline_controller
         self._updating_from_controller: bool = False
 
-        max_duration = min(
-            self.timeline_controller.metadata_video1.duration,
-            self.timeline_controller.metadata_video2.duration,
-        )
-        max_milliseconds = int(max_duration * 1000)
-
-        self.slider: wx.Slider = wx.Slider(
-            parent,
-            minValue=0,
-            maxValue=max_milliseconds,
-            value=0,
-            style=wx.SL_HORIZONTAL | wx.SL_LABELS,
-        )
+        self._update_slider_range()
 
         self.position_label: wx.StaticText = wx.StaticText(parent, label="00:00:00.000 / Frame 0")
 
         self.slider.Bind(wx.EVT_SLIDER, self._on_slider_change)
 
         self._update_position_display()
+
+    def _update_slider_range(self) -> None:
+        """Update slider range based on effective timeline range."""
+        min_position, max_position = self.timeline_controller.get_effective_range()
+        min_milliseconds = int(min_position * 1000)
+        max_milliseconds = int(max_position * 1000)
+
+        if not hasattr(self, "slider"):
+            self.slider: wx.Slider = wx.Slider(
+                self.parent,
+                minValue=min_milliseconds,
+                maxValue=max_milliseconds,
+                value=min_milliseconds,
+                style=wx.SL_HORIZONTAL | wx.SL_LABELS,
+            )
+        else:
+            self.slider.SetRange(min_milliseconds, max_milliseconds)
 
     def _on_slider_change(self, event: wx.CommandEvent) -> None:
         """Handle slider value change event.
@@ -99,12 +104,21 @@ class TimelineSlider:
         try:
             position = self.timeline_controller.current_position
             milliseconds = int(position * 1000)
+            min_milliseconds = self.slider.GetMin()
             max_milliseconds = self.slider.GetMax()
-            milliseconds = min(milliseconds, max_milliseconds)
+            milliseconds = max(min_milliseconds, min(milliseconds, max_milliseconds))
             self.slider.SetValue(milliseconds)
             self._update_position_display()
         finally:
             self._updating_from_controller = False
+
+    def update_range(self) -> None:
+        """Update slider range when sync offset changes.
+
+        This should be called when the sync offset is modified.
+        """
+        self._update_slider_range()
+        self.update_position()
 
     def get_widget(self) -> wx.Slider:
         """Get the wx.Slider widget for layout purposes.
