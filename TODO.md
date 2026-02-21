@@ -589,6 +589,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Test complete workflow: load videos → zoom → pan → step
 - [ ] Test complete workflow: load videos → change layout → verify display
 - [ ] Test complete workflow: load videos → adjust sync → verify alignment
+- [ ] Test complete workflow: load one video → play, pause, step, seek via slider (single-video playback)
+- [ ] Test timeline slider: dragging slider requests and displays frame at new position (panes do not go blank)
+- [ ] Test playback: when Play is active, video panes update (timer-driven tick; panes do not go blank)
 - [ ] Test error scenarios: load invalid file → verify error message
 - [ ] Test error scenarios: load unsupported format → verify error message
 - [ ] Test performance: rapid frame stepping with large videos

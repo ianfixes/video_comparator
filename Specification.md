@@ -30,6 +30,7 @@ This software project aims to deliver a cross-platform graphical user interface 
 3. **Timeline Navigation**
    - There must be a slider at the bottom of the window representing the timeline of the videos.
    - Dragging or clicking the slider moves both videos to the specified timestamp/frame, keeping them synchronized (with applicable sync offsets).
+   - When the user changes the timeline position (e.g. by dragging the slider), the application shall request and display the frame(s) at the new position.
    - The current playback time/frame should be displayed for each video.
 
 4. **Frame-by-Frame Control**
@@ -39,6 +40,7 @@ This software project aims to deliver a cross-platform graphical user interface 
 5. **Playback Control**
    - There must be play, pause, and stop controls to start or stop both videos simultaneously and in sync.
    - The **play** button shall be enabled only when at least one video is loaded; it shall be disabled when no video is loaded.
+   - When only one video is loaded, that video shall still be playable (play, pause, stop, frame step, and timeline seek).
    - Playback should maintain synchronization between both videos (within the configured sync settings).
 
 6. **Sync Adjustment Controls for Second Video**

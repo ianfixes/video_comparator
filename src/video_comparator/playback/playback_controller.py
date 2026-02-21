@@ -40,8 +40,8 @@ class PlaybackController:
     def __init__(
         self,
         timeline_controller: TimelineController,
-        decoder_video1: VideoDecoder,
-        decoder_video2: VideoDecoder,
+        decoder_video1: Optional[VideoDecoder],
+        decoder_video2: Optional[VideoDecoder],
         frame_cache_video1: FrameCache,
         frame_cache_video2: FrameCache,
         error_handler: ErrorHandler,
@@ -49,18 +49,20 @@ class PlaybackController:
     ) -> None:
         """Initialize playback controller with timeline, decoders, and caches.
 
+        At least one of decoder_video1 or decoder_video2 must be non-None for single- or dual-video playback.
+
         Args:
             timeline_controller: Timeline controller for position and sync management
-            decoder_video1: Decoder for the first video
-            decoder_video2: Decoder for the second video
+            decoder_video1: Decoder for the first video (None if only video 2 loaded)
+            decoder_video2: Decoder for the second video (None if only video 1 loaded)
             frame_cache_video1: Frame cache for the first video
             frame_cache_video2: Frame cache for the second video
             error_handler: Error handler for displaying errors
             frame_callback: Optional callback function(result_video1, result_video2) called when frames are ready
         """
         self.timeline_controller: TimelineController = timeline_controller
-        self.decoder_video1: VideoDecoder = decoder_video1
-        self.decoder_video2: VideoDecoder = decoder_video2
+        self.decoder_video1: Optional[VideoDecoder] = decoder_video1
+        self.decoder_video2: Optional[VideoDecoder] = decoder_video2
         self.frame_cache_video1: FrameCache = frame_cache_video1
         self.frame_cache_video2: FrameCache = frame_cache_video2
         self.error_handler: ErrorHandler = error_handler
@@ -107,18 +109,19 @@ class PlaybackController:
         else:
             raise PlaybackStateError(f"Invalid state transition from {self.state} to STOPPED")
 
+    def _get_max_duration(self) -> float:
+        """Return effective max timeline duration (handles one or two videos)."""
+        _, max_position = self.timeline_controller.get_effective_range()
+        return max_position
+
     def frame_step_forward(self) -> None:
         """Step forward one frame in both videos."""
-        current_frame_video1 = self.timeline_controller.get_resolved_frame_video1()
         current_time = self.timeline_controller.current_position
         fps_video1 = self.timeline_controller.metadata_video1.fps
         frame_duration = 1.0 / fps_video1
 
         new_time = current_time + (frame_duration * self.playback_speed)
-        max_duration = min(
-            self.timeline_controller.metadata_video1.duration,
-            self.timeline_controller.metadata_video2.duration,
-        )
+        max_duration = self._get_max_duration()
         new_time = min(new_time, max_duration)
 
         self.timeline_controller.set_position(new_time)
@@ -148,10 +151,7 @@ class PlaybackController:
             return
 
         current_time = self.timeline_controller.current_position
-        max_duration = min(
-            self.timeline_controller.metadata_video1.duration,
-            self.timeline_controller.metadata_video2.duration,
-        )
+        max_duration = self._get_max_duration()
 
         new_time = current_time + (delta_time * self.playback_speed)
         if new_time >= max_duration:
@@ -192,16 +192,27 @@ class PlaybackController:
             self._pending_result_video1 = None
             self._pending_result_video2 = None
 
-        self.frame_cache_video1.request_prefill_frame(
-            self._prefill_strategy_video1,
-            lambda result: self._handle_frame_result(1, result),
-            self.decoder_video1,
-        )
-        self.frame_cache_video2.request_prefill_frame(
-            self._prefill_strategy_video2,
-            lambda result: self._handle_frame_result(2, result),
-            self.decoder_video2,
-        )
+        placeholder = FrameResult(0, None, FrameRequestStatus.SUCCESS, None)
+        only_video1 = self.decoder_video2 is None
+        only_video2 = self.decoder_video1 is None
+
+        if self.decoder_video1 is not None:
+            self.frame_cache_video1.request_prefill_frame(
+                self._prefill_strategy_video1,
+                lambda result: self._handle_frame_result(1, result),
+                self.decoder_video1,
+            )
+        if self.decoder_video2 is not None:
+            self.frame_cache_video2.request_prefill_frame(
+                self._prefill_strategy_video2,
+                lambda result: self._handle_frame_result(2, result),
+                self.decoder_video2,
+            )
+
+        if only_video1:
+            self._handle_frame_result(2, placeholder)
+        elif only_video2:
+            self._handle_frame_result(1, placeholder)
 
     def _handle_frame_result(self, video_id: int, result: FrameResult) -> None:
         """Handle a frame result from one of the frame caches.
@@ -236,8 +247,10 @@ class PlaybackController:
                 if self.frame_callback is not None:
                     self.frame_callback(result1, result2)
 
-                self.frame_cache_video1.signal_sync_complete()
-                self.frame_cache_video2.signal_sync_complete()
+                if self.decoder_video1 is not None:
+                    self.frame_cache_video1.signal_sync_complete()
+                if self.decoder_video2 is not None:
+                    self.frame_cache_video2.signal_sync_complete()
 
     def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.

@@ -9,7 +9,7 @@ Responsibilities:
 - Routes UI events to controllers
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 import wx
 
@@ -25,15 +25,18 @@ class TimelineSlider:
         self,
         parent: wx.Window,
         timeline_controller: TimelineController,
+        on_position_changed: Optional[Callable[[], None]] = None,
     ) -> None:
         """Initialize timeline slider with parent and timeline controller.
 
         Args:
             parent: Parent wx.Window widget
             timeline_controller: TimelineController for position management
+            on_position_changed: Optional callback invoked when user changes position (e.g. to request frames)
         """
         self.parent: wx.Window = parent
         self.timeline_controller: TimelineController = timeline_controller
+        self._on_position_changed: Optional[Callable[[], None]] = on_position_changed
         self._updating_from_controller: bool = False
 
         self._update_slider_range()
@@ -76,6 +79,8 @@ class TimelineSlider:
         try:
             self.timeline_controller.set_position(timestamp)
             self._update_position_display()
+            if self._on_position_changed is not None:
+                self._on_position_changed()
         except Exception:
             pass
 
@@ -408,6 +413,7 @@ class ControlPanel:
         timeline_controller: TimelineController,
         video_pane1: VideoPane,
         video_pane2: VideoPane,
+        on_timeline_position_changed: Optional[Callable[[], None]] = None,
     ) -> None:
         """Initialize control panel with parent, controllers, and video panes.
 
@@ -417,6 +423,7 @@ class ControlPanel:
             timeline_controller: TimelineController for timeline management
             video_pane1: First VideoPane widget
             video_pane2: Second VideoPane widget
+            on_timeline_position_changed: Optional callback when user changes timeline (e.g. slider drag)
         """
         self.parent: wx.Window = parent
         self.playback_controller: PlaybackController = playback_controller
@@ -436,7 +443,9 @@ class ControlPanel:
         self.step_forward_button.Bind(wx.EVT_BUTTON, self._on_step_forward)
         self.step_backward_button.Bind(wx.EVT_BUTTON, self._on_step_backward)
 
-        self.timeline_slider: TimelineSlider = TimelineSlider(self.panel, timeline_controller)
+        self.timeline_slider: TimelineSlider = TimelineSlider(
+            self.panel, timeline_controller, on_position_changed=on_timeline_position_changed
+        )
         self.sync_controls: SyncControls = SyncControls(self.panel, timeline_controller)
         self.zoom_controls: ZoomControls = ZoomControls(self.panel, video_pane1, video_pane2)
 

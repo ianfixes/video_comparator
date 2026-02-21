@@ -8,6 +8,7 @@ Responsibilities:
 - Manage quitting lifecycle
 """
 
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, Optional
 from unittest.mock import MagicMock
@@ -72,6 +73,8 @@ class Application:
         self.metadata_video2: Optional[VideoMetadata] = None
 
         self.media_loader: MediaLoader = MediaLoader(error_handler)
+        self._playback_timer: Optional[wx.Timer] = None
+        self._last_tick_time: float = 0.0
 
     def initialize(self) -> None:
         """Initialize the application and create all subsystems."""
@@ -193,6 +196,7 @@ class Application:
                 timeline_controller=self.timeline_controller,
                 video_pane1=self.video_pane1,
                 video_pane2=self.video_pane2,
+                on_timeline_position_changed=self._on_timeline_position_changed,
             )
         else:
             from video_comparator.common.types import PlaybackState
@@ -205,6 +209,7 @@ class Application:
                 timeline_controller=self.timeline_controller,
                 video_pane1=self.video_pane1,
                 video_pane2=self.video_pane2,
+                on_timeline_position_changed=self._on_timeline_position_changed,
             )
 
     def _create_shortcut_manager(self) -> None:
@@ -274,6 +279,7 @@ class Application:
             self.video_pane2.set_on_request_open_file(self._handle_open_video_2)
 
         self._update_control_panel_load_state()
+        self._create_playback_timer()
         self.main_frame.Show()
 
     def _create_placeholder_metadata(self) -> VideoMetadata:
@@ -304,6 +310,36 @@ class Application:
             self.video_pane1.set_frame(result_video1.frame)
         if self.video_pane2 is not None and result_video2.frame is not None:
             self.video_pane2.set_frame(result_video2.frame)
+
+    def _on_timeline_position_changed(self) -> None:
+        """Called when user changes timeline position (e.g. slider drag). Request frames at new position."""
+        if self.playback_controller is not None:
+            self.playback_controller.request_frames_at_current_position()
+
+    def _create_playback_timer(self) -> None:
+        """Create and bind the playback advance timer (call tick when playing)."""
+        if self.main_frame is None or not isinstance(self.main_frame, wx.EvtHandler):
+            return
+        self._playback_timer = wx.Timer(self.main_frame)
+        self.main_frame.Bind(wx.EVT_TIMER, self._on_playback_timer, self._playback_timer)
+
+    def _on_playback_timer(self, event: wx.TimerEvent) -> None:
+        """Advance playback when playing and update timeline slider."""
+        from video_comparator.common.types import PlaybackState
+
+        if self.playback_controller is None:
+            return
+        if self.playback_controller.state != PlaybackState.PLAYING:
+            return
+        now = time.perf_counter()
+        if self._last_tick_time > 0:
+            delta = now - self._last_tick_time
+            self.playback_controller.tick(delta)
+        self._last_tick_time = now
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
 
     def _handle_play_pause(self) -> None:
         """Handle play/pause command."""
@@ -455,11 +491,8 @@ class Application:
             self.control_panel.timeline_slider.update_range()
 
         if (
-            self.decoder_video1 is not None
-            and self.decoder_video2 is not None
-            and self.playback_controller is None
-            and self.timeline_controller is not None
-        ):
+            self.decoder_video1 is not None or self.decoder_video2 is not None
+        ) and self.timeline_controller is not None:
             self.playback_controller = PlaybackController(
                 timeline_controller=self.timeline_controller,
                 decoder_video1=self.decoder_video1,
@@ -504,11 +537,15 @@ class Application:
         if self.app is None:
             raise RuntimeError("wx.App must be initialized before running application")
 
+        if self._playback_timer is not None:
+            self._playback_timer.Start(33)
         self.app.MainLoop()
         return 0
 
     def shutdown(self) -> None:
         """Shutdown the application and cleanup resources."""
+        if self._playback_timer is not None:
+            self._playback_timer.Stop()
         if self.playback_controller is not None:
             self.playback_controller.stop()
 

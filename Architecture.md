@@ -24,6 +24,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
       - View > Toggle Scaling Mode toggles scaling mode (independent vs "match larger").
     - Help
 - quitting lifecycle.
+- **Playback timer**: A wx.Timer fires periodically (e.g. ~33 ms). When PlaybackController state is PLAYING, Application calls tick(delta) and updates the timeline slider so playback advances and panes refresh.
+- **Timeline position change**: When the user changes the timeline position (e.g. slider drag), TimelineSlider invokes an optional callback; Application uses it to call PlaybackController.request_frames_at_current_position() so the video panes display the frame(s) at the new position.
 #### Testability
 - unit tests for wiring (mocks)
 - smoke tests that instantiate the app without loading media.
@@ -187,6 +189,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - User callback receives FrameResult objects, allowing UI to display blank/error frames when needed
   - If one video has an error and the other succeeds, sync signal is still sent (error frame is passed to callback)
 - Handles race conditions: when position changes rapidly, old requests are cancelled and new ones initiated
+- **Single-video mode**: PlaybackController may be created with decoder_video2 (or decoder_video1) as None when only one video is loaded. Only the loaded video's FrameCache receives request_prefill_frame(). A placeholder FrameResult (frame=None, status=SUCCESS) is used for the missing side so the frame callback is invoked with (result1, result2) and the UI updates only the loaded pane; effective timeline duration is that of the loaded video.
 #### Testability
 - unit tests on state transitions and emitted requests
 - simulated tick tests without GUI
@@ -218,7 +221,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 ### 8) Layout & Controls
 #### Responsibilities
 - toggle orientation (horizontal/vertical) and scaling mode (independent fit vs. match larger video), wired to View menu and/or shortcuts
-- timeline slider
+- timeline slider (optional on_position_changed callback so Application can request frames when user seeks)
 - play/pause/stop; **play button enabled only when at least one video is loaded**
 - frame-step buttons
 - sync-offset slider + ±1 buttons; **sync controls enabled only when both videos are loaded**
