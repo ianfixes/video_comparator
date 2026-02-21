@@ -95,22 +95,28 @@ class TimelineController:
 
         The range represents the maximum navigable timeline positions. When sync offsets
         are present, the range may extend beyond the shorter video's duration to cover
-        the full overlap region. Frame conversion logic handles clamping to valid frame ranges.
+        the full overlap region. When only one video is loaded (other has duration 0),
+        the range is that video's duration.
 
         Returns:
             Tuple of (min_position, max_position) in seconds
         """
-        offset_time = self.sync_offset_frames / self.metadata_video2.fps
-
+        d1 = self.metadata_video1.duration
+        d2 = self.metadata_video2.duration
         min_position = 0.0
 
+        if d1 <= 0 or d2 <= 0:
+            max_position = max(d1, d2)
+            return (min_position, max_position)
+
+        offset_time = self.sync_offset_frames / self.metadata_video2.fps
         if self.sync_offset_frames < 0:
-            max_pos_video2 = self.metadata_video2.duration - offset_time
-            max_position = max(self.metadata_video1.duration, max_pos_video2)
+            max_pos_video2 = d2 - offset_time
+            max_position = max(d1, max_pos_video2)
         elif self.sync_offset_frames > 0:
-            max_position = min(self.metadata_video1.duration, self.metadata_video2.duration - offset_time)
+            max_position = min(d1, d2 - offset_time)
         else:
-            max_position = min(self.metadata_video1.duration, self.metadata_video2.duration)
+            max_position = min(d1, d2)
 
         return (min_position, max_position)
 
@@ -127,6 +133,22 @@ class TimelineController:
         if timestamp < min_position or timestamp > max_position:
             raise InvalidPositionError(f"Position {timestamp} out of range [{min_position}, {max_position}]")
         self.current_position = timestamp
+
+    def set_metadata_video1(self, metadata: VideoMetadata) -> None:
+        """Set metadata for video 1 (e.g. after loading a file).
+
+        Args:
+            metadata: VideoMetadata for the first video
+        """
+        self.metadata_video1 = metadata
+
+    def set_metadata_video2(self, metadata: VideoMetadata) -> None:
+        """Set metadata for video 2 (e.g. after loading a file).
+
+        Args:
+            metadata: VideoMetadata for the second video
+        """
+        self.metadata_video2 = metadata
 
     def set_sync_offset(self, offset_frames: int) -> None:
         """Set the sync offset for video 2.

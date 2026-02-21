@@ -134,6 +134,12 @@ class ShortcutManager:
                 command="toggle_layout",
                 tooltip="Ctrl+L - Toggle Layout",
             ),
+            "toggle_scaling": KeyBinding(
+                key_code=ord("M"),
+                modifiers=wx.MOD_CONTROL | wx.MOD_SHIFT,
+                command="toggle_scaling",
+                tooltip="Ctrl+Shift+M - Toggle Scaling Mode",
+            ),
         }
 
     def _merge_bindings(self) -> Dict[str, KeyBinding]:

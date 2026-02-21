@@ -22,6 +22,7 @@ from video_comparator.config.settings_manager import SettingsManager
 from video_comparator.decode.video_decoder import VideoDecoder
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.input.shortcut_manager import ShortcutManager
+from video_comparator.media.media_loader import MediaLoader
 from video_comparator.media.video_metadata import VideoMetadata
 from video_comparator.playback.playback_controller import PlaybackController
 from video_comparator.render.scaling_calculator import ScalingCalculator
@@ -69,6 +70,8 @@ class Application:
 
         self.metadata_video1: Optional[VideoMetadata] = None
         self.metadata_video2: Optional[VideoMetadata] = None
+
+        self.media_loader: MediaLoader = MediaLoader(error_handler)
 
     def initialize(self) -> None:
         """Initialize the application and create all subsystems."""
@@ -216,6 +219,7 @@ class Application:
 
         if self.layout_manager is not None:
             command_handlers["toggle_layout"] = self._handle_toggle_layout
+            command_handlers["toggle_scaling"] = self._handle_toggle_scaling
 
         if self.video_pane1 is not None and self.video_pane2 is not None:
             command_handlers["zoom_in"] = self._handle_zoom_in
@@ -257,23 +261,36 @@ class Application:
 
         self.main_frame.update_layout()
         self.error_handler.parent_window = self.main_frame
+
+        self.main_frame.set_menu_handlers(
+            on_open_video_1=self._handle_open_video_1,
+            on_open_video_2=self._handle_open_video_2,
+            on_toggle_layout=self._handle_toggle_layout,
+            on_toggle_scaling=self._handle_toggle_scaling,
+        )
+        if self.video_pane1 is not None:
+            self.video_pane1.set_on_request_open_file(self._handle_open_video_1)
+        if self.video_pane2 is not None:
+            self.video_pane2.set_on_request_open_file(self._handle_open_video_2)
+
+        self._update_control_panel_load_state()
         self.main_frame.Show()
 
     def _create_placeholder_metadata(self) -> VideoMetadata:
-        """Create placeholder metadata for initial state.
+        """Create placeholder metadata for initial state (no video loaded).
 
-        Returns:
-            VideoMetadata with placeholder values
+        Duration and total_frames are 0 so timeline range is (0, 0) until a
+        video is loaded; when one is loaded, range is that video's duration.
         """
         return VideoMetadata(
             file_path=None,
-            duration=1.0,
-            fps=30.0,
+            duration=0.0,
+            fps=1.0,
             width=1920,
             height=1080,
             pixel_format="yuv420p",
-            total_frames=30,
-            time_base=1.0 / 30.0,
+            total_frames=0,
+            time_base=1.0,
         )
 
     def _on_frames_ready(self, result_video1: "FrameResult", result_video2: "FrameResult") -> None:
@@ -331,7 +348,7 @@ class Application:
             return
         self.layout_manager.toggle_orientation()
         if self.main_frame is not None:
-            self.main_frame.Layout()
+            self.main_frame.update_layout()
 
     def _handle_zoom_in(self) -> None:
         """Handle zoom in command."""
@@ -363,6 +380,108 @@ class Application:
         self.video_pane2.pan_y = 0.0
         self.video_pane1.Refresh()
         self.video_pane2.Refresh()
+
+    def _handle_toggle_scaling(self) -> None:
+        """Handle toggle scaling mode command."""
+        if self.layout_manager is None:
+            return
+        self.layout_manager.toggle_scaling_mode()
+
+    def _update_control_panel_load_state(self) -> None:
+        """Update control panel play/sync enabled state from current video load state."""
+        if self.control_panel is None:
+            return
+        has_v1 = self.metadata_video1 is not None and self.metadata_video1.file_path is not None
+        has_v2 = self.metadata_video2 is not None and self.metadata_video2.file_path is not None
+        self.control_panel.update_load_state(has_v1, has_v2)
+
+    def _handle_open_video_1(self) -> None:
+        """Open file chooser and load video 1."""
+        if self.main_frame is None:
+            return
+        metadata = self.media_loader.load_video_file(self.main_frame)
+        if metadata is None:
+            return
+        self._apply_loaded_video(1, metadata)
+
+    def _handle_open_video_2(self) -> None:
+        """Open file chooser and load video 2."""
+        if self.main_frame is None:
+            return
+        metadata = self.media_loader.load_video_file(self.main_frame)
+        if metadata is None:
+            return
+        self._apply_loaded_video(2, metadata)
+
+    def _apply_loaded_video(self, slot: int, metadata: VideoMetadata) -> None:
+        """Apply loaded metadata to the given slot (1 or 2) and update decoders/caches/UI."""
+        from video_comparator.decode.video_decoder import VideoDecoder
+
+        if metadata.file_path is None:
+            return
+        if self.timeline_controller is None or self.frame_cache_video1 is None or self.frame_cache_video2 is None:
+            return
+
+        if slot == 1:
+            if self.decoder_video1 is not None:
+                self.decoder_video1.close()
+            if self.frame_cache_video1 is not None:
+                self.frame_cache_video1.invalidate()
+            self.metadata_video1 = metadata
+            self.decoder_video1 = VideoDecoder(metadata)
+            if self.frame_cache_video1 is None:
+                self.frame_cache_video1 = FrameCache(max_memory_mb=100)
+            else:
+                self.frame_cache_video1.invalidate()
+            self.timeline_controller.set_metadata_video1(metadata)
+            if self.video_pane1 is not None:
+                self.video_pane1.set_metadata(metadata)
+        else:
+            if self.decoder_video2 is not None:
+                self.decoder_video2.close()
+            if self.frame_cache_video2 is not None:
+                self.frame_cache_video2.invalidate()
+            self.metadata_video2 = metadata
+            self.decoder_video2 = VideoDecoder(metadata)
+            if self.frame_cache_video2 is None:
+                self.frame_cache_video2 = FrameCache(max_memory_mb=100)
+            else:
+                self.frame_cache_video2.invalidate()
+            self.timeline_controller.set_metadata_video2(metadata)
+            if self.video_pane2 is not None:
+                self.video_pane2.set_metadata(metadata)
+
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_range()
+
+        if (
+            self.decoder_video1 is not None
+            and self.decoder_video2 is not None
+            and self.playback_controller is None
+            and self.timeline_controller is not None
+        ):
+            self.playback_controller = PlaybackController(
+                timeline_controller=self.timeline_controller,
+                decoder_video1=self.decoder_video1,
+                decoder_video2=self.decoder_video2,
+                frame_cache_video1=self.frame_cache_video1,
+                frame_cache_video2=self.frame_cache_video2,
+                error_handler=self.error_handler,
+                frame_callback=self._on_frames_ready,
+            )
+            if self.control_panel is not None:
+                self.control_panel.set_playback_controller(self.playback_controller)
+            self.timeline_controller.set_position(0.0)
+            self.playback_controller.request_frames_at_current_position()
+            if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+                self.control_panel.timeline_slider.update_position()
+
+        self._update_control_panel_load_state()
+        if self.main_frame is not None and self.layout_manager is not None:
+            self.layout_manager.update_layout(
+                self.main_frame.GetClientSize().GetWidth(),
+                self.main_frame.GetClientSize().GetHeight(),
+            )
 
     def _handle_sync_nudge_forward(self) -> None:
         """Handle sync nudge forward command."""

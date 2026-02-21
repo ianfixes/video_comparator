@@ -157,6 +157,7 @@ class TestShortcutManager(unittest.TestCase):
             "sync_nudge_forward": lambda: None,
             "sync_nudge_backward": lambda: None,
             "toggle_layout": lambda: None,
+            "toggle_scaling": lambda: None,
         }
         manager = ShortcutManager(command_handlers=handlers)
 
@@ -171,6 +172,7 @@ class TestShortcutManager(unittest.TestCase):
             "sync_nudge_forward",
             "sync_nudge_backward",
             "toggle_layout",
+            "toggle_scaling",
         }
 
         self.assertEqual(set(manager.default_bindings.keys()), expected_commands)

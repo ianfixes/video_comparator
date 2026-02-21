@@ -15,11 +15,13 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 2. **Dual Video Display**
    - The application shall allow the user to load two independent video files.
+   - Loading shall be available via **File > Open Video 1** and **File > Open Video 2** (or equivalent shortcuts). Each menu item opens a file chooser and loads the selected file into the corresponding pane.
+   - Clicking the empty video pane (or the "no video loaded" placeholder text) shall open the file chooser for that pane, so users can load a video by clicking where it will appear.
    - Both videos shall be displayed simultaneously, in a side-by-side or stacked configuration.
-   - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split.
+   - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split (e.g. via **View > Toggle Layout** and keyboard shortcut).
    - Each video pane should display the same current frame (after sync adjustments).
    - Both videos are displayed within matched bounding boxes, ensuring that the comparison area is visually consistent, regardless of original dimensions.
-   - If the source dimensions differ, users can toggle between two modes:
+   - If the source dimensions differ, users can toggle between two modes (e.g. via **View → Toggle Scaling Mode**):
      1. Each video scaled to fill its own bounding box (preserving aspect ratio).
      2. The larger video fills the box, and the smaller video is scaled proportionally to the displayed size of the larger one.
    - Each video's native dimensions must be displayed in text.
@@ -36,9 +38,11 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 5. **Playback Control**
    - There must be play, pause, and stop controls to start or stop both videos simultaneously and in sync.
+   - The **play** button shall be enabled only when at least one video is loaded; it shall be disabled when no video is loaded.
    - Playback should maintain synchronization between both videos (within the configured sync settings).
 
 6. **Sync Adjustment Controls for Second Video**
+   - Sync adjustment controls (slider and +/-1 frame buttons) shall be enabled only when **both** videos are loaded; they shall be disabled when fewer than two videos are loaded.
    - The second video must feature at the top:
      - A slider for rough adjustment of sync offset relative to the first video (expressed in frames, positive or negative).
      - "+" and "-" buttons for precise adjustment: shifting the second video's position by one frame forward or backward.

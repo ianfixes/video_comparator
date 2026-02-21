@@ -2,6 +2,8 @@
 
 This document outlines the implementation plan from lowest-level modules to highest-level modules. Each module should be completed and tested before dependent modules are implemented.
 
+**UI layout:** See **UI_LAYOUT_DIAGRAM.md** for the canonical window and control-panel layout (hierarchy, sizers, row order).
+
 ## Phase 1: Foundation (No Dependencies)
 
 ### ✅ Common Types (`common/types.py`)
@@ -367,6 +369,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement scaling mode support (independent vs match_larger)
 - [x] Implement matched bounding box calculation
 - [x] Implement overlay rendering (filename, dimensions, time/frame, zoom level)
+- [x] Handle click on "no video loaded" overlay to open file chooser for that video pane
 - [x] Implement mouse event handlers:
   - [x] Mouse drag (click-and-drag) for panning the zoomed region
   - [x] Mouse wheel scroll for zooming in/out
@@ -470,8 +473,11 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement play/pause/stop buttons
 - [x] Implement frame-step forward/backward buttons
 - [x] Integrate TimelineSlider, SyncControls, ZoomControls
+- [x] Implement ControlPanel layout per UI_LAYOUT_DIAGRAM.md (`_create_layout()`: vertical BoxSizer, rows for timeline slider+label, playback buttons, sync slider+buttons+label, zoom buttons+label)
 - [x] Integrate with PlaybackController for button actions
 - [x] Implement button event wiring
+- [x] Enable play button only when at least one video is loaded (disabled when no videos loaded)
+- [x] Enable sync (frame offset) controls only when both videos are loaded (disabled when fewer than 2 videos)
 
 **Unit Tests Required:**
 - [x] Test ControlPanel initialization
@@ -534,6 +540,9 @@ This document outlines the implementation plan from lowest-level modules to high
 ### MainFrame (`app/main_frame.py`)
 - [x] Implement wx.Frame subclass
 - [x] Implement menu bar creation
+- [x] Wire File menu: Open Video 1 / Open Video 2 trigger file chooser and load video for that pane
+- [x] Wire View menu: Toggle Layout menu item toggles layout orientation and refreshes frame layout
+- [x] Wire View menu: Toggle Scaling Mode menu item toggles scaling mode (independent ↔ match larger)
 - [x] Implement toolbar creation (if needed)
 - [x] Implement window layout (sizers)
 - [x] Integrate LayoutManager for video pane layout

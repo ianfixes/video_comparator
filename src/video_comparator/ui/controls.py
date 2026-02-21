@@ -440,7 +440,64 @@ class ControlPanel:
         self.sync_controls: SyncControls = SyncControls(self.panel, timeline_controller)
         self.zoom_controls: ZoomControls = ZoomControls(self.panel, video_pane1, video_pane2)
 
+        self._has_video1: bool = False
+        self._has_video2: bool = False
+
+        self._create_layout()
         self._update_button_states()
+        self._update_sync_controls_state()
+
+    def _create_layout(self) -> None:
+        """Create the control panel layout per UI_LAYOUT_DIAGRAM.md.
+
+        Vertical BoxSizer with rows: timeline slider+label, playback buttons,
+        sync slider+buttons+label, zoom buttons+label. Sliders expand horizontally;
+        buttons and labels use natural size.
+        """
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Row 1: Timeline Slider (vertical: slider then position label)
+        timeline_row = wx.BoxSizer(wx.VERTICAL)
+        timeline_row.Add(
+            self.timeline_slider.get_widget(),
+            proportion=1,
+            flag=wx.EXPAND,
+        )
+        timeline_row.Add(self.timeline_slider.get_position_label(), flag=wx.TOP, border=4)
+        main_sizer.Add(timeline_row, flag=wx.EXPAND)
+
+        # Row 2: Playback Controls (horizontal)
+        playback_row = wx.BoxSizer(wx.HORIZONTAL)
+        playback_row.Add(self.play_button)
+        playback_row.Add(self.pause_button, flag=wx.LEFT, border=8)
+        playback_row.Add(self.stop_button, flag=wx.LEFT, border=8)
+        playback_row.Add(self.step_backward_button, flag=wx.LEFT, border=8)
+        playback_row.Add(self.step_forward_button, flag=wx.LEFT, border=8)
+        main_sizer.Add(playback_row, flag=wx.TOP, border=12)
+
+        # Row 3: Sync Controls (vertical: slider then buttons+label)
+        sync_row = wx.BoxSizer(wx.VERTICAL)
+        sync_row.Add(
+            self.sync_controls.offset_slider,
+            proportion=1,
+            flag=wx.EXPAND,
+        )
+        sync_buttons_row = wx.BoxSizer(wx.HORIZONTAL)
+        sync_buttons_row.Add(self.sync_controls.decrement_button)
+        sync_buttons_row.Add(self.sync_controls.increment_button, flag=wx.LEFT, border=8)
+        sync_buttons_row.Add(self.sync_controls.offset_label, flag=wx.LEFT, border=12)
+        sync_row.Add(sync_buttons_row, flag=wx.TOP, border=4)
+        main_sizer.Add(sync_row, flag=wx.TOP | wx.EXPAND, border=12)
+
+        # Row 4: Zoom Controls (horizontal)
+        zoom_row = wx.BoxSizer(wx.HORIZONTAL)
+        zoom_row.Add(self.zoom_controls.get_zoom_in_button())
+        zoom_row.Add(self.zoom_controls.get_zoom_out_button(), flag=wx.LEFT, border=8)
+        zoom_row.Add(self.zoom_controls.get_zoom_reset_button(), flag=wx.LEFT, border=8)
+        zoom_row.Add(self.zoom_controls.get_zoom_label(), flag=wx.LEFT, border=12)
+        main_sizer.Add(zoom_row, flag=wx.TOP, border=12)
+
+        self.panel.SetSizer(main_sizer)
 
     def _on_play(self, event: wx.CommandEvent) -> None:
         """Handle play button click event.
@@ -492,20 +549,52 @@ class ControlPanel:
             self.timeline_slider.update_position()
 
     def _update_button_states(self) -> None:
-        """Update button enabled/disabled states based on playback state."""
+        """Update button enabled/disabled states based on playback state and load state."""
         from video_comparator.common.types import PlaybackState
 
+        has_any_video = self._has_video1 or self._has_video2
         state = self.playback_controller.state
 
-        self.play_button.Enable(state != PlaybackState.PLAYING)
+        self.play_button.Enable(has_any_video and state != PlaybackState.PLAYING)
         self.pause_button.Enable(state == PlaybackState.PLAYING)
-        self.stop_button.Enable(state != PlaybackState.STOPPED)
+        self.stop_button.Enable(has_any_video and state != PlaybackState.STOPPED)
+
+    def _update_sync_controls_state(self) -> None:
+        """Enable or disable sync controls based on whether both videos are loaded."""
+        enabled = self._has_video1 and self._has_video2
+        self.sync_controls.offset_slider.Enable(enabled)
+        self.sync_controls.increment_button.Enable(enabled)
+        self.sync_controls.decrement_button.Enable(enabled)
 
     def update_button_states(self) -> None:
         """Update button states from playback controller.
 
         This should be called when playback state changes externally.
         """
+        self._update_button_states()
+
+    def update_load_state(self, has_video1: bool, has_video2: bool) -> None:
+        """Update play and sync control states based on which videos are loaded.
+
+        Play button is enabled when at least one video is loaded.
+        Sync (frame offset) controls are enabled only when both videos are loaded.
+
+        Args:
+            has_video1: True if video 1 is loaded
+            has_video2: True if video 2 is loaded
+        """
+        self._has_video1 = has_video1
+        self._has_video2 = has_video2
+        self._update_button_states()
+        self._update_sync_controls_state()
+
+    def set_playback_controller(self, playback_controller: PlaybackController) -> None:
+        """Replace the playback controller (e.g. when both videos become loaded).
+
+        Args:
+            playback_controller: New PlaybackController instance
+        """
+        self.playback_controller = playback_controller
         self._update_button_states()
 
     def get_panel(self) -> wx.Panel:

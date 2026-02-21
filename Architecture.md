@@ -17,6 +17,12 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - dependency wiring
 - global event loop
 - top-level menu/toolbars
+    - File
+      - File > Open Video 1 / Open Video 2 trigger file chooser and load video for the corresponding pane;
+    - View
+      - View > Toggle Layout toggles orientation and refreshes layout
+      - View > Toggle Scaling Mode toggles scaling mode (independent vs "match larger").
+    - Help
 - quitting lifecycle.
 #### Testability
 - unit tests for wiring (mocks)
@@ -203,6 +209,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - mouse drag for panning
   - scroll wheel for zoom in/out
   - Shift-drag rectangle for zoom to region
+- **Empty state**: Clicking the "no video loaded" overlay (or empty pane) opens the file chooser for that pane so the user can load a video by clicking where it will appear.
 #### Testability
 - logic tests for transform math (pan/zoom/fit calculations)
 - mouse event handling tests (drag, wheel, Shift-drag)
@@ -210,11 +217,11 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 ### 8) Layout & Controls
 #### Responsibilities
-- toggle orientation (horizontal/vertical) and scaling mode (independent fit vs. match larger video)
+- toggle orientation (horizontal/vertical) and scaling mode (independent fit vs. match larger video), wired to View menu and/or shortcuts
 - timeline slider
-- play/pause/stop
+- play/pause/stop; **play button enabled only when at least one video is loaded**
 - frame-step buttons
-- sync-offset slider + ±1 buttons
+- sync-offset slider + ±1 buttons; **sync controls enabled only when both videos are loaded**
 - zoom controls (in/out/reset)
 - layout mode toggle
 - routes UI events to controllers.

@@ -161,6 +161,11 @@ class PlaybackController:
         self.timeline_controller.set_position(new_time)
         self._request_frames()
 
+    def request_frames_at_current_position(self) -> None:
+        """Request frames for the current timeline position (e.g. after loading videos)."""
+        self._last_position = -1.0
+        self._request_frames()
+
     def _request_frames(self) -> None:
         """Request current frames from frame caches using prefill strategies."""
         self._update_prefill_strategies()

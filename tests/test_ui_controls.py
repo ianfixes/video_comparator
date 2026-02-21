@@ -816,9 +816,11 @@ class TestControlPanel(unittest.TestCase):
 
     def test_initialization(self) -> None:
         """Test ControlPanel initialization."""
-        with patch("video_comparator.ui.controls.wx.Panel") as mock_panel_class, patch(
-            "video_comparator.ui.controls.wx.Button"
-        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ) as mock_panel_class, patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ), patch(
             "video_comparator.ui.controls.SyncControls"
         ), patch(
             "video_comparator.ui.controls.ZoomControls"
@@ -847,9 +849,13 @@ class TestControlPanel(unittest.TestCase):
 
     def test_play_button_triggers_playback_controller_play(self) -> None:
         """Test play button triggers PlaybackController.play()."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
-            "video_comparator.ui.controls.TimelineSlider"
-        ), patch("video_comparator.ui.controls.SyncControls"), patch("video_comparator.ui.controls.ZoomControls"):
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
             control_panel = ControlPanel(
                 self.parent,
                 self.playback_controller,
@@ -865,9 +871,13 @@ class TestControlPanel(unittest.TestCase):
 
     def test_pause_button_triggers_playback_controller_pause(self) -> None:
         """Test pause button triggers PlaybackController.pause()."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
-            "video_comparator.ui.controls.TimelineSlider"
-        ), patch("video_comparator.ui.controls.SyncControls"), patch("video_comparator.ui.controls.ZoomControls"):
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
             control_panel = ControlPanel(
                 self.parent,
                 self.playback_controller,
@@ -884,9 +894,13 @@ class TestControlPanel(unittest.TestCase):
 
     def test_stop_button_triggers_playback_controller_stop(self) -> None:
         """Test stop button triggers PlaybackController.stop()."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch(
             "video_comparator.ui.controls.TimelineSlider"
-        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+        ) as mock_timeline_slider_class, patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
             "video_comparator.ui.controls.ZoomControls"
         ):
             mock_timeline_slider = MagicMock()
@@ -909,9 +923,13 @@ class TestControlPanel(unittest.TestCase):
 
     def test_frame_step_forward_button_triggers_step_forward(self) -> None:
         """Test frame-step forward button triggers step_forward()."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch(
             "video_comparator.ui.controls.TimelineSlider"
-        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+        ) as mock_timeline_slider_class, patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
             "video_comparator.ui.controls.ZoomControls"
         ):
             mock_timeline_slider = MagicMock()
@@ -934,9 +952,13 @@ class TestControlPanel(unittest.TestCase):
 
     def test_frame_step_backward_button_triggers_step_backward(self) -> None:
         """Test frame-step backward button triggers step_backward()."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch("video_comparator.ui.controls.wx.Button"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch(
             "video_comparator.ui.controls.TimelineSlider"
-        ) as mock_timeline_slider_class, patch("video_comparator.ui.controls.SyncControls"), patch(
+        ) as mock_timeline_slider_class, patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
             "video_comparator.ui.controls.ZoomControls"
         ):
             mock_timeline_slider = MagicMock()
@@ -960,9 +982,11 @@ class TestControlPanel(unittest.TestCase):
 
     def test_all_controls_are_properly_wired(self) -> None:
         """Test all controls are properly wired."""
-        with patch("video_comparator.ui.controls.wx.Panel") as mock_panel_class, patch(
-            "video_comparator.ui.controls.wx.Button"
-        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ) as mock_panel_class, patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ), patch(
             "video_comparator.ui.controls.SyncControls"
         ), patch(
             "video_comparator.ui.controls.ZoomControls"
@@ -984,9 +1008,11 @@ class TestControlPanel(unittest.TestCase):
 
     def test_button_states_update_with_playback_state(self) -> None:
         """Test button states update with playback state."""
-        with patch("video_comparator.ui.controls.wx.Panel"), patch(
-            "video_comparator.ui.controls.wx.Button"
-        ) as mock_button_class, patch("video_comparator.ui.controls.TimelineSlider"), patch(
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
+            "video_comparator.ui.controls.TimelineSlider"
+        ), patch(
             "video_comparator.ui.controls.SyncControls"
         ), patch(
             "video_comparator.ui.controls.ZoomControls"
@@ -1009,6 +1035,7 @@ class TestControlPanel(unittest.TestCase):
                 self.video_pane1,
                 self.video_pane2,
             )
+            control_panel.update_load_state(True, True)
 
             self.assertEqual(self.playback_controller.state, PlaybackState.STOPPED)
             control_panel._update_button_states()

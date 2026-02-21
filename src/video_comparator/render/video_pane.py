@@ -10,7 +10,7 @@ Responsibilities:
 - Mouse interactions: drag to pan, scroll wheel to zoom, Shift-drag rectangle to zoom to region
 """
 
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 import wx
@@ -65,6 +65,9 @@ class VideoPane(wx.Panel):
         # Cached bitmap for current frame
         self._cached_bitmap: Optional[wx.Bitmap] = None
 
+        # Optional callback when user clicks on empty pane to open file (e.g. load video)
+        self._on_request_open_file: Optional[Callable[[], None]] = None
+
         # Bind mouse events
         self.Bind(wx.EVT_LEFT_DOWN, self._on_left_down)
         self.Bind(wx.EVT_LEFT_UP, self._on_left_up)
@@ -82,6 +85,9 @@ class VideoPane(wx.Panel):
 
     def _on_left_down(self, event: wx.MouseEvent) -> None:
         """Handle left mouse button down event."""
+        if not event.ShiftDown() and self.metadata is None and self._on_request_open_file is not None:
+            self._on_request_open_file()
+            return
         if event.ShiftDown():
             self.is_shift_dragging = True
             self.selection_rect = None
@@ -223,8 +229,12 @@ class VideoPane(wx.Panel):
         dc.SetBackground(wx.Brush(wx.Colour(0, 0, 0)))
         dc.Clear()
 
-        if self.current_frame is None or self.metadata is None:
+        if self.metadata is None:
             self._draw_empty_state(dc, pane_width, pane_height)
+            return
+
+        if self.current_frame is None:
+            self._draw_loaded_no_frame_state(dc, pane_width, pane_height)
             return
 
         try:
@@ -319,7 +329,7 @@ class VideoPane(wx.Panel):
             raise FrameConversionError(f"Failed to convert frame to bitmap: {e}") from e
 
     def _draw_empty_state(self, dc: wx.DC, width: int, height: int) -> None:
-        """Draw empty state when no frame is available.
+        """Draw empty state when no video is loaded.
 
         Args:
             dc: Device context for drawing
@@ -333,6 +343,31 @@ class VideoPane(wx.Panel):
         text_width = text_extent[0] if text_extent[0] is not None else 0
         text_height = text_extent[1] if text_extent[1] is not None else 0
         dc.DrawText(text, (width - text_width) // 2, (height - text_height) // 2)
+
+    def _draw_loaded_no_frame_state(self, dc: wx.DC, width: int, height: int) -> None:
+        """Draw state when video is loaded but no frame is available yet (e.g. only one pane loaded).
+
+        Args:
+            dc: Device context for drawing
+            width: Panel width
+            height: Panel height
+        """
+        dc.SetTextForeground(wx.Colour(160, 160, 160))
+        dc.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        lines = []
+        if self.metadata is not None and self.metadata.file_path is not None:
+            lines.append(self.metadata.file_path.name)
+        if self.metadata is not None:
+            lines.append(f"{self.metadata.width}x{self.metadata.height}")
+        lines.append("Load the other video to compare")
+        y = (height - len(lines) * 18) // 2
+        for line in lines:
+            if not line:
+                continue
+            text_extent = dc.GetTextExtent(line)
+            text_width = text_extent[0] if text_extent[0] is not None else 0
+            dc.DrawText(line, (width - text_width) // 2, y)
+            y += 18
 
     def _draw_overlays(self, dc: wx.DC, width: int, height: int) -> None:
         """Draw overlay information (filename, dimensions, time/frame, zoom level).
@@ -395,6 +430,14 @@ class VideoPane(wx.Panel):
         self.metadata = metadata
         self._cached_bitmap = None
         self.Refresh()
+
+    def set_on_request_open_file(self, callback: Optional[Callable[[], None]]) -> None:
+        """Set callback invoked when user clicks on the pane while no video is loaded.
+
+        Args:
+            callback: Callable with no arguments, or None to clear
+        """
+        self._on_request_open_file = callback
 
     def set_scaling_mode(self, mode: ScalingMode) -> None:
         """Set scaling mode.

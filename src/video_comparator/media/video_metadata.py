@@ -39,9 +39,16 @@ class VideoMetadata:
     time_base: float
 
     def __post_init__(self) -> None:
-        """Validate metadata values."""
-        if self.duration <= 0:
-            raise ValueError(f"duration must be > 0, got {self.duration}")
+        """Validate metadata values.
+
+        When file_path is None (placeholder for no video loaded), duration and
+        total_frames may be 0; otherwise they must be positive.
+        """
+        if self.file_path is not None:
+            if self.duration <= 0:
+                raise ValueError(f"duration must be > 0, got {self.duration}")
+            if self.total_frames <= 0:
+                raise ValueError(f"total_frames must be > 0, got {self.total_frames}")
         if self.fps <= 0:
             raise ValueError(f"fps must be > 0, got {self.fps}")
         if self.width <= 0:
@@ -50,8 +57,6 @@ class VideoMetadata:
             raise ValueError(f"height must be > 0, got {self.height}")
         if not self.pixel_format:
             raise ValueError("pixel_format cannot be empty")
-        if self.total_frames <= 0:
-            raise ValueError(f"total_frames must be > 0, got {self.total_frames}")
         if self.time_base <= 0:
             raise ValueError(f"time_base must be > 0, got {self.time_base}")
 

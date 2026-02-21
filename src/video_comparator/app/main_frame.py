@@ -6,7 +6,7 @@ Responsibilities:
 - Window lifecycle management
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 import wx
 
@@ -51,16 +51,16 @@ class MainFrame(wx.Frame):
         menubar = wx.MenuBar()
 
         file_menu = wx.Menu()
-        open_item1 = file_menu.Append(wx.ID_OPEN, "&Open Video 1...\tCtrl+O", "Open first video file")
-        open_item2 = file_menu.Append(wx.ID_ANY, "Open Video &2...\tCtrl+Shift+O", "Open second video file")
+        self._open_item1 = file_menu.Append(wx.ID_OPEN, "&Open Video 1...\tCtrl+O", "Open first video file")
+        self._open_item2 = file_menu.Append(wx.ID_ANY, "Open Video &2...\tCtrl+Shift+O", "Open second video file")
         file_menu.AppendSeparator()
         exit_item = file_menu.Append(wx.ID_EXIT, "E&xit\tCtrl+Q", "Exit the application")
 
         view_menu = wx.Menu()
-        toggle_layout_item = view_menu.Append(
+        self._toggle_layout_item = view_menu.Append(
             wx.ID_ANY, "Toggle &Layout\tCtrl+L", "Toggle between horizontal and vertical layout"
         )
-        toggle_scaling_item = view_menu.Append(
+        self._toggle_scaling_item = view_menu.Append(
             wx.ID_ANY, "Toggle &Scaling Mode", "Toggle between independent and match larger scaling"
         )
 
@@ -75,6 +75,30 @@ class MainFrame(wx.Frame):
 
         self.Bind(wx.EVT_MENU, self._on_exit, exit_item)
         self.Bind(wx.EVT_MENU, self._on_about, about_item)
+
+    def set_menu_handlers(
+        self,
+        on_open_video_1: Optional[Callable[[], None]] = None,
+        on_open_video_2: Optional[Callable[[], None]] = None,
+        on_toggle_layout: Optional[Callable[[], None]] = None,
+        on_toggle_scaling: Optional[Callable[[], None]] = None,
+    ) -> None:
+        """Bind File and View menu items to the given callbacks.
+
+        Args:
+            on_open_video_1: Called when File → Open Video 1 is selected
+            on_open_video_2: Called when File → Open Video 2 is selected
+            on_toggle_layout: Called when View → Toggle Layout is selected
+            on_toggle_scaling: Called when View → Toggle Scaling Mode is selected
+        """
+        if on_open_video_1 is not None:
+            self.Bind(wx.EVT_MENU, lambda e: on_open_video_1(), self._open_item1)
+        if on_open_video_2 is not None:
+            self.Bind(wx.EVT_MENU, lambda e: on_open_video_2(), self._open_item2)
+        if on_toggle_layout is not None:
+            self.Bind(wx.EVT_MENU, lambda e: on_toggle_layout(), self._toggle_layout_item)
+        if on_toggle_scaling is not None:
+            self.Bind(wx.EVT_MENU, lambda e: on_toggle_scaling(), self._toggle_scaling_item)
 
     def _create_layout(self) -> None:
         """Create the window layout using sizers."""
