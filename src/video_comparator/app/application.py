@@ -335,6 +335,25 @@ class Application:
             time_v2: Resolved time for video 2 (seconds)
             frame_v2: Resolved frame index for video 2
         """
+        has1 = result_video1.frame is not None
+        has2 = result_video2.frame is not None
+        print(
+            "[FrameDebug] Application: frames_ready received frame_v1=%d frame_v2=%d "
+            "has_frame1=%s has_frame2=%s status1=%s status2=%s"
+            % (
+                frame_v1,
+                frame_v2,
+                has1,
+                has2,
+                result_video1.status.name,
+                result_video2.status.name,
+            )
+        )
+        if not has1 or not has2:
+            print(
+                "[FrameDebug] Application: frame discarded before render (missing): "
+                "video1=%s video2=%s" % (not has1, not has2)
+            )
         frame1 = result_video1.frame.copy() if result_video1.frame is not None else None
         frame2 = result_video2.frame.copy() if result_video2.frame is not None else None
         wx.CallAfter(
@@ -357,6 +376,12 @@ class Application:
         frame_v2: int,
     ) -> None:
         """Set frame data and playback info on video panes (must run on main thread)."""
+        shape1 = frame1.shape if frame1 is not None else None
+        shape2 = frame2.shape if frame2 is not None else None
+        print(
+            "[FrameDebug] Application: rendering to panes frame_v1=%d frame_v2=%d "
+            "pane1=%s pane2=%s" % (frame_v1, frame_v2, shape1, shape2)
+        )
         if self.video_pane1 is not None:
             self.video_pane1.set_frame(frame1)
             self.video_pane1.set_playback_info(time_v1, frame_v1)

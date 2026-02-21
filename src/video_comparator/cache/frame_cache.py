@@ -146,8 +146,22 @@ class FrameCache:
 
         self._sync_event.clear()
         first_frame_num = protected_frames_list[0]
+        print(
+            "[FrameDebug] FrameCache: request received for first_frame=%d "
+            "(total %d frames in request)" % (first_frame_num, len(protected_frames_list))
+        )
         first_result = self._fetch_frame_sync(first_frame_num, decoder)
+        print(
+            "[FrameDebug] FrameCache: first frame fulfilled frame_number=%d "
+            "status=%s has_frame=%s"
+            % (
+                first_result.frame_number,
+                first_result.status.name,
+                first_result.frame is not None,
+            )
+        )
         frame_callback(first_result)
+        print("[FrameDebug] FrameCache: cache callback invoked")
 
         self._start_prefetch_thread_if_needed()
 
@@ -243,14 +257,13 @@ class FrameCache:
             if self._cancellation_event.is_set():
                 continue
 
-            if result.status == FrameRequestStatus.SUCCESS:
-                if not self._cancellation_event.is_set() and callback is not None:
-                    callback(result)
-            elif result.status == FrameRequestStatus.CANCELLED:
+            # Prefetched frames are only stored in cache; do not invoke the
+            # callback. The callback is only for the first frame (delivered
+            # synchronously in request_prefill_frame).
+            if result.status == FrameRequestStatus.CANCELLED:
                 continue
-            else:
-                if not self._cancellation_event.is_set() and callback is not None:
-                    callback(result)
+            # SUCCESS: frame already put in cache by _fetch_frame_sync
+            # Error statuses: drop; first-frame errors were reported synchronously
 
     def _fetch_frame_sync(self, frame_index: int, decoder: "VideoDecoder") -> FrameResult:
         """Fetch a frame synchronously, handling all error cases.

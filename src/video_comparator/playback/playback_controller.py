@@ -126,6 +126,7 @@ class PlaybackController:
         max_duration = self._get_max_duration()
         new_time = min(new_time, max_duration)
 
+        print("[FrameDebug] Step forward requested: position %.3f -> %.3f" % (current_time, new_time))
         self.timeline_controller.set_position(new_time)
         self._request_frames()
 
@@ -190,6 +191,11 @@ class PlaybackController:
         self._prefill_strategy_video1 = TrivialPrefillStrategy(frames_video1)
         self._prefill_strategy_video2 = TrivialPrefillStrategy(frames_video2)
 
+        print(
+            "[FrameDebug] PlaybackController: requesting frames at position %.3f "
+            "frame_v1=%d frame_v2=%d" % (current_position, frame_video1, frame_video2)
+        )
+
         with self._sync_lock:
             self._pending_result_video1 = None
             self._pending_result_video2 = None
@@ -228,7 +234,18 @@ class PlaybackController:
             video_id: 1 for video1, 2 for video2
             result: FrameResult from the frame cache
         """
+        print(
+            "[FrameDebug] PlaybackController: frame result received video_id=%d "
+            "frame_number=%d status=%s has_frame=%s"
+            % (
+                video_id,
+                result.frame_number,
+                result.status.name,
+                result.frame is not None,
+            )
+        )
         if result.status == FrameRequestStatus.CANCELLED:
+            print("[FrameDebug] PlaybackController: frame discarded (cancelled)")
             return
 
         if result.status != FrameRequestStatus.SUCCESS and result.error is not None:
@@ -251,6 +268,10 @@ class PlaybackController:
                     frame_v1 = self.timeline_controller.get_resolved_frame_video1()
                     time_v2 = self.timeline_controller.get_resolved_time_video2()
                     frame_v2 = self.timeline_controller.get_resolved_frame_video2()
+                    print(
+                        "[FrameDebug] PlaybackController: invoking frame_callback "
+                        "frame_v1=%d frame_v2=%d" % (frame_v1, frame_v2)
+                    )
                     self.frame_callback(result1, result2, time_v1, frame_v1, time_v2, frame_v2)
 
                 if self.decoder_video1 is not None:
@@ -261,20 +282,26 @@ class PlaybackController:
     def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.
 
+        The current (display) frame is yielded first so the frame cache delivers
+        it as the "first" frame to the callback. Remaining frames are for prefetch.
+
         Args:
-            current_frame: Current frame index
+            current_frame: Current frame index (display frame; must be first)
             metadata: VideoMetadata for the video
 
         Yields:
-            Frame indices in priority order
+            Frame indices in priority order: current first, then lookahead, then lookbehind
         """
         lookahead = 10
         lookbehind = 5
 
-        start_frame = max(0, current_frame - lookbehind)
         end_frame = min(metadata.total_frames - 1, current_frame + lookahead)
+        start_frame = max(0, current_frame - lookbehind)
 
-        for frame_idx in range(start_frame, end_frame + 1):
+        yield current_frame
+        for frame_idx in range(current_frame + 1, end_frame + 1):
+            yield frame_idx
+        for frame_idx in range(current_frame - 1, start_frame - 1, -1):
             yield frame_idx
 
     def set_playback_speed(self, speed: float) -> None:
