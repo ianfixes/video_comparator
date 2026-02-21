@@ -59,17 +59,13 @@ class TimelineSlider:
                 minValue=min_milliseconds,
                 maxValue=max_milliseconds,
                 value=min_milliseconds,
-                style=wx.SL_HORIZONTAL | wx.SL_LABELS,
+                style=wx.SL_HORIZONTAL,
             )
         else:
             self.slider.SetRange(min_milliseconds, max_milliseconds)
 
     def _on_slider_change(self, event: wx.CommandEvent) -> None:
-        """Handle slider value change event.
-
-        Args:
-            event: wx.CommandEvent from slider
-        """
+        """Handle slider value change. Updates position, display, and requests frames at new position."""
         if self._updating_from_controller:
             return
 

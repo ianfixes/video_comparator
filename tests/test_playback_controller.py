@@ -416,7 +416,14 @@ class TestPlaybackController(unittest.TestCase):
         callback_results = []
         callback_lock = threading.Lock()
 
-        def frame_callback(result1: FrameResult, result2: FrameResult) -> None:
+        def frame_callback(
+            result1: FrameResult,
+            result2: FrameResult,
+            _t1: float,
+            _f1: int,
+            _t2: float,
+            _f2: int,
+        ) -> None:
             with callback_lock:
                 callback_results.append((result1, result2))
 
@@ -575,7 +582,14 @@ class TestPlaybackController(unittest.TestCase):
         """Test user callback receives FrameResult objects for both videos."""
         callback_results = []
 
-        def frame_callback(result1: FrameResult, result2: FrameResult) -> None:
+        def frame_callback(
+            result1: FrameResult,
+            result2: FrameResult,
+            _t1: float,
+            _f1: int,
+            _t2: float,
+            _f2: int,
+        ) -> None:
             callback_results.append((result1, result2))
 
         controller = PlaybackController(

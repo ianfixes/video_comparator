@@ -10,9 +10,10 @@ Responsibilities:
 
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 from unittest.mock import MagicMock
 
+import numpy as np
 import wx
 
 from video_comparator.app.main_frame import MainFrame
@@ -43,15 +44,18 @@ class Application:
         self,
         settings_manager: SettingsManager,
         error_handler: ErrorHandler,
+        initial_video_paths: Optional[List[Path]] = None,
     ) -> None:
         """Initialize application with required dependencies.
 
         Args:
             settings_manager: Settings manager for loading/saving configuration
             error_handler: Error handler for displaying errors
+            initial_video_paths: Optional list of paths (max 2) to load on launch; first=video1, second=video2
         """
         self.settings_manager: SettingsManager = settings_manager
         self.error_handler: ErrorHandler = error_handler
+        self._initial_video_paths: List[Path] = list(initial_video_paths)[:2] if initial_video_paths else []
         self.app: Optional[wx.App] = None
         self.main_frame: Optional[MainFrame] = None
 
@@ -281,6 +285,15 @@ class Application:
         self._update_control_panel_load_state()
         self._create_playback_timer()
         self.main_frame.Show()
+        self._load_initial_videos()
+
+    def _load_initial_videos(self) -> None:
+        """Load videos from command-line paths if any were provided."""
+        for i, path in enumerate(self._initial_video_paths):
+            slot = i + 1
+            metadata = self.media_loader.load_video_file_from_path(path)
+            if metadata is not None:
+                self._apply_loaded_video(slot, metadata)
 
     def _create_placeholder_metadata(self) -> VideoMetadata:
         """Create placeholder metadata for initial state (no video loaded).
@@ -299,17 +312,57 @@ class Application:
             time_base=1.0,
         )
 
-    def _on_frames_ready(self, result_video1: "FrameResult", result_video2: "FrameResult") -> None:
+    def _on_frames_ready(
+        self,
+        result_video1: "FrameResult",
+        result_video2: "FrameResult",
+        time_v1: float,
+        frame_v1: int,
+        time_v2: float,
+        frame_v2: int,
+    ) -> None:
         """Handle frame callback from playback controller.
+
+        Defers pane updates to the next event loop iteration via wx.CallAfter so
+        that Refresh() is processed correctly (avoids blank panes when called from
+        timer or step handlers).
 
         Args:
             result_video1: FrameResult for video 1
             result_video2: FrameResult for video 2
+            time_v1: Resolved time for video 1 (seconds)
+            frame_v1: Resolved frame index for video 1
+            time_v2: Resolved time for video 2 (seconds)
+            frame_v2: Resolved frame index for video 2
         """
-        if self.video_pane1 is not None and result_video1.frame is not None:
-            self.video_pane1.set_frame(result_video1.frame)
-        if self.video_pane2 is not None and result_video2.frame is not None:
-            self.video_pane2.set_frame(result_video2.frame)
+        frame1 = result_video1.frame.copy() if result_video1.frame is not None else None
+        frame2 = result_video2.frame.copy() if result_video2.frame is not None else None
+        wx.CallAfter(
+            self._apply_frames_to_panes,
+            frame1,
+            frame2,
+            time_v1,
+            frame_v1,
+            time_v2,
+            frame_v2,
+        )
+
+    def _apply_frames_to_panes(
+        self,
+        frame1: Optional[np.ndarray],
+        frame2: Optional[np.ndarray],
+        time_v1: float,
+        frame_v1: int,
+        time_v2: float,
+        frame_v2: int,
+    ) -> None:
+        """Set frame data and playback info on video panes (must run on main thread)."""
+        if self.video_pane1 is not None:
+            self.video_pane1.set_frame(frame1)
+            self.video_pane1.set_playback_info(time_v1, frame_v1)
+        if self.video_pane2 is not None:
+            self.video_pane2.set_frame(frame2)
+            self.video_pane2.set_playback_info(time_v2, frame_v2)
 
     def _on_timeline_position_changed(self) -> None:
         """Called when user changes timeline position (e.g. slider drag). Request frames at new position."""

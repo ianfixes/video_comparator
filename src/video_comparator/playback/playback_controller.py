@@ -45,7 +45,7 @@ class PlaybackController:
         frame_cache_video1: FrameCache,
         frame_cache_video2: FrameCache,
         error_handler: ErrorHandler,
-        frame_callback: Optional[Callable[[FrameResult, FrameResult], None]] = None,
+        frame_callback: Optional[Callable[[FrameResult, FrameResult, float, int, float, int], None]] = None,
     ) -> None:
         """Initialize playback controller with timeline, decoders, and caches.
 
@@ -58,7 +58,7 @@ class PlaybackController:
             frame_cache_video1: Frame cache for the first video
             frame_cache_video2: Frame cache for the second video
             error_handler: Error handler for displaying errors
-            frame_callback: Optional callback function(result_video1, result_video2) called when frames are ready
+            frame_callback: Optional callback(result_v1, result_v2, time_v1, frame_v1, time_v2, frame_v2) when frames are ready
         """
         self.timeline_controller: TimelineController = timeline_controller
         self.decoder_video1: Optional[VideoDecoder] = decoder_video1
@@ -66,7 +66,9 @@ class PlaybackController:
         self.frame_cache_video1: FrameCache = frame_cache_video1
         self.frame_cache_video2: FrameCache = frame_cache_video2
         self.error_handler: ErrorHandler = error_handler
-        self.frame_callback: Optional[Callable[[FrameResult, FrameResult], None]] = frame_callback
+        self.frame_callback: Optional[
+            Callable[[FrameResult, FrameResult, float, int, float, int], None]
+        ] = frame_callback
         self.state: PlaybackState = PlaybackState.STOPPED
         self.playback_speed: float = 1.0
         self._prefill_strategy_video1: Optional[PrefillStrategy] = None
@@ -245,7 +247,11 @@ class PlaybackController:
                 self._pending_result_video2 = None
 
                 if self.frame_callback is not None:
-                    self.frame_callback(result1, result2)
+                    time_v1 = self.timeline_controller.get_resolved_time_video1()
+                    frame_v1 = self.timeline_controller.get_resolved_frame_video1()
+                    time_v2 = self.timeline_controller.get_resolved_time_video2()
+                    frame_v2 = self.timeline_controller.get_resolved_frame_video2()
+                    self.frame_callback(result1, result2, time_v1, frame_v1, time_v2, frame_v2)
 
                 if self.decoder_video1 is not None:
                     self.frame_cache_video1.signal_sync_complete()
