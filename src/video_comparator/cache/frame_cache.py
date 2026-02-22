@@ -10,7 +10,7 @@ Responsibilities:
 
 import queue
 import threading
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -20,6 +20,10 @@ from video_comparator.common.types import FrameRequestStatus
 
 if TYPE_CHECKING:
     from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
+
+
+DEBUG_FORCE_UNIQUE_FRAMES = True
+DEBUG_SKIP_CACHE_ENTIRELY = False
 
 
 class FrameCache:
@@ -265,6 +269,45 @@ class FrameCache:
             # SUCCESS: frame already put in cache by _fetch_frame_sync
             # Error statuses: drop; first-frame errors were reported synchronously
 
+    def debug_mark_frame_unique(self, frame: np.ndarray, frame_index: int = 0) -> np.ndarray:
+        """Return a copy of the frame with the top-left ninth filled with random pixels.
+
+        The modified region is the intersection of the top third and left third of the
+        frame, so each returned frame is visually unique for debugging (e.g. to rule
+        out identical decoded frames).
+
+        Args:
+            frame: Cached frame array, shape (height, width, 3), dtype uint8.
+            frame_index: Optional; if provided, used to seed RNG so the same index
+                always gets the same marker (deterministic per frame).
+
+        Returns:
+            A copy of the frame with the top-left region overwritten by random RGB.
+        """
+        out = np.ascontiguousarray(frame.copy())
+        h, w = out.shape[0], out.shape[1]
+        top_third_h = max(1, h // 3)
+        left_third_w = max(1, w // 3)
+        rng = np.random.default_rng(frame_index)
+        out[0:top_third_h, 0:left_third_w, :] = rng.integers(0, 256, (top_third_h, left_third_w, 3), dtype=np.uint8)
+        return out
+
+    def _attempt_to_cache_frame(
+        self, frame_index: int, decoder: "VideoDecoder"
+    ) -> Tuple[FrameRequestStatus, Optional[Exception]]:
+        try:
+            frame = decoder.decode_frame(frame_index)
+            self.put(frame_index, frame)
+            return FrameRequestStatus.SUCCESS, None
+        except SeekError as e:
+            return FrameRequestStatus.SEEK_ERROR, e
+        except DecodeError as e:
+            return FrameRequestStatus.DECODE_ERROR, e
+        except ValueError as e:
+            if "out of range" in str(e).lower():
+                return FrameRequestStatus.OUT_OF_RANGE, e
+            return FrameRequestStatus.DECODE_ERROR, e
+
     def _fetch_frame_sync(self, frame_index: int, decoder: "VideoDecoder") -> FrameResult:
         """Fetch a frame synchronously, handling all error cases.
 
@@ -283,59 +326,40 @@ class FrameCache:
                 error=ValueError(f"Frame index {frame_index} out of range"),
             )
 
+        dec_status: FrameRequestStatus = FrameRequestStatus.SUCCESS
+        dec_err: Optional[Exception] = None
+
+        if not self.has_frame(frame_index) or DEBUG_SKIP_CACHE_ENTIRELY:
+            dec_status, dec_err = self._attempt_to_cache_frame(frame_index, decoder)
+
+            if dec_status != FrameRequestStatus.SUCCESS:
+                return FrameResult(
+                    frame_number=frame_index,
+                    frame=None,
+                    status=dec_status,
+                    error=dec_err,
+                )
+
         cached_frame = self.get(frame_index)
-        if cached_frame is not None:
+        if cached_frame is None:
+            raise ValueError("It's not my fault!  cache says it filled but it didn't")
+
+        if self._cancellation_event.is_set():
             return FrameResult(
                 frame_number=frame_index,
-                frame=cached_frame,
-                status=FrameRequestStatus.SUCCESS,
+                frame=None,
+                status=FrameRequestStatus.CANCELLED,
                 error=None,
             )
 
-        try:
-            frame = decoder.decode_frame(frame_index)
-            self.put(frame_index, frame)
-            if self._cancellation_event.is_set():
-                return FrameResult(
-                    frame_number=frame_index,
-                    frame=None,
-                    status=FrameRequestStatus.CANCELLED,
-                    error=None,
-                )
-            return FrameResult(
-                frame_number=frame_index,
-                frame=frame,
-                status=FrameRequestStatus.SUCCESS,
-                error=None,
-            )
-        except SeekError as e:
-            return FrameResult(
-                frame_number=frame_index,
-                frame=None,
-                status=FrameRequestStatus.SEEK_ERROR,
-                error=e,
-            )
-        except DecodeError as e:
-            return FrameResult(
-                frame_number=frame_index,
-                frame=None,
-                status=FrameRequestStatus.DECODE_ERROR,
-                error=e,
-            )
-        except ValueError as e:
-            if "out of range" in str(e).lower():
-                return FrameResult(
-                    frame_number=frame_index,
-                    frame=None,
-                    status=FrameRequestStatus.OUT_OF_RANGE,
-                    error=e,
-                )
-            return FrameResult(
-                frame_number=frame_index,
-                frame=None,
-                status=FrameRequestStatus.DECODE_ERROR,
-                error=e,
-            )
+        return FrameResult(
+            frame_number=frame_index,
+            frame=self.debug_mark_frame_unique(cached_frame, frame_index)
+            if DEBUG_FORCE_UNIQUE_FRAMES
+            else cached_frame,
+            status=FrameRequestStatus.SUCCESS,
+            error=None,
+        )
 
     def _update_access_order(self, frame_index: int) -> None:
         """Update LRU access order for a frame (must be called with lock held).
