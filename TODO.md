@@ -173,7 +173,7 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Modify background prefetch worker to wait for sync signal before processing queued frames
   - [x] Ensure worker can be cancelled even while waiting for sync signal
   - [x] Queue remaining frames after first frame but pause worker until sync signal
-- [ ] Add per-decoder locking so VideoDecoder is only used from one thread at a time when FrameCache calls decode (PyAV/FFmpeg not thread-safe; see Architecture.md § Decode Engine and § Frame Cache).
+- [x] Add per-decoder locking so VideoDecoder is only used from one thread at a time when FrameCache calls decode (PyAV/FFmpeg not thread-safe; see Architecture.md § Decode Engine and § Frame Cache).
 
 **Design Notes:**
 - FrameCache operates as an autonomous entity with its own background prefetch thread

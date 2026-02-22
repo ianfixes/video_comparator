@@ -23,7 +23,8 @@ if TYPE_CHECKING:
 
 
 DEBUG_FORCE_UNIQUE_FRAMES = True
-DEBUG_SKIP_CACHE_ENTIRELY = False
+DEBUG_UNIQUE_FRACTION = 4
+DEBUG_SKIP_CACHE_ENTIRELY = True
 
 
 class FrameCache:
@@ -72,6 +73,7 @@ class FrameCache:
         self._sync_event = threading.Event()
         self._prefetch_thread: Optional[threading.Thread] = None
         self._shutdown_event = threading.Event()
+        self._decoder_lock = threading.Lock()
 
         self._current_strategy: Optional[PrefillStrategy] = None
         self._current_callback: Optional[Callable[[FrameResult], None]] = None
@@ -286,8 +288,8 @@ class FrameCache:
         """
         out = np.ascontiguousarray(frame.copy())
         h, w = out.shape[0], out.shape[1]
-        top_third_h = max(1, h // 3)
-        left_third_w = max(1, w // 3)
+        top_third_h = max(1, h // DEBUG_UNIQUE_FRACTION)
+        left_third_w = max(1, w // DEBUG_UNIQUE_FRACTION)
         rng = np.random.default_rng(frame_index)
         out[0:top_third_h, 0:left_third_w, :] = rng.integers(0, 256, (top_third_h, left_third_w, 3), dtype=np.uint8)
         return out
@@ -296,7 +298,8 @@ class FrameCache:
         self, frame_index: int, decoder: "VideoDecoder"
     ) -> Tuple[FrameRequestStatus, Optional[Exception]]:
         try:
-            frame = decoder.decode_frame(frame_index)
+            with self._decoder_lock:
+                frame = decoder.decode_frame(frame_index)
             self.put(frame_index, frame)
             return FrameRequestStatus.SUCCESS, None
         except SeekError as e:
