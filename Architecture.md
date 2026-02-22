@@ -53,6 +53,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
+**Thread safety:** PyAV (and the underlying FFmpeg/libav libraries) do not support concurrent use of the same container or decoder from multiple threads. Decoding or seeking on a given VideoDecoder must be serialized (e.g. per-decoder locking in the caller). The main thread may decode the first frame while FrameCache’s prefetch worker later decodes additional frames for the same video; if both can call into the same decoder, access must be protected to avoid races and segfaults.
+
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
 - LRU eviction policy with protected frame set
@@ -82,6 +84,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When new request arrives, FrameCache cancels all pending prefetch requests and starts new prefetch cycle
 - Callbacks receive `FrameResult` objects that convey frame data or failure reasons
+- **Decoder access:** The same VideoDecoder may be used from the main thread (first-frame fetch) and from the prefetch worker. Because PyAV/FFmpeg are not thread-safe, decode calls must be serialized per decoder (e.g. a lock in FrameCache around decode, or a per-decoder lock).
 #### FrameResult Object
 - `FrameResult` dataclass contains:
   - `frame_number: int` - The requested frame index
