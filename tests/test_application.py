@@ -155,8 +155,8 @@ class TestApplication(unittest.TestCase):
 
             app.shutdown()
 
-            app.frame_cache_video1.invalidate.assert_called_once()
-            app.frame_cache_video2.invalidate.assert_called_once()
+            app.frame_cache_video1.close.assert_called_once()
+            app.frame_cache_video2.close.assert_called_once()
             app.decoder_video1.close.assert_called_once()
             app.decoder_video2.close.assert_called_once()
             app.playback_controller.stop.assert_called_once()

@@ -565,6 +565,8 @@ class Application:
             return
 
         if slot == 1:
+            if self.frame_cache_video1 is not None:
+                self.frame_cache_video1.prepare_for_decoder_close()
             if self.decoder_video1 is not None:
                 self.decoder_video1.close()
             if self.frame_cache_video1 is not None:
@@ -579,6 +581,8 @@ class Application:
             if self.video_pane1 is not None:
                 self.video_pane1.set_metadata(metadata)
         else:
+            if self.frame_cache_video2 is not None:
+                self.frame_cache_video2.prepare_for_decoder_close()
             if self.decoder_video2 is not None:
                 self.decoder_video2.close()
             if self.frame_cache_video2 is not None:
@@ -662,9 +666,9 @@ class Application:
             self.playback_controller.stop()
 
         if self.frame_cache_video1 is not None:
-            self.frame_cache_video1.invalidate()
+            self.frame_cache_video1.close()
         if self.frame_cache_video2 is not None:
-            self.frame_cache_video2.invalidate()
+            self.frame_cache_video2.close()
 
         if self.decoder_video1 is not None:
             self.decoder_video1.close()

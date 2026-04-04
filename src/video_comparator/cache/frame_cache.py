@@ -10,17 +10,14 @@ Responsibilities:
 
 import queue
 import threading
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
 from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy
 from video_comparator.common.types import FrameRequestStatus
-
-if TYPE_CHECKING:
-    from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
-
+from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
 
 DEBUG_FORCE_UNIQUE_FRAMES = True
 DEBUG_UNIQUE_FRACTION = 4
@@ -115,7 +112,7 @@ class FrameCache:
         self,
         strategy: PrefillStrategy,
         frame_callback: Callable[[FrameResult], None],
-        decoder: "VideoDecoder",
+        decoder: VideoDecoder,
     ) -> None:
         """Request prefetching of frames according to strategy.
 
@@ -186,14 +183,47 @@ class FrameCache:
             self._protected_frames.clear()
             self._protected_frames_set.clear()
 
-    def close(self) -> None:
-        """Shutdown the cache and stop background prefetching."""
-        self._shutdown_event.set()
-        self._cancel_pending_requests()
+    def prepare_for_decoder_close(self) -> None:
+        """Stop the prefetch thread before closing the paired VideoDecoder (reload path).
 
+        Does not set the permanent shutdown flag; a new request_prefill_frame can start
+        a fresh worker thread afterward.
+        """
+        self._cancellation_event.set()
+        self._sync_event.set()
+        while True:
+            try:
+                self._prefetch_queue.get_nowait()
+            except queue.Empty:
+                break
         if self._prefetch_thread is not None and self._prefetch_thread.is_alive():
             self._prefetch_queue.put(None)
-            self._prefetch_thread.join(timeout=5.0)
+            self._prefetch_thread.join(timeout=15.0)
+        self._prefetch_thread = None
+        with self._lock:
+            self._current_decoder = None
+            self._current_callback = None
+        self._cancellation_event.clear()
+        self._sync_event.clear()
+
+    def close(self) -> None:
+        """Permanent shutdown: stop prefetch and clear cache (call before process exit)."""
+        self._shutdown_event.set()
+        self._sync_event.set()
+        with self._lock:
+            self._current_decoder = None
+            self._current_callback = None
+            self._current_strategy = None
+        while True:
+            try:
+                self._prefetch_queue.get_nowait()
+            except queue.Empty:
+                break
+        if self._prefetch_thread is not None and self._prefetch_thread.is_alive():
+            self._prefetch_queue.put(None)
+            self._prefetch_thread.join(timeout=15.0)
+        self._prefetch_thread = None
+        self.invalidate()
 
     def signal_sync_complete(self) -> None:
         """Signal that synchronization is complete and background prefetch worker can proceed.
@@ -295,7 +325,7 @@ class FrameCache:
         return out
 
     def _attempt_to_cache_frame(
-        self, frame_index: int, decoder: "VideoDecoder"
+        self, frame_index: int, decoder: VideoDecoder
     ) -> Tuple[FrameRequestStatus, Optional[Exception]]:
         try:
             with self._decoder_lock:
@@ -311,7 +341,7 @@ class FrameCache:
                 return FrameRequestStatus.OUT_OF_RANGE, e
             return FrameRequestStatus.DECODE_ERROR, e
 
-    def _fetch_frame_sync(self, frame_index: int, decoder: "VideoDecoder") -> FrameResult:
+    def _fetch_frame_sync(self, frame_index: int, decoder: VideoDecoder) -> FrameResult:
         """Fetch a frame synchronously, handling all error cases.
 
         Args:

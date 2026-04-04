@@ -114,7 +114,7 @@ class VideoDecoder:
 
         try:
             if self._container is not None:
-                self._container.seek(timestamp_pts, stream=self._video_stream)  # type: ignore
+                self._container.seek(timestamp_pts, stream=self._video_stream)
         except av.AVError as e:
             raise SeekError(f"Failed to seek to frame {frame_index}") from e
 
@@ -200,7 +200,13 @@ class VideoDecoder:
                     if self.frame_cache is not None:
                         self.frame_cache.put(frame_index, frame_array)
                     return frame_array
-        except (av.AVError, Exception) as e:
+        except av.AVError as e:
+            raise DecodeError(f"Failed to decode frame {frame_index}") from e
+        except AssertionError as e:
+            if "not open" in str(e).lower():
+                raise DecodeError(f"Failed to decode frame {frame_index}") from e
+            raise
+        except Exception as e:
             raise DecodeError(f"Failed to decode frame {frame_index}") from e
 
         raise DecodeError(f"No frame found at index {frame_index}")
