@@ -40,6 +40,8 @@ class MainFrame(wx.Frame):
         self.layout_manager: LayoutManager = layout_manager
         self.control_panel: ControlPanel = control_panel
         self.shortcut_manager: ShortcutManager = shortcut_manager
+        self._video_container: Optional[wx.Panel] = None
+        self._main_frame_layout_initialized: bool = False
 
         self._create_menu_bar()
         if not defer_layout:
@@ -100,11 +102,29 @@ class MainFrame(wx.Frame):
         if on_toggle_scaling is not None:
             self.Bind(wx.EVT_MENU, lambda e: on_toggle_scaling(), self._toggle_scaling_item)
 
-    def _create_layout(self) -> None:
-        """Create the window layout using sizers."""
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
+    @staticmethod
+    def _detach_window_from_sizer(window: wx.Window) -> None:
+        """Remove ``window`` from its current sizer if any.
 
-        video_container = wx.Panel(self)
+        Required before re-adding to a new sizer; wx asserts if a window still has
+        ``m_containingSizer`` set when ``Sizer.Add`` is called.
+        """
+        containing = window.GetContainingSizer()
+        if containing is not None:
+            containing.Detach(window)
+
+    def _create_layout(self) -> None:
+        """Create or refresh the window layout using sizers.
+
+        The video area uses a single persistent :class:`wx.Panel` as container. Calling this
+        repeatedly (e.g. when toggling horizontal/vertical orientation) only replaces the
+        inner sizer on that panel. Creating a new container each time would orphan the old
+        panel as a child of the frame without a sizer, which on many platforms shows as a
+        small stray widget at the top-left.
+        """
+        if self._video_container is None:
+            self._video_container = wx.Panel(self)
+
         video_sizer = wx.BoxSizer(
             wx.HORIZONTAL if self.layout_manager.orientation == LayoutOrientation.HORIZONTAL else wx.VERTICAL
         )
@@ -112,19 +132,25 @@ class MainFrame(wx.Frame):
         video_pane1 = self.layout_manager.video_pane1
         video_pane2 = self.layout_manager.video_pane2
 
-        video_pane1.Reparent(video_container)
-        video_pane2.Reparent(video_container)
+        self._detach_window_from_sizer(video_pane1)
+        self._detach_window_from_sizer(video_pane2)
+
+        video_pane1.Reparent(self._video_container)
+        video_pane2.Reparent(self._video_container)
 
         video_sizer.Add(video_pane1, proportion=1, flag=wx.EXPAND)
         video_sizer.Add(video_pane2, proportion=1, flag=wx.EXPAND)
 
-        video_container.SetSizer(video_sizer)
-        main_sizer.Add(video_container, proportion=1, flag=wx.EXPAND)
+        self._video_container.SetSizer(video_sizer)
 
-        control_panel_widget = self.control_panel.get_panel()
-        main_sizer.Add(control_panel_widget, proportion=0, flag=wx.EXPAND | wx.ALL, border=5)
+        if not self._main_frame_layout_initialized:
+            main_sizer = wx.BoxSizer(wx.VERTICAL)
+            main_sizer.Add(self._video_container, proportion=1, flag=wx.EXPAND)
+            control_panel_widget = self.control_panel.get_panel()
+            main_sizer.Add(control_panel_widget, proportion=0, flag=wx.EXPAND | wx.ALL, border=5)
+            self.SetSizer(main_sizer)
+            self._main_frame_layout_initialized = True
 
-        self.SetSizer(main_sizer)
         self.Layout()
 
     def update_layout(self) -> None:
@@ -134,6 +160,9 @@ class MainFrame(wx.Frame):
         have been updated to refresh the layout.
         """
         self._create_layout()
+        if self.GetSizer() is not None:
+            size = self.GetClientSize()
+            self.layout_manager.update_layout(size.GetWidth(), size.GetHeight())
 
     def _bind_events(self) -> None:
         """Bind window events."""

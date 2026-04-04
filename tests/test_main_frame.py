@@ -103,6 +103,39 @@ class TestMainFrame(unittest.TestCase):
             self.assertGreaterEqual(mock_set_sizer.call_count, 1)
             self.assertIsNotNone(frame.GetSizer())
 
+    def test_create_layout_reuses_video_container(self) -> None:
+        """Repeated _create_layout must not allocate a new wx.Panel for the video area each time."""
+        mock_video_container = MagicMock()
+        mock_sizer = MagicMock()
+        mock_set_sizer = MagicMock()
+        with patch("video_comparator.app.main_frame.wx.Frame.__init__", return_value=None), patch(
+            "video_comparator.app.main_frame.wx.Panel", return_value=mock_video_container
+        ) as mock_panel_class, patch(
+            "video_comparator.app.main_frame.wx.BoxSizer", return_value=mock_sizer
+        ), patch.object(
+            MainFrame, "_create_menu_bar"
+        ), patch.object(
+            MainFrame, "_bind_events"
+        ), patch.object(
+            MainFrame, "SetSizer", mock_set_sizer
+        ), patch.object(
+            MainFrame, "Layout"
+        ), patch.object(
+            MainFrame, "GetSizer", return_value=mock_sizer
+        ), patch.object(
+            MainFrame, "GetClientSize", return_value=wx.Size(800, 600)
+        ):
+            frame = MainFrame(
+                layout_manager=self.layout_manager,
+                control_panel=self.control_panel,
+                shortcut_manager=self.shortcut_manager,
+                defer_layout=True,
+            )
+            mock_panel_class.reset_mock()
+            frame._create_layout()
+            frame._create_layout()
+            mock_panel_class.assert_called_once()
+
     def test_window_close_handler(self) -> None:
         """Test window close handler."""
         mock_destroy = MagicMock()

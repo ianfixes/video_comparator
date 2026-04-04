@@ -563,6 +563,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test MainFrame initialization
 - [x] Test menu bar creation
 - [x] Test window layout contains all components
+- [x] Regression: repeated `_create_layout` reuses one video container panel (avoids orphan `wx.Panel` widgets that break layout on toggle)
 - [x] Test window close handler
 - [x] Test window resize updates layout
 - [x] Test integration with LayoutManager
