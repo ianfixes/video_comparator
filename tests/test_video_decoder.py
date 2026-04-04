@@ -323,6 +323,30 @@ class TestVideoDecoder(unittest.TestCase):
         finally:
             decoder.close()
 
+    def test_successive_frames_yield_different_images(self) -> None:
+        """Decoding two successive frames must yield different images (frame-accurate decode)."""
+        avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
+        if not avi_file.exists():
+            self.skipTest(f"Test video file not found: {avi_file}")
+
+        metadata = VideoMetadata.from_path(avi_file)
+        if metadata.total_frames < 2:
+            self.skipTest("Test video has fewer than 2 frames")
+        decoder = VideoDecoder(metadata)
+
+        try:
+            frame0 = decoder.decode_frame(0)
+            frame1 = decoder.decode_frame(1)
+            self.assertIsInstance(frame0, np.ndarray)
+            self.assertIsInstance(frame1, np.ndarray)
+            self.assertEqual(frame0.shape, frame1.shape)
+            self.assertFalse(
+                np.array_equal(frame0, frame1),
+                "Frame 0 and frame 1 must differ (decoder must decode forward to requested frame, not return keyframe only)",
+            )
+        finally:
+            decoder.close()
+
     def test_decode_frame_at_timestamp_out_of_range_raises_error(self) -> None:
         """Test decode_frame_at_timestamp with out of range timestamp raises error."""
         avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"

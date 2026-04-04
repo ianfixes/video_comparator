@@ -225,6 +225,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement error handling for decode failures
 - [x] Integrate with FrameCache (optional)
 - [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
+- [x] Implement frame-accurate decode: after keyframe-based seek, decode forward to the requested frame index (see Architecture.md § Decode Engine — Frame-accurate decode). Uses stream `time_base` / `start_time`, a first-frame PTS base for 0-based indexing, and sequential counting after seek when PTS order is non-monotonic. For the last frame index (`total_frames - 1`), if the decode iterator ends before an exact match, returns the last decodable frame (best-effort).
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
@@ -242,6 +243,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test seek with videos of different framerates
 - [x] Test decode error handling (corrupted frame, unsupported codec)
 - [x] Test decoder with FrameCache integration
+- [x] Test that decoding two successive frames (e.g. frame N and N+1) from a test video yields different images (ensures frame-accurate decode, not keyframe-only)
 
 ### TimelineController (`sync/timeline_controller.py`)
 - [x] Implement current position tracking (in seconds)

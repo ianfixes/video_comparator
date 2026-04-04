@@ -55,6 +55,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 **Thread safety:** PyAV (and the underlying FFmpeg/libav libraries) do not support concurrent use of the same container or decoder from multiple threads. Decoding or seeking on a given VideoDecoder must be serialized (e.g. per-decoder locking in the caller). The main thread may decode the first frame while FrameCache’s prefetch worker later decodes additional frames for the same video; if both can call into the same decoder, access must be protected to avoid races and segfaults.
 
+**Frame-accurate decode:** FFmpeg/PyAV container seek is keyframe-based: seeking lands on the nearest keyframe (I-frame) at or before the requested time, not on an arbitrary frame. To deliver the exact requested frame index, the decode engine must seek to that timestamp (keyframe), then **decode forward** from the keyframe until the decoded frame index matches the request, and return that frame. Returning only the first decoded frame after seek yields the keyframe repeatedly for all requests within that GOP (e.g. frames 0–249 identical if keyframe interval is 250).
+
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
 - LRU eviction policy with protected frame set
