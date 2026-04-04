@@ -201,6 +201,7 @@ class Application:
                 video_pane1=self.video_pane1,
                 video_pane2=self.video_pane2,
                 on_timeline_position_changed=self._on_timeline_position_changed,
+                on_sync_offset_changed=self._on_sync_offset_changed,
             )
         else:
             from video_comparator.common.types import PlaybackState
@@ -214,6 +215,7 @@ class Application:
                 video_pane1=self.video_pane1,
                 video_pane2=self.video_pane2,
                 on_timeline_position_changed=self._on_timeline_position_changed,
+                on_sync_offset_changed=self._on_sync_offset_changed,
             )
 
     def _create_shortcut_manager(self) -> None:
@@ -392,6 +394,19 @@ class Application:
     def _on_timeline_position_changed(self) -> None:
         """Called when user changes timeline position (e.g. slider drag). Request frames at new position."""
         if self.playback_controller is not None:
+            self.playback_controller.request_frames_at_current_position()
+
+    def _on_sync_offset_changed(self) -> None:
+        """Called when user changes sync offset (slider or ±1). Refresh timeline UI and frames when not playing."""
+        if self.timeline_controller is None:
+            return
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_range_after_sync_offset_change()
+        if self.playback_controller is None:
+            return
+        from video_comparator.common.types import PlaybackState
+
+        if self.playback_controller.state != PlaybackState.PLAYING:
             self.playback_controller.request_frames_at_current_position()
 
     def _create_playback_timer(self) -> None:
@@ -597,12 +612,18 @@ class Application:
         if self.timeline_controller is None:
             return
         self.timeline_controller.increment_sync_offset()
+        if self.control_panel is not None:
+            self.control_panel.sync_controls.update_offset()
+        self._on_sync_offset_changed()
 
     def _handle_sync_nudge_backward(self) -> None:
         """Handle sync nudge backward command."""
         if self.timeline_controller is None:
             return
         self.timeline_controller.decrement_sync_offset()
+        if self.control_panel is not None:
+            self.control_panel.sync_controls.update_offset()
+        self._on_sync_offset_changed()
 
     def run(self) -> int:
         """Run the application main event loop.

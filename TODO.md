@@ -447,7 +447,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement -1 frame button
 - [x] Implement offset display
 - [x] Integrate with TimelineController for offset updates
-- [ ] **Sync offset → display refresh:** When the user changes sync offset (slider or ±1 buttons), request and show updated frames **immediately** while playback is **paused** or **stopped**. While playback is **playing**, do **not** issue a separate immediate refresh from the control handler; let the next tick / playback-driven frame request apply the new offset (avoid racing the playback timer).
+- [x] **Sync offset → display refresh:** When the user changes sync offset (slider or ±1 buttons), request and show updated frames **immediately** while playback is **paused** or **stopped**. While playback is **playing**, do **not** issue a separate immediate refresh from the control handler; let the next tick / playback-driven frame request apply the new offset (avoid racing the playback timer).
 
 **Unit Tests Required:**
 - [x] Test SyncControls initialization
@@ -456,7 +456,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test -1 button decrements offset
 - [x] Test offset display shows current offset
 - [x] Test offset range limits (if any)
-- [ ] Test (or integration test): offset change triggers frame refresh when not playing; defers to playback when playing (mock `PlaybackState`)
+- [x] Test (or integration test): offset change triggers frame refresh when not playing; defers to playback when playing (mock `PlaybackState`)
+- [x] Test `on_sync_offset_changed` invoked from slider / ±1 handlers
 
 ### ZoomControls (`ui/controls.py`)
 - [x] Implement zoom in button

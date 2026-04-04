@@ -158,6 +158,11 @@ class TimelineController:
         """
         self.sync_offset_frames = offset_frames
 
+    def clamp_current_position_to_effective_range(self) -> None:
+        """Clamp ``current_position`` to ``get_effective_range()`` (no exception)."""
+        min_position, max_position = self.get_effective_range()
+        self.current_position = max(min_position, min(self.current_position, max_position))
+
     def increment_sync_offset(self) -> None:
         """Increment the sync offset for video 2 by one frame."""
         self.sync_offset_frames += 1

@@ -155,6 +155,16 @@ class TestTimelineController(unittest.TestCase):
 
         self.assertIn("out of range", str(context.exception))
 
+    def test_clamp_current_position_to_effective_range(self) -> None:
+        """After sync offset shrinks max timeline, clamp brings position in range."""
+        controller = TimelineController(self.metadata_30fps, self.metadata_24fps)
+        controller.set_position(9.5)
+        controller.set_sync_offset(24)
+        controller.clamp_current_position_to_effective_range()
+        _, max_position = controller.get_effective_range()
+        self.assertAlmostEqual(controller.current_position, max_position)
+        self.assertLessEqual(controller.current_position, 9.5)
+
     def test_sync_offset_setting(self) -> None:
         """Test sync offset setting."""
         controller = TimelineController(self.metadata_30fps, self.metadata_24fps)

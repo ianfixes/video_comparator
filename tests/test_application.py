@@ -1,13 +1,17 @@
 """Unit tests for Application class."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import wx
 
 from video_comparator.app.application import Application
+from video_comparator.common.types import PlaybackState
 from video_comparator.config.settings_manager import SettingsManager
 from video_comparator.errors.error_handler import ErrorHandler
+from video_comparator.media.video_metadata import VideoMetadata
+from video_comparator.sync.timeline_controller import TimelineController
 
 
 class TestApplication(unittest.TestCase):
@@ -273,3 +277,81 @@ class TestApplication(unittest.TestCase):
                         args[0],
                         "wx.Panel was called with None as parent. " "On macOS, all windows must have a valid parent.",
                     )
+
+    def test_on_sync_offset_changed_no_timeline_controller(self) -> None:
+        """_on_sync_offset_changed is a no-op without a timeline controller."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.timeline_controller = None
+        app._on_sync_offset_changed()
+
+    def test_on_sync_offset_changed_requests_frames_when_not_playing(self) -> None:
+        """When paused/stopped, sync offset change requests frames at current position."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta1 = VideoMetadata(
+            file_path=Path("/a.mp4"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+        meta2 = VideoMetadata(
+            file_path=Path("/b.mp4"),
+            duration=10.0,
+            fps=24.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=240,
+            time_base=0.001,
+        )
+        app.timeline_controller = TimelineController(meta1, meta2)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PAUSED
+        app.playback_controller = mock_pc
+        mock_cp = MagicMock()
+        mock_cp.timeline_slider = MagicMock()
+        app.control_panel = mock_cp
+
+        app._on_sync_offset_changed()
+
+        mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
+        mock_pc.request_frames_at_current_position.assert_called_once()
+
+    def test_on_sync_offset_changed_skips_frame_request_when_playing(self) -> None:
+        """When playing, sync offset change updates timeline UI but does not request frames immediately."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta1 = VideoMetadata(
+            file_path=Path("/a.mp4"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+        meta2 = VideoMetadata(
+            file_path=Path("/b.mp4"),
+            duration=10.0,
+            fps=24.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=240,
+            time_base=0.001,
+        )
+        app.timeline_controller = TimelineController(meta1, meta2)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PLAYING
+        app.playback_controller = mock_pc
+        mock_cp = MagicMock()
+        mock_cp.timeline_slider = MagicMock()
+        app.control_panel = mock_cp
+
+        app._on_sync_offset_changed()
+
+        mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
+        mock_pc.request_frames_at_current_position.assert_not_called()

@@ -71,14 +71,18 @@ class TimelineSlider:
 
         milliseconds = self.slider.GetValue()
         timestamp = milliseconds / 1000.0
+        min_p, max_p = self.timeline_controller.get_effective_range()
+        timestamp = max(min_p, min(timestamp, max_p))
 
+        self.timeline_controller.set_position(timestamp)
+        self._updating_from_controller = True
         try:
-            self.timeline_controller.set_position(timestamp)
-            self._update_position_display()
-            if self._on_position_changed is not None:
-                self._on_position_changed()
-        except Exception:
-            pass
+            self.slider.SetValue(int(round(timestamp * 1000)))
+        finally:
+            self._updating_from_controller = False
+        self._update_position_display()
+        if self._on_position_changed is not None:
+            self._on_position_changed()
 
     def _update_position_display(self) -> None:
         """Update the position display label with current time and frame info."""
@@ -114,12 +118,19 @@ class TimelineSlider:
             self._updating_from_controller = False
 
     def update_range(self) -> None:
-        """Update slider range when sync offset changes.
-
-        This should be called when the sync offset is modified.
-        """
+        """Update slider range (e.g. after loading a video). May move thumb to stay in range."""
         self._update_slider_range()
         self.update_position()
+
+    def update_range_after_sync_offset_change(self) -> None:
+        """Update time/frame labels after sync offset changes.
+
+        Do not call ``SetRange``/``SetValue`` on the timeline slider: changing the wx range
+        rescales the thumb even when the timeline time (``current_position``) is unchanged.
+        Sync only affects which video-2 frame pairs with the current instant; the timeline
+        thumb and range are updated on load (``update_range``) and by explicit seeks/steps.
+        """
+        self._update_position_display()
 
     def get_widget(self) -> wx.Slider:
         """Get the wx.Slider widget for layout purposes.
@@ -147,6 +158,7 @@ class SyncControls:
         timeline_controller: TimelineController,
         min_offset_frames: int = -1000,
         max_offset_frames: int = 1000,
+        on_sync_offset_changed: Optional[Callable[[], None]] = None,
     ) -> None:
         """Initialize sync controls with parent and timeline controller.
 
@@ -155,11 +167,13 @@ class SyncControls:
             timeline_controller: TimelineController for sync offset management
             min_offset_frames: Minimum sync offset in frames (default: -1000)
             max_offset_frames: Maximum sync offset in frames (default: 1000)
+            on_sync_offset_changed: Optional callback after offset changes (slider or ±1)
         """
         self.parent: wx.Window = parent
         self.timeline_controller: TimelineController = timeline_controller
         self.min_offset_frames: int = min_offset_frames
         self.max_offset_frames: int = max_offset_frames
+        self._on_sync_offset_changed: Optional[Callable[[], None]] = on_sync_offset_changed
         self._updating_from_controller: bool = False
 
         self.offset_slider: wx.Slider = wx.Slider(
@@ -193,6 +207,7 @@ class SyncControls:
         offset_frames = self.offset_slider.GetValue()
         self.timeline_controller.set_sync_offset(offset_frames)
         self._update_offset_display()
+        self._notify_sync_offset_changed()
 
     def _on_increment(self, event: wx.CommandEvent) -> None:
         """Handle +1 frame button click event.
@@ -203,6 +218,7 @@ class SyncControls:
         self.timeline_controller.increment_sync_offset()
         self._update_slider_value()
         self._update_offset_display()
+        self._notify_sync_offset_changed()
 
     def _on_decrement(self, event: wx.CommandEvent) -> None:
         """Handle -1 frame button click event.
@@ -213,6 +229,11 @@ class SyncControls:
         self.timeline_controller.decrement_sync_offset()
         self._update_slider_value()
         self._update_offset_display()
+        self._notify_sync_offset_changed()
+
+    def _notify_sync_offset_changed(self) -> None:
+        if self._on_sync_offset_changed is not None:
+            self._on_sync_offset_changed()
 
     def _update_slider_value(self) -> None:
         """Update slider value from timeline controller."""
@@ -406,6 +427,7 @@ class ControlPanel:
         video_pane1: VideoPane,
         video_pane2: VideoPane,
         on_timeline_position_changed: Optional[Callable[[], None]] = None,
+        on_sync_offset_changed: Optional[Callable[[], None]] = None,
     ) -> None:
         """Initialize control panel with parent, controllers, and video panes.
 
@@ -416,6 +438,7 @@ class ControlPanel:
             video_pane1: First VideoPane widget
             video_pane2: Second VideoPane widget
             on_timeline_position_changed: Optional callback when user changes timeline (e.g. slider drag)
+            on_sync_offset_changed: Optional callback when user changes sync offset (slider or ±1)
         """
         self.parent: wx.Window = parent
         self.playback_controller: PlaybackController = playback_controller
@@ -438,7 +461,9 @@ class ControlPanel:
         self.timeline_slider: TimelineSlider = TimelineSlider(
             self.panel, timeline_controller, on_position_changed=on_timeline_position_changed
         )
-        self.sync_controls: SyncControls = SyncControls(self.panel, timeline_controller)
+        self.sync_controls: SyncControls = SyncControls(
+            self.panel, timeline_controller, on_sync_offset_changed=on_sync_offset_changed
+        )
         self.zoom_controls: ZoomControls = ZoomControls(self.panel, video_pane1, video_pane2)
 
         self._has_video1: bool = False

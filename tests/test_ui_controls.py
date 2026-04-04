@@ -87,6 +87,32 @@ class TestTimelineSlider(unittest.TestCase):
             expected_max_milliseconds = int(max_duration * 1000)
             self.assertEqual(call_args[1]["maxValue"], expected_max_milliseconds)
 
+    def test_update_range_after_sync_offset_change_preserves_playhead(self) -> None:
+        """Sync offset must not move the timeline wx slider; only labels refresh."""
+        self.timeline_controller.set_position(9.5)
+        self.timeline_controller.set_sync_offset(75)
+
+        with patch("video_comparator.ui.controls.wx.Slider") as mock_slider_class, patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class:
+            mock_slider = MagicMock()
+            mock_slider.GetMax.return_value = 9000
+            mock_slider.GetMin.return_value = 0
+            mock_slider.GetValue.return_value = 9500
+            mock_slider_class.return_value = mock_slider
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+
+            slider = TimelineSlider(self.parent, self.timeline_controller)
+            mock_slider.reset_mock()
+
+            slider.update_range_after_sync_offset_change()
+
+            self.assertEqual(self.timeline_controller.current_position, 9.5)
+            mock_slider.SetRange.assert_not_called()
+            mock_slider.SetValue.assert_not_called()
+            mock_static_text.SetLabel.assert_called()
+
     def test_slider_value_change_triggers_timeline_controller_seek(self) -> None:
         """Test slider value change triggers TimelineController seek."""
         with patch("video_comparator.ui.controls.wx.Slider") as mock_slider_class, patch(
@@ -509,6 +535,54 @@ class TestSyncControls(unittest.TestCase):
             controls._on_slider_change(mock_event)
 
             self.assertEqual(self.timeline_controller.sync_offset_frames, initial_offset)
+
+    def test_sync_offset_callback_invoked_on_slider_change(self) -> None:
+        """Changing the offset slider invokes on_sync_offset_changed."""
+        callback = MagicMock()
+        with patch("video_comparator.ui.controls.wx.Slider") as mock_slider_class, patch(
+            "video_comparator.ui.controls.wx.Button"
+        ), patch("video_comparator.ui.controls.wx.StaticText"):
+            mock_slider = MagicMock()
+            mock_slider.GetValue.return_value = 10
+            mock_slider_class.return_value = mock_slider
+
+            controls = SyncControls(self.parent, self.timeline_controller, on_sync_offset_changed=callback)
+            mock_event = MagicMock()
+            controls._on_slider_change(mock_event)
+
+            callback.assert_called_once()
+
+    def test_sync_offset_callback_invoked_on_increment(self) -> None:
+        """+1 invokes on_sync_offset_changed."""
+        callback = MagicMock()
+        with patch("video_comparator.ui.controls.wx.Slider") as mock_slider_class, patch(
+            "video_comparator.ui.controls.wx.Button"
+        ), patch("video_comparator.ui.controls.wx.StaticText"):
+            mock_slider = MagicMock()
+            mock_slider.GetValue.return_value = 0
+            mock_slider_class.return_value = mock_slider
+
+            controls = SyncControls(self.parent, self.timeline_controller, on_sync_offset_changed=callback)
+            mock_event = MagicMock()
+            controls._on_increment(mock_event)
+
+            callback.assert_called_once()
+
+    def test_sync_offset_callback_invoked_on_decrement(self) -> None:
+        """-1 invokes on_sync_offset_changed."""
+        callback = MagicMock()
+        with patch("video_comparator.ui.controls.wx.Slider") as mock_slider_class, patch(
+            "video_comparator.ui.controls.wx.Button"
+        ), patch("video_comparator.ui.controls.wx.StaticText"):
+            mock_slider = MagicMock()
+            mock_slider.GetValue.return_value = 0
+            mock_slider_class.return_value = mock_slider
+
+            controls = SyncControls(self.parent, self.timeline_controller, on_sync_offset_changed=callback)
+            mock_event = MagicMock()
+            controls._on_decrement(mock_event)
+
+            callback.assert_called_once()
 
     def test_get_widgets_return_correct_widgets(self) -> None:
         """Test getter methods return correct widgets."""
