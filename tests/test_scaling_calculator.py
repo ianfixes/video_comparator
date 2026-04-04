@@ -287,3 +287,71 @@ class TestScalingCalculator(unittest.TestCase):
         scale_x, scale_y = self.calculator.calculate_scale(video_size, display_size, ScalingMode.INDEPENDENT)
         self.assertEqual(scale_x, scale_y)
         self.assertAlmostEqual(scale_x, 1 / 1920, places=5)
+
+    def test_adjust_pan_zoom_about_video_center_leaves_pan_unchanged(self) -> None:
+        """Button-style zoom about the video center should not drift pan."""
+        pane_w, pane_h = 800, 600
+        vid_w, vid_h = 1920, 1080
+        base_scale = self.calculator.calculate_scale((vid_w, vid_h), (pane_w, pane_h), ScalingMode.INDEPENDENT)[0]
+        old_zoom = 1.5
+        new_zoom = old_zoom * 1.1
+        pan_x, pan_y = 12.5, -7.25
+        anchor_x = pane_w / 2.0 + pan_x
+        anchor_y = pane_h / 2.0 + pan_y
+        nx, ny = ScalingCalculator.adjust_pan_for_zoom_at_anchor(
+            pane_w,
+            pane_h,
+            vid_w,
+            vid_h,
+            base_scale,
+            old_zoom,
+            new_zoom,
+            pan_x,
+            pan_y,
+            anchor_x,
+            anchor_y,
+        )
+        self.assertAlmostEqual(nx, pan_x, places=5)
+        self.assertAlmostEqual(ny, pan_y, places=5)
+
+    def test_adjust_pan_zoom_preserves_sample_under_anchor(self) -> None:
+        """Wheel-style zoom: video-space sample at anchor stays fixed."""
+        pane_w, pane_h = 800, 600
+        vid_w, vid_h = 1920, 1080
+        base_scale = self.calculator.calculate_scale((vid_w, vid_h), (pane_w, pane_h), ScalingMode.INDEPENDENT)[0]
+        old_zoom = 1.0
+        new_zoom = 1.1
+        pan_x, pan_y = 5.0, -3.0
+        anchor_x, anchor_y = 150.0, 275.0
+        sw0 = vid_w * base_scale * old_zoom
+        sh0 = vid_h * base_scale * old_zoom
+        draw_x0 = (pane_w - sw0) / 2.0 + pan_x
+        draw_y0 = (pane_h - sh0) / 2.0 + pan_y
+        sx = (anchor_x - draw_x0) / (base_scale * old_zoom)
+        sy = (anchor_y - draw_y0) / (base_scale * old_zoom)
+
+        nx, ny = ScalingCalculator.adjust_pan_for_zoom_at_anchor(
+            pane_w,
+            pane_h,
+            vid_w,
+            vid_h,
+            base_scale,
+            old_zoom,
+            new_zoom,
+            pan_x,
+            pan_y,
+            anchor_x,
+            anchor_y,
+        )
+
+        sw1 = vid_w * base_scale * new_zoom
+        sh1 = vid_h * base_scale * new_zoom
+        draw_x1 = (pane_w - sw1) / 2.0 + nx
+        draw_y1 = (pane_h - sh1) / 2.0 + ny
+        self.assertAlmostEqual((anchor_x - draw_x1) / (base_scale * new_zoom), sx, places=5)
+        self.assertAlmostEqual((anchor_y - draw_y1) / (base_scale * new_zoom), sy, places=5)
+
+    def test_adjust_pan_invalid_old_zoom_raises(self) -> None:
+        """adjust_pan_for_zoom_at_anchor rejects non-positive old_zoom."""
+        with self.assertRaises(ValueError):
+            ScalingCalculator.adjust_pan_for_zoom_at_anchor(800, 600, 1920, 1080, 0.4, 0.0, 1.0, 0.0, 0.0, 400.0, 300.0)

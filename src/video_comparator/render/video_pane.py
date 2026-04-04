@@ -31,6 +31,10 @@ class FrameConversionError(RenderingError):
 class VideoPane(wx.Panel):
     """Custom wx.Panel for rendering video frames with zoom/pan."""
 
+    MIN_ZOOM: float = 0.1
+    MAX_ZOOM: float = 10.0
+    ZOOM_STEP_FACTOR: float = 1.1
+
     def __init__(
         self,
         parent: wx.Window,
@@ -141,39 +145,79 @@ class VideoPane(wx.Panel):
     def _on_mouse_wheel(self, event: wx.MouseEvent) -> None:
         """Handle mouse wheel scroll event for zooming."""
         rotation = event.GetWheelRotation()
-        zoom_factor = 1.1 if rotation > 0 else 1.0 / 1.1
+        z = self.ZOOM_STEP_FACTOR
+        zoom_factor = z if rotation > 0 else 1.0 / z
 
-        # Get mouse position in video coordinates for zoom center
         p = event.GetPosition()
         mouse_pos = self._wx_point_to_tuple(p)
         self._zoom_at_point(mouse_pos, zoom_factor)
 
-    def _zoom_at_point(self, point: Tuple[int, int], zoom_factor: float) -> None:
-        """Zoom in/out centered at a specific point.
+    def zoom_at_video_center(self, zoom_factor: float) -> None:
+        """Zoom about the center of the fitted video rectangle (includes current pan)."""
+        sz = self.GetSize()
+        pw, ph = self._wx_size_to_tuple(sz)
+        cx = pw / 2.0 + self.pan_x
+        cy = ph / 2.0 + self.pan_y
+        self._zoom_at_point((cx, cy), zoom_factor)
+
+    def _zoom_at_point(self, point: Tuple[float, float], zoom_factor: float) -> None:
+        """Zoom in/out while keeping the video pixel under ``point`` fixed in panel space.
 
         Args:
-            point: Screen coordinates (x, y) where zoom should be centered
+            point: Panel coordinates (x, y) of the zoom anchor
             zoom_factor: Multiplier for zoom level (>1.0 zooms in, <1.0 zooms out)
         """
         old_zoom = self.zoom_level
         new_zoom = old_zoom * zoom_factor
-
-        # Constrain zoom level to reasonable bounds
-        min_zoom = 0.1
-        max_zoom = 10.0
-        new_zoom = max(min_zoom, min(max_zoom, new_zoom))
+        new_zoom = max(self.MIN_ZOOM, min(self.MAX_ZOOM, new_zoom))
 
         if new_zoom == old_zoom:
             return
 
-        # Adjust pan to keep the point under the mouse fixed during zoom
-        # This ensures the pixel under the cursor stays under the cursor when zooming
-        # Formula: new_pan = mouse_pos - (mouse_pos - old_pan) * zoom_ratio
-        # This maintains the visual position of the point under the mouse
-        px, py = point
-        self.pan_x = px - (px - self.pan_x) * (new_zoom / old_zoom)
-        self.pan_y = py - (py - self.pan_y) * (new_zoom / old_zoom)
+        px, py = float(point[0]), float(point[1])
 
+        if self.metadata is None:
+            self.pan_x = px - (px - self.pan_x) * (new_zoom / old_zoom)
+            self.pan_y = py - (py - self.pan_y) * (new_zoom / old_zoom)
+            self.zoom_level = new_zoom
+            self.Refresh()
+            return
+
+        sz = self.GetSize()
+        pane_width, pane_height = self._wx_size_to_tuple(sz)
+        if pane_width <= 0 or pane_height <= 0:
+            self.zoom_level = new_zoom
+            self.Refresh()
+            return
+
+        video_size = self.metadata.dimensions
+        reference_size = self.display_size if self.scaling_mode == ScalingMode.MATCH_LARGER else None
+        try:
+            base_scale_x, base_scale_y = self.scaling_calculator.calculate_scale(
+                video_size, (pane_width, pane_height), self.scaling_mode, reference_size
+            )
+        except ValueError:
+            self.zoom_level = new_zoom
+            self.Refresh()
+            return
+
+        base_scale = base_scale_x
+        vw, vh = video_size
+        new_pan_x, new_pan_y = self.scaling_calculator.adjust_pan_for_zoom_at_anchor(
+            pane_width,
+            pane_height,
+            vw,
+            vh,
+            base_scale,
+            old_zoom,
+            new_zoom,
+            self.pan_x,
+            self.pan_y,
+            px,
+            py,
+        )
+        self.pan_x = new_pan_x
+        self.pan_y = new_pan_y
         self.zoom_level = new_zoom
         self.Refresh()
 
@@ -194,10 +238,7 @@ class VideoPane(wx.Panel):
         zoom_y = pane_height / height if height > 0 else self.zoom_level
         new_zoom = min(zoom_x, zoom_y)
 
-        # Constrain zoom level
-        min_zoom = 0.1
-        max_zoom = 10.0
-        new_zoom = max(min_zoom, min(max_zoom, new_zoom))
+        new_zoom = max(self.MIN_ZOOM, min(self.MAX_ZOOM, new_zoom))
 
         # Center the selection
         self.pan_x = x + width / 2 - pane_width / (2 * new_zoom)
@@ -262,12 +303,9 @@ class VideoPane(wx.Panel):
             pan_offset_x = self.pan_x
             pan_offset_y = self.pan_y
 
-            # Calculate drawing position (centered with pan)
-            # Centering: place scaled video in middle of pane
-            # Pan: offset from center based on user drag interactions
-            # All coordinates are in display space (panel pixels)
-            draw_x = (pane_width - scaled_width) // 2 + int(pan_offset_x)
-            draw_y = (pane_height - scaled_height) // 2 + int(pan_offset_y)
+            # Centered fit + pan (float pan; round once for pixel placement)
+            draw_x = int(round((pane_width - scaled_width) / 2.0 + pan_offset_x))
+            draw_y = int(round((pane_height - scaled_height) / 2.0 + pan_offset_y))
 
             # Create scaled bitmap
             # Note: wx.Bitmap cannot be scaled directly; must convert to wx.Image first

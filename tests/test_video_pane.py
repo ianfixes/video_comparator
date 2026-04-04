@@ -383,20 +383,60 @@ class TestVideoPane(unittest.TestCase):
         self.pane.pan_x = 0.0
         self.pane.pan_y = 0.0
 
-        with patch.object(self.pane, "Refresh") as mock_refresh:
-            self.pane._on_mouse_wheel(mock_event)
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "Refresh") as mock_refresh:
+                self.pane._on_mouse_wheel(mock_event)
 
-            self.assertGreater(self.pane.zoom_level, 1.0)
-            mock_refresh.assert_called_once()
+                self.assertGreater(self.pane.zoom_level, 1.0)
+                mock_refresh.assert_called_once()
 
         mock_event.GetWheelRotation.return_value = -120
         self.pane.zoom_level = 2.0
 
-        with patch.object(self.pane, "Refresh") as mock_refresh:
-            self.pane._on_mouse_wheel(mock_event)
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "Refresh") as mock_refresh:
+                self.pane._on_mouse_wheel(mock_event)
 
-            self.assertLess(self.pane.zoom_level, 2.0)
-            mock_refresh.assert_called_once()
+                self.assertLess(self.pane.zoom_level, 2.0)
+                mock_refresh.assert_called_once()
+
+    def test_zoom_anchor_video_center_preserves_pan(self) -> None:
+        """Button-style zoom about the video center should not drift pan."""
+        self.pane.pan_x = 12.5
+        self.pane.pan_y = -7.25
+        self.pane.zoom_level = 1.5
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            self.pane.zoom_at_video_center(VideoPane.ZOOM_STEP_FACTOR)
+        self.assertAlmostEqual(self.pane.pan_x, 12.5, places=5)
+        self.assertAlmostEqual(self.pane.pan_y, -7.25, places=5)
+
+    def test_zoom_anchor_wheel_preserves_video_sample_under_cursor(self) -> None:
+        """Wheel zoom keeps the video-space sample under the anchor fixed."""
+        calc = self.scaling_calculator
+        vw, vh = 1920, 1080
+        pw, ph = 800, 600
+        bs = calc.calculate_scale((vw, vh), (pw, ph), ScalingMode.INDEPENDENT)[0]
+        self.pane.pan_x = 11.0
+        self.pane.pan_y = -22.0
+        self.pane.zoom_level = 1.0
+        anchor_x = 150.0
+        anchor_y = 275.0
+        z_old = self.pane.zoom_level
+        sw0 = vw * bs * z_old
+        sh0 = vh * bs * z_old
+        dx0 = (pw - sw0) / 2.0 + self.pane.pan_x
+        dy0 = (ph - sh0) / 2.0 + self.pane.pan_y
+        sx = (anchor_x - dx0) / (bs * z_old)
+        sy = (anchor_y - dy0) / (bs * z_old)
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(pw, ph)):
+            self.pane._zoom_at_point((anchor_x, anchor_y), VideoPane.ZOOM_STEP_FACTOR)
+        z1 = self.pane.zoom_level
+        sw1 = vw * bs * z1
+        sh1 = vh * bs * z1
+        dx1 = (pw - sw1) / 2.0 + self.pane.pan_x
+        dy1 = (ph - sh1) / 2.0 + self.pane.pan_y
+        self.assertAlmostEqual((anchor_x - dx1) / (bs * z1), sx, places=5)
+        self.assertAlmostEqual((anchor_y - dy1) / (bs * z1), sy, places=5)
 
     def test_shift_drag_rectangle_selection_and_zoom_to_region(self) -> None:
         """Test Shift-drag rectangle selection and zoom to region."""
@@ -483,11 +523,12 @@ class TestVideoPane(unittest.TestCase):
 
         self.pane.zoom_level = 1.0
 
-        with patch.object(self.pane, "Refresh"):
-            for _ in range(100):
-                self.pane._on_mouse_wheel(mock_event)
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "Refresh"):
+                for _ in range(100):
+                    self.pane._on_mouse_wheel(mock_event)
 
-            self.assertLessEqual(self.pane.zoom_level, 10.0)
+                self.assertLessEqual(self.pane.zoom_level, 10.0)
 
     def test_edge_case_extreme_pan_positions(self) -> None:
         """Test edge case: extreme pan positions."""

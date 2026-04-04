@@ -468,32 +468,30 @@ class Application:
         """Handle zoom in command."""
         if self.video_pane1 is None or self.video_pane2 is None:
             return
-        self.video_pane1.zoom_level *= 1.2
-        self.video_pane2.zoom_level *= 1.2
-        self.video_pane1.Refresh()
-        self.video_pane2.Refresh()
+        zf = VideoPane.ZOOM_STEP_FACTOR
+        self.video_pane1.zoom_at_video_center(zf)
+        self.video_pane2.zoom_at_video_center(zf)
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
 
     def _handle_zoom_out(self) -> None:
         """Handle zoom out command."""
         if self.video_pane1 is None or self.video_pane2 is None:
             return
-        self.video_pane1.zoom_level /= 1.2
-        self.video_pane2.zoom_level /= 1.2
-        self.video_pane1.Refresh()
-        self.video_pane2.Refresh()
+        zf = 1.0 / VideoPane.ZOOM_STEP_FACTOR
+        self.video_pane1.zoom_at_video_center(zf)
+        self.video_pane2.zoom_at_video_center(zf)
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
 
     def _handle_zoom_reset(self) -> None:
         """Handle zoom reset command."""
         if self.video_pane1 is None or self.video_pane2 is None:
             return
-        self.video_pane1.zoom_level = 1.0
-        self.video_pane2.zoom_level = 1.0
-        self.video_pane1.pan_x = 0.0
-        self.video_pane1.pan_y = 0.0
-        self.video_pane2.pan_x = 0.0
-        self.video_pane2.pan_y = 0.0
-        self.video_pane1.Refresh()
-        self.video_pane2.Refresh()
+        self.video_pane1.reset_zoom_pan()
+        self.video_pane2.reset_zoom_pan()
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
 
     def _handle_toggle_scaling(self) -> None:
         """Handle toggle scaling mode command."""

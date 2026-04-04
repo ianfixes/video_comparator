@@ -556,8 +556,18 @@ class TestZoomControls(unittest.TestCase):
         self.release_patcher.start()
         self.hascapture_patcher.start()
 
-        self.video_pane1 = VideoPane(self.parent, scaling_calculator)
-        self.video_pane2 = VideoPane(self.parent, scaling_calculator)
+        zoom_metadata = VideoMetadata(
+            file_path=None,
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=1.0 / 30.0,
+        )
+        self.video_pane1 = VideoPane(self.parent, scaling_calculator, zoom_metadata)
+        self.video_pane2 = VideoPane(self.parent, scaling_calculator, zoom_metadata)
 
     def tearDown(self) -> None:
         """Clean up test fixtures."""
@@ -801,8 +811,18 @@ class TestControlPanel(unittest.TestCase):
         self.release_patcher.start()
         self.hascapture_patcher.start()
 
-        self.video_pane1 = VideoPane(self.parent, scaling_calculator)
-        self.video_pane2 = VideoPane(self.parent, scaling_calculator)
+        zoom_metadata = VideoMetadata(
+            file_path=None,
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=1.0 / 30.0,
+        )
+        self.video_pane1 = VideoPane(self.parent, scaling_calculator, zoom_metadata)
+        self.video_pane2 = VideoPane(self.parent, scaling_calculator, zoom_metadata)
 
     def tearDown(self) -> None:
         """Clean up test fixtures."""

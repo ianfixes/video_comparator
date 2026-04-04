@@ -367,7 +367,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement wx.Panel subclass
 - [x] Implement OnPaint event handler
 - [x] Implement frame rendering using wx.PaintDC
-- [x] Implement zoom transform application
+- [x] Implement zoom transform application, scale about the **center** of the displayed video region in the pane by default
 - [x] Implement pan transform application
 - [x] Implement scaling mode support (independent vs match_larger)
 - [x] Implement matched bounding box calculation
@@ -375,7 +375,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Handle click on "no video loaded" overlay to open file chooser for that video pane
 - [x] Implement mouse event handlers:
   - [x] Mouse drag (click-and-drag) for panning the zoomed region
-  - [x] Mouse wheel scroll for zooming in/out
+  - [x] Mouse wheel scroll for zooming in/out - scale about the **point under the cursor** (adjust pan so that pixel stays fixed in video space while zoom changes).
   - [x] Shift-drag rectangle selection for zooming to a specific region
 - [x] Implement zoom state persistence across seeks/steps
 - [x] Integrate with ScalingCalculator
@@ -399,6 +399,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test zoom state persistence after frame step
 - [x] Test coordinate transformations (screen to video space)
 - [x] Test edge cases (very large zoom, extreme pan positions)
+- [x] Test zoom anchor: button zoom leaves **center** of video region stable; wheel zoom leaves **cursor** point stable (logic tests on pan/zoom math)
 
 **Note:** wxPython components should be mocked in unit tests. Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators.
 
@@ -446,6 +447,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement -1 frame button
 - [x] Implement offset display
 - [x] Integrate with TimelineController for offset updates
+- [ ] **Sync offset → display refresh:** When the user changes sync offset (slider or ±1 buttons), request and show updated frames **immediately** while playback is **paused** or **stopped**. While playback is **playing**, do **not** issue a separate immediate refresh from the control handler; let the next tick / playback-driven frame request apply the new offset (avoid racing the playback timer).
 
 **Unit Tests Required:**
 - [x] Test SyncControls initialization
@@ -454,6 +456,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test -1 button decrements offset
 - [x] Test offset display shows current offset
 - [x] Test offset range limits (if any)
+- [ ] Test (or integration test): offset change triggers frame refresh when not playing; defers to playback when playing (mock `PlaybackState`)
 
 ### ZoomControls (`ui/controls.py`)
 - [x] Implement zoom in button
@@ -461,6 +464,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement zoom reset button
 - [x] Implement zoom level display
 - [x] Integrate with VideoPane widgets for zoom updates
+- [x] **Zoom anchor:** Button-driven zoom should use **center** anchoring; implementation lives primarily in `VideoPane` / `ScalingCalculator` (see Phase 7 — Zoom anchor).
 
 **Unit Tests Required:**
 - [x] Test ZoomControls initialization
@@ -588,6 +592,8 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 12: Integration & End-to-End
 
 ### Integration Tests
+- [ ] Sync offset: changing slider/±1 while **paused** updates both panes immediately; changing while **playing** does not glitch or double-refresh (offset applies via playback path)
+- [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
 - [ ] Test complete workflow: load two videos → align → step through frames
 - [ ] Test complete workflow: load videos → zoom → pan → step
 - [ ] Test complete workflow: load videos → change layout → verify display

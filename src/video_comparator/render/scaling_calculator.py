@@ -18,6 +18,44 @@ class ScalingCalculator:
         """Initialize scaling calculator."""
         pass
 
+    @staticmethod
+    def adjust_pan_for_zoom_at_anchor(
+        pane_width: int,
+        pane_height: int,
+        video_width: int,
+        video_height: int,
+        base_scale: float,
+        old_zoom: float,
+        new_zoom: float,
+        old_pan_x: float,
+        old_pan_y: float,
+        anchor_x: float,
+        anchor_y: float,
+    ) -> Tuple[float, float]:
+        """Compute new pan so the video pixel under ``anchor`` stays fixed when zoom changes.
+
+        Layout matches ``VideoPane`` rendering: the fitted bitmap is centered in the pane
+        with optional ``pan`` offset, then scaled by ``base_scale * zoom``.
+        """
+        if old_zoom <= 0:
+            raise ValueError("old_zoom must be positive")
+        if video_width <= 0 or video_height <= 0:
+            raise ValueError("video dimensions must be positive")
+        sw0 = video_width * base_scale * old_zoom
+        sh0 = video_height * base_scale * old_zoom
+        sw1 = video_width * base_scale * new_zoom
+        sh1 = video_height * base_scale * new_zoom
+        draw_x0 = (pane_width - sw0) / 2.0 + old_pan_x
+        draw_y0 = (pane_height - sh0) / 2.0 + old_pan_y
+        ox = anchor_x - draw_x0
+        oy = anchor_y - draw_y0
+        ratio = new_zoom / old_zoom
+        ox_new = ox * ratio
+        oy_new = oy * ratio
+        new_pan_x = anchor_x - (pane_width - sw1) / 2.0 - ox_new
+        new_pan_y = anchor_y - (pane_height - sh1) / 2.0 - oy_new
+        return (new_pan_x, new_pan_y)
+
     def calculate_scale(
         self,
         video_size: Tuple[int, int],

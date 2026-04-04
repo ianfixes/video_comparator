@@ -274,7 +274,7 @@ class SyncControls:
 class ZoomControls:
     """Zoom control buttons with zoom level display."""
 
-    ZOOM_FACTOR: float = 1.1
+    ZOOM_FACTOR: float = VideoPane.ZOOM_STEP_FACTOR
 
     def __init__(
         self,
@@ -341,14 +341,10 @@ class ZoomControls:
         Args:
             zoom_factor: Multiplier for zoom level (>1.0 zooms in, <1.0 zooms out)
         """
-        sz1 = self.video_pane1.GetSize()
-        center1 = (sz1.GetWidth() // 2, sz1.GetHeight() // 2)
-        self.video_pane1._zoom_at_point(center1, zoom_factor)
+        self.video_pane1.zoom_at_video_center(zoom_factor)
 
         if self.synchronized:
-            sz2 = self.video_pane2.GetSize()
-            center2 = (sz2.GetWidth() // 2, sz2.GetHeight() // 2)
-            self.video_pane2._zoom_at_point(center2, zoom_factor)
+            self.video_pane2.zoom_at_video_center(zoom_factor)
 
         self._update_zoom_display()
 
