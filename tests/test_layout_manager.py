@@ -24,6 +24,8 @@ class TestLayoutManager(unittest.TestCase):
         ), patch.object(VideoPane, "GetSize", return_value=wx.Size(400, 300)), patch.object(
             VideoPane, "Refresh", return_value=None
         ), patch.object(
+            VideoPane, "SetDropTarget", return_value=None
+        ), patch.object(
             VideoPane, "CaptureMouse", return_value=None
         ), patch.object(
             VideoPane, "ReleaseMouse", return_value=None

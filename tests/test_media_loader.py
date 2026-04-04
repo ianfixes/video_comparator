@@ -253,3 +253,14 @@ class TestMediaLoader(unittest.TestCase):
                         self.error_handler.handle_error.assert_called()
                         error = self.error_handler.handle_error.call_args[0][0]
                         self.assertIsInstance(error, UnsupportedFormatError)
+
+    def test_is_plausible_video_path_accepts_known_suffixes(self) -> None:
+        """Known video extensions are accepted case-insensitively."""
+        self.assertTrue(self.loader.is_plausible_video_path(Path("clip.MP4")))
+        self.assertTrue(self.loader.is_plausible_video_path(Path("/a/b.avi")))
+        self.assertTrue(self.loader.is_plausible_video_path(Path("x.mkv")))
+
+    def test_is_plausible_video_path_rejects_non_video_suffix(self) -> None:
+        """Non-video extensions are rejected before opening the file."""
+        self.assertFalse(self.loader.is_plausible_video_path(Path("notes.txt")))
+        self.assertFalse(self.loader.is_plausible_video_path(Path("data.pdf")))

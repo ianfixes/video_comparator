@@ -355,3 +355,71 @@ class TestApplication(unittest.TestCase):
 
         mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
         mock_pc.request_frames_at_current_position.assert_not_called()
+
+    def test_dropped_path_rejects_bad_extension(self) -> None:
+        """Drag-drop handler does not load files with non-video extensions."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.media_loader = MagicMock()
+        app.media_loader.is_plausible_video_path.return_value = False
+        app._handle_dropped_path_for_slot(1, Path("/tmp/x.txt"))
+        app.media_loader.load_video_file_from_path.assert_not_called()
+        self.error_handler.handle_error.assert_called_once()
+        err = self.error_handler.handle_error.call_args[0][0]
+        self.assertIsInstance(err, ValueError)
+
+    def test_dropped_path_applies_loaded_video_like_open_menu(self) -> None:
+        """Successful drop uses the same apply path as File → Open."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta = VideoMetadata(
+            file_path=Path("/v.mp4"),
+            duration=1.0,
+            fps=30.0,
+            width=640,
+            height=480,
+            pixel_format="yuv420p",
+            total_frames=30,
+            time_base=0.001,
+        )
+        app.media_loader = MagicMock()
+        app.media_loader.is_plausible_video_path.return_value = True
+        app.media_loader.load_video_file_from_path.return_value = meta
+        with patch.object(app, "_apply_loaded_video") as mock_apply:
+            app._handle_dropped_path_for_slot(2, Path("/v.mp4"))
+        mock_apply.assert_called_once_with(2, meta)
+        app.media_loader.load_video_file_from_path.assert_called_once_with(Path("/v.mp4"))
+
+    def test_dropped_path_invalid_slot_is_noop(self) -> None:
+        """Unknown slot does not touch the media loader."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.media_loader = MagicMock()
+        app._handle_dropped_path_for_slot(99, Path("/v.mp4"))
+        app.media_loader.is_plausible_video_path.assert_not_called()
+
+    def test_initialize_wires_drop_handlers_on_video_panes(self) -> None:
+        """Startup registers file-drop callbacks and tooltips on each pane."""
+        with patch("video_comparator.app.application.wx.App") as mock_app_class:
+            mock_app = MagicMock()
+            mock_app_class.return_value = mock_app
+            app = Application(
+                settings_manager=self.settings_manager,
+                error_handler=self.error_handler,
+            )
+            mock_video_pane = MagicMock()
+            with patch("video_comparator.app.application.VideoPane", return_value=mock_video_pane), patch(
+                "video_comparator.app.application.LayoutManager"
+            ), patch("video_comparator.app.application.TimelineController"), patch(
+                "video_comparator.app.application.PlaybackController"
+            ), patch(
+                "video_comparator.app.application.ControlPanel"
+            ), patch(
+                "video_comparator.app.application.ShortcutManager"
+            ), patch(
+                "video_comparator.app.application.MainFrame"
+            ), patch(
+                "video_comparator.app.application.wx.Panel"
+            ), patch.object(
+                mock_video_pane, "Reparent"
+            ):
+                app.initialize()
+        self.assertEqual(mock_video_pane.set_on_files_dropped.call_count, 2)
+        self.assertEqual(mock_video_pane.SetToolTip.call_count, 2)

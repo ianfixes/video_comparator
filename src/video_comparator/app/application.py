@@ -281,8 +281,12 @@ class Application:
         )
         if self.video_pane1 is not None:
             self.video_pane1.set_on_request_open_file(self._handle_open_video_1)
+            self.video_pane1.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(1, Path(paths[0])))
+            self.video_pane1.SetToolTip("Video 1 — drop a file here or use File → Open Video 1")
         if self.video_pane2 is not None:
             self.video_pane2.set_on_request_open_file(self._handle_open_video_2)
+            self.video_pane2.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(2, Path(paths[0])))
+            self.video_pane2.SetToolTip("Video 2 — drop a file here or use File → Open Video 2")
 
         self._update_control_panel_load_state()
         self._create_playback_timer()
@@ -539,6 +543,17 @@ class Application:
         if metadata is None:
             return
         self._apply_loaded_video(2, metadata)
+
+    def _handle_dropped_path_for_slot(self, slot: int, path: Path) -> None:
+        """Load a video from a dropped filesystem path (same pipeline as File → Open)."""
+        if slot not in (1, 2):
+            return
+        if not self.media_loader.is_plausible_video_path(path):
+            self.error_handler.handle_error(ValueError(f"Not a supported video file type: {path.name}"))
+            return
+        metadata = self.media_loader.load_video_file_from_path(path)
+        if metadata is not None:
+            self._apply_loaded_video(slot, metadata)
 
     def _apply_loaded_video(self, slot: int, metadata: VideoMetadata) -> None:
         """Apply loaded metadata to the given slot (1 or 2) and update decoders/caches/UI."""

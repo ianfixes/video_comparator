@@ -10,7 +10,7 @@ Responsibilities:
 - Mouse interactions: drag to pan, scroll wheel to zoom, Shift-drag rectangle to zoom to region
 """
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import wx
@@ -18,6 +18,30 @@ import wx
 from video_comparator.common.types import ScalingMode
 from video_comparator.media.video_metadata import VideoMetadata
 from video_comparator.render.scaling_calculator import ScalingCalculator
+
+
+class _VideoPaneFileDropTarget(wx.FileDropTarget):
+    """Accepts file drops from the OS; highlights the pane while dragging."""
+
+    def __init__(self, pane: "VideoPane") -> None:
+        super().__init__()
+        self._pane = pane
+
+    def OnEnter(self, x: int, y: int, defResult: int) -> int:
+        if self._pane._on_files_dropped is None:
+            return wx.DragNone  # type: ignore[attr-defined, no-any-return]
+        self._pane._set_drop_highlight(True)
+        self._pane.Refresh()
+        return wx.DragCopy  # type: ignore[attr-defined, no-any-return]
+
+    def OnLeave(self) -> None:
+        self._pane._set_drop_highlight(False)
+        self._pane.Refresh()
+
+    def OnDropFiles(self, x: int, y: int, filenames: List[str]) -> bool:
+        self._pane._set_drop_highlight(False)
+        self._pane.Refresh()
+        return self._pane._deliver_dropped_files(filenames)
 
 
 class RenderingError(Exception):
@@ -66,11 +90,20 @@ class VideoPane(wx.Panel):
         self.selection_rect: Optional[Tuple[int, int, int, int]] = None
         self.is_shift_dragging: bool = False
 
+        # Drag-and-drop: highlight while OS drag hovers over pane
+        self._drop_highlight: bool = False
+
         # Cached bitmap for current frame
         self._cached_bitmap: Optional[wx.Bitmap] = None
 
         # Optional callback when user clicks on empty pane to open file (e.g. load video)
         self._on_request_open_file: Optional[Callable[[], None]] = None
+
+        # Optional callback when user drops filesystem paths (first path is used)
+        self._on_files_dropped: Optional[Callable[[Sequence[str]], None]] = None
+
+        self._file_drop_target = _VideoPaneFileDropTarget(self)
+        self.SetDropTarget(self._file_drop_target)
 
         # Bind mouse events
         self.Bind(wx.EVT_LEFT_DOWN, self._on_left_down)
@@ -253,6 +286,8 @@ class VideoPane(wx.Panel):
         self._render_frame(dc)
         if self.is_shift_dragging and self.selection_rect is not None:
             self._draw_selection_rect(dc)
+        if self._drop_highlight:
+            self._draw_drop_highlight(dc)
 
     def _render_frame(self, dc: wx.DC) -> None:
         """Render the current frame with zoom/pan transforms.
@@ -366,6 +401,16 @@ class VideoPane(wx.Panel):
         except Exception as e:
             raise FrameConversionError(f"Failed to convert frame to bitmap: {e}") from e
 
+    def _draw_drop_highlight(self, dc: wx.DC) -> None:
+        """Draw a border while a file drag hovers over the pane."""
+        sz = self.GetSize()
+        w, h = self._wx_size_to_tuple(sz)
+        if w <= 0 or h <= 0:
+            return
+        dc.SetPen(wx.Pen(wx.Colour(80, 160, 255), 3, wx.PENSTYLE_SOLID))
+        dc.SetBrush(wx.Brush(wx.Colour(0, 0, 0), wx.BRUSHSTYLE_TRANSPARENT))
+        dc.DrawRectangle(1, 1, w - 2, h - 2)
+
     def _draw_empty_state(self, dc: wx.DC, width: int, height: int) -> None:
         """Draw empty state when no video is loaded.
 
@@ -376,7 +421,7 @@ class VideoPane(wx.Panel):
         """
         dc.SetTextForeground(wx.Colour(128, 128, 128))
         dc.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-        text = "No video loaded"
+        text = "No video loaded — click or drop a file"
         text_extent = dc.GetTextExtent(text)
         text_width = text_extent[0] if text_extent[0] is not None else 0
         text_height = text_extent[1] if text_extent[1] is not None else 0
@@ -476,6 +521,26 @@ class VideoPane(wx.Panel):
             callback: Callable with no arguments, or None to clear
         """
         self._on_request_open_file = callback
+
+    def set_on_files_dropped(self, callback: Optional[Callable[[Sequence[str]], None]]) -> None:
+        """Set callback invoked when the user drops filesystem paths onto the pane.
+
+        The first path is typically used. Same load path as File → Open for this pane.
+
+        Args:
+            callback: Callable receiving a sequence of path strings, or None to disable
+        """
+        self._on_files_dropped = callback
+
+    def _set_drop_highlight(self, active: bool) -> None:
+        self._drop_highlight = active
+
+    def _deliver_dropped_files(self, filenames: Sequence[str]) -> bool:
+        """Apply a drop of path strings. Returns True if the drop was handled."""
+        if not self._on_files_dropped or not filenames:
+            return False
+        self._on_files_dropped(filenames)
+        return True
 
     def set_scaling_mode(self, mode: ScalingMode) -> None:
         """Set scaling mode.

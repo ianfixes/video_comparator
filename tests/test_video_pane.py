@@ -23,6 +23,8 @@ def create_video_pane(parent, calculator, metadata=None):
     ), patch.object(VideoPane, "GetSize", return_value=wx.Size(800, 600)), patch.object(
         VideoPane, "Refresh", return_value=None
     ), patch.object(
+        VideoPane, "SetDropTarget", return_value=None
+    ), patch.object(
         VideoPane, "CaptureMouse", return_value=None
     ), patch.object(
         VideoPane, "ReleaseMouse", return_value=None
@@ -53,13 +55,16 @@ class TestVideoPane(unittest.TestCase):
         self.panel_patcher = patch("video_comparator.render.video_pane.wx.Panel.__init__", return_value=None)
         self.bind_patcher = patch.object(VideoPane, "Bind", return_value=None)
         self.refresh_patcher = patch.object(VideoPane, "Refresh", return_value=None)
+        self.setdrop_patcher = patch.object(VideoPane, "SetDropTarget", return_value=None)
         self.panel_patcher.start()
         self.bind_patcher.start()
         self.refresh_patcher.start()
+        self.setdrop_patcher.start()
         self.pane = VideoPane(self.parent, self.scaling_calculator, self.metadata)
 
     def tearDown(self) -> None:
         """Clean up test fixtures."""
+        self.setdrop_patcher.stop()
         self.refresh_patcher.stop()
         self.bind_patcher.stop()
         self.panel_patcher.stop()
@@ -744,3 +749,25 @@ class TestVideoPane(unittest.TestCase):
 
                     with self.assertRaises(RenderingError):
                         self.pane._render_frame(mock_dc)
+
+    def test_deliver_dropped_files_invokes_callback(self) -> None:
+        """Dropped paths are forwarded to the callback (same entry point as menu open wiring)."""
+        received: list[str] = []
+        self.pane.set_on_files_dropped(lambda paths: received.extend(paths))
+        ok = self.pane._deliver_dropped_files(["/a/b.mp4"])
+        self.assertTrue(ok)
+        self.assertEqual(received, ["/a/b.mp4"])
+
+    def test_deliver_dropped_files_without_callback_returns_false(self) -> None:
+        """Without a handler, drops are not consumed."""
+        self.pane.set_on_files_dropped(None)
+        ok = self.pane._deliver_dropped_files(["/a.mp4"])
+        self.assertFalse(ok)
+
+    def test_deliver_dropped_files_empty_returns_false(self) -> None:
+        """Empty filename list does not invoke the callback."""
+        received: list[str] = []
+        self.pane.set_on_files_dropped(lambda paths: received.extend(paths))
+        ok = self.pane._deliver_dropped_files([])
+        self.assertFalse(ok)
+        self.assertEqual(received, [])

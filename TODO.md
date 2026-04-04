@@ -590,15 +590,15 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test error handling integration
 
 ### Drag and drop (video files onto panes)
-- [ ] Enable drag-and-drop on each `VideoPane` (e.g. `wx.FileDropTarget` or `wx.DropTarget` with file URL/text) so users can drop video files from the OS file manager
-- [ ] Route a drop on pane 1 vs pane 2 to the same load path as **File → Open Video 1/2** (reuse `MediaLoader` / `_apply_loaded_video` logic; avoid duplicating validation)
-- [ ] Accept only plausible video paths (extension and/or sniffing); show errors via `ErrorHandler` for invalid or unreadable drops
-- [ ] Optional: visual affordance when the pointer drags over a pane (e.g. highlight or cursor) and ignore drops on the wrong widget
-- [ ] Document behavior in tooltips or help (which pane receives which slot)
+- [x] Enable drag-and-drop on each `VideoPane` (e.g. `wx.FileDropTarget` or `wx.DropTarget` with file URL/text) so users can drop video files from the OS file manager
+- [x] Route a drop on pane 1 vs pane 2 to the same load path as **File → Open Video 1/2** (reuse `MediaLoader` / `_apply_loaded_video` logic; avoid duplicating validation)
+- [x] Accept only plausible video paths (extension and/or sniffing); show errors via `ErrorHandler` for invalid or unreadable drops
+- [x] Optional: visual affordance when the pointer drags over a pane (e.g. highlight or cursor) and ignore drops on the wrong widget
+- [x] Document behavior in tooltips or help (which pane receives which slot)
 
 **Unit Tests Required:**
-- [ ] Drop handler resolves the target pane (1 vs 2) and invokes the same load entry point as menu open (mock `MediaLoader` / application callback)
-- [ ] Reject or no-op non-file payloads without crashing; invalid paths surface errors without leaving panes inconsistent
+- [x] Drop handler resolves the target pane (1 vs 2) and invokes the same load entry point as menu open (mock `MediaLoader` / application callback)
+- [x] Reject or no-op non-file payloads without crashing; invalid paths surface errors without leaving panes inconsistent
 
 ---
 
@@ -627,7 +627,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Document extension points for future features
 
 ### Polish
-- [ ] Drag-and-drop onto video panes (see Phase 11: Drag and drop)
+- [x] Drag-and-drop onto video panes (see Phase 11: Drag and drop)
 - [ ] Add tooltips to all UI controls
 - [ ] Add status bar with helpful information
 - [ ] Add about dialog

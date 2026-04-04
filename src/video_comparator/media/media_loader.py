@@ -7,7 +7,7 @@ Responsibilities:
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import FrozenSet, Optional
 
 import wx
 
@@ -37,6 +37,9 @@ class MediaLoader:
         "*.3gp",
     ]
 
+    #: Lowercase file suffixes (including dot) accepted before opening containers
+    VIDEO_FILE_SUFFIXES: FrozenSet[str] = frozenset(w[1:].lower() for w in SUPPORTED_EXTENSIONS if w.startswith("*"))
+
     def __init__(
         self,
         error_handler: ErrorHandler,
@@ -47,6 +50,10 @@ class MediaLoader:
             error_handler: Error handler for displaying user-facing errors
         """
         self.error_handler: ErrorHandler = error_handler
+
+    def is_plausible_video_path(self, file_path: Path) -> bool:
+        """Return True if the path has a known video file extension (case-insensitive)."""
+        return file_path.suffix.lower() in self.VIDEO_FILE_SUFFIXES
 
     def load_video_file(self, parent: Optional[wx.Window] = None) -> Optional[VideoMetadata]:
         """Load a video file via file selection dialog.
