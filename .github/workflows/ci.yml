@@ -32,6 +32,26 @@ jobs:
           virtualenvs-in-project: true
           installer-parallel: true
 
+      - name: Install system dependencies for wxPython
+        run: |
+          sudo apt-get update
+          # Main dependencies for wxPython (gtk et al)
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libjpeg-dev \
+            libtiff-dev \
+            libsdl2-dev \
+            libnotify-dev \
+            freeglut3-dev \
+            libsm-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer1.0-dev \
+            libpng-dev \
+            libgl1-mesa-dev \
+            libsqlite3-dev \
+            libegl1-mesa-dev \
+            libxcb-xinerama0
+
       - name: Load cached venv
         id: cached-poetry-dependencies
         uses: actions/cache@v4
