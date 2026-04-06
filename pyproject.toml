@@ -11,7 +11,10 @@ video-comparator = "video_comparator.__main__:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-wxPython = "^4.2.1"
+wxPython = [
+    { version = "^4.2.1", markers = "sys_platform != 'linux'" },
+    { url = "https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/wxpython-4.2.4-cp311-cp311-linux_x86_64.whl", markers = "sys_platform == 'linux' and python_version == '3.11' and platform_machine == 'x86_64'" }
+]
 av = "^12.0.0"
 numpy = "^1.24.0"
 isort = "^7.0.0"
