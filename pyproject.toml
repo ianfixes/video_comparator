@@ -6,12 +6,19 @@ authors = ["Ian Katz <ianfixes@gmail.com>"]
 readme = "README.md"
 packages = [{include = "video_comparator", from = "src"}]
 
+[tool.poetry.scripts]
+video-comparator = "video_comparator.__main__:main"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-wxPython = "^4.2.1"
+wxPython = [
+    { version = "^4.2.1", markers = "sys_platform != 'linux'" },
+    { url = "https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04/wxpython-4.2.4-cp311-cp311-linux_x86_64.whl", markers = "sys_platform == 'linux' and python_version == '3.11' and platform_machine == 'x86_64'" }
+]
 av = "^12.0.0"
 numpy = "^1.24.0"
 isort = "^7.0.0"
+types-wxpython = "^0.9.7"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
@@ -22,6 +29,12 @@ mypy = "^1.7.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+line_length = 120
+force_grid_wrap = 0
+include_trailing_comma = true
+multi_line_output = 3
 
 [tool.black]
 line-length = 120

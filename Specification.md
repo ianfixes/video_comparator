@@ -15,16 +15,22 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 2. **Dual Video Display**
    - The application shall allow the user to load two independent video files.
+   - Loading shall be available via **File > Open Video 1** and **File > Open Video 2** (or equivalent shortcuts). Each menu item opens a file chooser and loads the selected file into the corresponding pane.
+   - Clicking the empty video pane (or the "no video loaded" placeholder text) shall open the file chooser for that pane, so users can load a video by clicking where it will appear.
    - Both videos shall be displayed simultaneously, in a side-by-side or stacked configuration.
-   - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split.
+   - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split (e.g. via **View > Toggle Layout** and keyboard shortcut).
    - Each video pane should display the same current frame (after sync adjustments).
-   - Both videos must be scaled to fit inside a common, matched bounding box, ensuring a visually consistent area for comparison, regardless of source dimensions.
+   - Both videos are displayed within matched bounding boxes, ensuring that the comparison area is visually consistent, regardless of original dimensions.
+   - If the source dimensions differ, users can toggle between two modes (e.g. via **View → Toggle Scaling Mode**):
+     1. Each video scaled to fill its own bounding box (preserving aspect ratio).
+     2. The larger video fills the box, and the smaller video is scaled proportionally to the displayed size of the larger one.
    - Each video's native dimensions must be displayed in text.
    - The system must permit zooming in both panes to analyze specific regions of the videos in more detail.
 
 3. **Timeline Navigation**
    - There must be a slider at the bottom of the window representing the timeline of the videos.
    - Dragging or clicking the slider moves both videos to the specified timestamp/frame, keeping them synchronized (with applicable sync offsets).
+   - When the user changes the timeline position (e.g. by dragging the slider), the application shall request and display the frame(s) at the new position.
    - The current playback time/frame should be displayed for each video.
 
 4. **Frame-by-Frame Control**
@@ -33,9 +39,12 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 5. **Playback Control**
    - There must be play, pause, and stop controls to start or stop both videos simultaneously and in sync.
+   - The **play** button shall be enabled only when at least one video is loaded; it shall be disabled when no video is loaded.
+   - When only one video is loaded, that video shall still be playable (play, pause, stop, frame step, and timeline seek).
    - Playback should maintain synchronization between both videos (within the configured sync settings).
 
 6. **Sync Adjustment Controls for Second Video**
+   - Sync adjustment controls (slider and +/-1 frame buttons) shall be enabled only when **both** videos are loaded; they shall be disabled when fewer than two videos are loaded.
    - The second video must feature at the top:
      - A slider for rough adjustment of sync offset relative to the first video (expressed in frames, positive or negative).
      - "+" and "-" buttons for precise adjustment: shifting the second video's position by one frame forward or backward.
@@ -43,7 +52,10 @@ This software project aims to deliver a cross-platform graphical user interface 
 
 7. **Zoom and Region Inspection**
    - The application must provide controls and/or hotkeys to zoom in and out on the video display area, as well as to reset zoom to default.
-   - Users must be able to use the mouse (click-and-drag or similar) to pan the zoomed region within each video pane for detailed area inspection.
+   - Mouse interactions for zoom and pan:
+     - **Mouse drag**: Clicking and dragging the mouse within a video pane must pan the zoomed region, allowing users to inspect different areas of the frame.
+     - **Scroll wheel**: Scrolling the mouse wheel over a video pane must zoom in (scroll up) or zoom out (scroll down) on that pane.
+     - **Shift-drag rectangle**: Holding Shift while clicking and dragging must draw a selection rectangle, and releasing the mouse must zoom to fit the selected region.
    - Zoom must be supported independently or synchronously for each video pane, allowing detailed comparison.
    - The zoom state (level and pan position) must remain consistent during video playback, frame stepping, and when seeking the timeline.
    - The zoom feature must not interfere with video synchronization or performance.
@@ -74,6 +86,14 @@ This software project aims to deliver a cross-platform graphical user interface 
 12. **Error Handling**
     - Graceful handling of unsupported formats, missing codecs, or video loading errors.
     - Clear error messages and user guidance.
+    - Each subsystem defines per-class exceptions matching its responsibilities:
+      - Media Loading: file validation, format errors, missing codecs
+      - Decode Engine: decode failures, seek errors, unsupported formats
+      - Frame Cache: cache capacity errors, invalid frame indices
+      - Prefill Strategy: strategy-specific errors (e.g., frames not generated)
+      - Timeline Controller: invalid positions, out-of-range seeks
+      - Playback Controller: playback state errors, synchronization failures
+    - Exceptions are caught at appropriate boundaries and displayed via ErrorHandler with user-friendly messages.
 
 13. **Project Extensibility**
     - The GUI and backend should be designed for modularity, allowing future expansion (e.g., annotation tools, quality metrics overlays, multi-video support).

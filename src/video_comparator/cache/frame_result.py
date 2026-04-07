@@ -1,0 +1,24 @@
+from dataclasses import dataclass
+from typing import Optional
+
+import numpy as np
+
+from video_comparator.common.types import FrameRequestStatus
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    """
+    Represents the result of a frame request made to the FrameCache.
+
+    Attributes:
+        frame_number (int): The requested frame index.
+        frame (Optional[np.ndarray]): The decoded frame data, if successful; None if request failed.
+        status (FrameRequestStatus): Status indicating the result of the frame request.
+        error (Optional[Exception]): Exception object providing error details for error statuses, None if not applicable.
+    """
+
+    frame_number: int
+    frame: Optional[np.ndarray]
+    status: FrameRequestStatus
+    error: Optional[Exception] = None
