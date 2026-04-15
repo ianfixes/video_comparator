@@ -10,18 +10,27 @@ Responsibilities:
 
 import queue
 import threading
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, TextIO, Tuple
 
 import numpy as np
 
 from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy
+from video_comparator.common.shell import get_env_bool, vd_debug_print
 from video_comparator.common.types import FrameRequestStatus
 from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
 
-DEBUG_FORCE_UNIQUE_FRAMES = True
+DEBUG_FORCE_UNIQUE_FRAMES = get_env_bool("DEBUG_FORCE_UNIQUE_FRAMES")
 DEBUG_UNIQUE_FRACTION = 4
-DEBUG_SKIP_CACHE_ENTIRELY = True
+DEBUG_SKIP_CACHE_ENTIRELY = get_env_bool("DEBUG_SKIP_CACHE_ENTIRELY")
+DEBUG_PRINT_FRAMEDEBUG = get_env_bool("DEBUG_PRINT_FRAMEDEBUG")
+
+
+def print_framedebug(
+    *args: Any, sep: str = " ", end: str = "\n", file: Optional[TextIO] = None, flush: bool = False
+) -> None:
+    if DEBUG_PRINT_FRAMEDEBUG:
+        vd_debug_print("[FrameDebug]", *args, sep=sep, end=end, file=file, flush=flush)
 
 
 class FrameCache:
@@ -149,13 +158,13 @@ class FrameCache:
 
         self._sync_event.clear()
         first_frame_num = protected_frames_list[0]
-        print(
-            "[FrameDebug] FrameCache: request received for first_frame=%d "
+        print_framedebug(
+            "FrameCache: request received for first_frame=%d "
             "(total %d frames in request)" % (first_frame_num, len(protected_frames_list))
         )
-        first_result = self._fetch_frame_sync(first_frame_num, decoder)
-        print(
-            "[FrameDebug] FrameCache: first frame fulfilled frame_number=%d "
+        first_result = self._fetch_frame_sync(first_frame_num, decoder, False)
+        print_framedebug(
+            "FrameCache: first frame fulfilled frame_number=%d "
             "status=%s has_frame=%s"
             % (
                 first_result.frame_number,
@@ -164,7 +173,7 @@ class FrameCache:
             )
         )
         frame_callback(first_result)
-        print("[FrameDebug] FrameCache: cache callback invoked")
+        print_framedebug("FrameCache: cache callback invoked")
 
         self._start_prefetch_thread_if_needed()
 
@@ -286,7 +295,7 @@ class FrameCache:
 
             self._prefetch_semaphore.acquire()
             try:
-                result = self._fetch_frame_sync(frame_num, decoder)
+                result = self._fetch_frame_sync(frame_num, decoder, True)
             finally:
                 self._prefetch_semaphore.release()
 
@@ -341,7 +350,7 @@ class FrameCache:
                 return FrameRequestStatus.OUT_OF_RANGE, e
             return FrameRequestStatus.DECODE_ERROR, e
 
-    def _fetch_frame_sync(self, frame_index: int, decoder: VideoDecoder) -> FrameResult:
+    def _fetch_frame_sync(self, frame_index: int, decoder: VideoDecoder, is_prefetch: bool) -> FrameResult:
         """Fetch a frame synchronously, handling all error cases.
 
         Args:
@@ -363,6 +372,8 @@ class FrameCache:
         dec_err: Optional[Exception] = None
 
         if not self.has_frame(frame_index) or DEBUG_SKIP_CACHE_ENTIRELY:
+            if not is_prefetch:
+                print_framedebug("CACHE MISS")
             dec_status, dec_err = self._attempt_to_cache_frame(frame_index, decoder)
 
             if dec_status != FrameRequestStatus.SUCCESS:
