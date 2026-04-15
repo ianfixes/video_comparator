@@ -422,7 +422,18 @@ class TestApplication(unittest.TestCase):
             ):
                 app.initialize()
         self.assertEqual(mock_video_pane.set_on_files_dropped.call_count, 2)
+        self.assertEqual(mock_video_pane.set_on_zoom_changed.call_count, 2)
         self.assertEqual(mock_video_pane.SetToolTip.call_count, 2)
+
+    def test_handle_zoom_ui_update_refreshes_zoom_label(self) -> None:
+        """Pane-driven zoom changes refresh the control panel zoom label."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.control_panel = MagicMock()
+        app.control_panel.zoom_controls = MagicMock()
+
+        app._handle_zoom_ui_update()
+
+        app.control_panel.zoom_controls.update_zoom_display.assert_called_once()
 
     def test_startup_with_one_positional_video_calls_pane1_load_path(self) -> None:
         """CLI startup with one video loads slot 1."""

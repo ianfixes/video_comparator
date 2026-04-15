@@ -101,6 +101,8 @@ class VideoPane(wx.Panel):
 
         # Optional callback when user drops filesystem paths (first path is used)
         self._on_files_dropped: Optional[Callable[[Sequence[str]], None]] = None
+        # Optional callback invoked when zoom level changes
+        self._on_zoom_changed: Optional[Callable[[], None]] = None
 
         self._file_drop_target = _VideoPaneFileDropTarget(self)
         self.SetDropTarget(self._file_drop_target)
@@ -213,6 +215,7 @@ class VideoPane(wx.Panel):
             self.pan_x = px - (px - self.pan_x) * (new_zoom / old_zoom)
             self.pan_y = py - (py - self.pan_y) * (new_zoom / old_zoom)
             self.zoom_level = new_zoom
+            self._notify_zoom_changed()
             self.Refresh()
             return
 
@@ -220,6 +223,7 @@ class VideoPane(wx.Panel):
         pane_width, pane_height = self._wx_size_to_tuple(sz)
         if pane_width <= 0 or pane_height <= 0:
             self.zoom_level = new_zoom
+            self._notify_zoom_changed()
             self.Refresh()
             return
 
@@ -231,6 +235,7 @@ class VideoPane(wx.Panel):
             )
         except ValueError:
             self.zoom_level = new_zoom
+            self._notify_zoom_changed()
             self.Refresh()
             return
 
@@ -252,6 +257,7 @@ class VideoPane(wx.Panel):
         self.pan_x = new_pan_x
         self.pan_y = new_pan_y
         self.zoom_level = new_zoom
+        self._notify_zoom_changed()
         self.Refresh()
 
     def _zoom_to_selection_rect(self) -> None:
@@ -278,6 +284,7 @@ class VideoPane(wx.Panel):
         self.pan_y = y + height / 2 - pane_height / (2 * new_zoom)
 
         self.zoom_level = new_zoom
+        self._notify_zoom_changed()
         self.Refresh()
 
     def _on_paint(self, event: wx.PaintEvent) -> None:
@@ -532,8 +539,17 @@ class VideoPane(wx.Panel):
         """
         self._on_files_dropped = callback
 
+    def set_on_zoom_changed(self, callback: Optional[Callable[[], None]]) -> None:
+        """Set callback invoked whenever this pane's zoom level changes."""
+        self._on_zoom_changed = callback
+
     def _set_drop_highlight(self, active: bool) -> None:
         self._drop_highlight = active
+
+    def _notify_zoom_changed(self) -> None:
+        """Invoke the zoom-changed callback if configured."""
+        if self._on_zoom_changed is not None:
+            self._on_zoom_changed()
 
     def _deliver_dropped_files(self, filenames: Sequence[str]) -> bool:
         """Apply a drop of path strings. Returns True if the drop was handled."""
@@ -576,6 +592,7 @@ class VideoPane(wx.Panel):
         self.zoom_level = 1.0
         self.pan_x = 0.0
         self.pan_y = 0.0
+        self._notify_zoom_changed()
         self.Refresh()
 
     def get_zoom_level(self) -> float:

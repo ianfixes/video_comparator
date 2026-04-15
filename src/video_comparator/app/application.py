@@ -285,10 +285,12 @@ class Application:
         if self.video_pane1 is not None:
             self.video_pane1.set_on_request_open_file(self._handle_open_video_1)
             self.video_pane1.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(1, Path(paths[0])))
+            self.video_pane1.set_on_zoom_changed(self._handle_zoom_ui_update)
             self.video_pane1.SetToolTip("Video 1 — drop a file here or use File → Open Video 1")
         if self.video_pane2 is not None:
             self.video_pane2.set_on_request_open_file(self._handle_open_video_2)
             self.video_pane2.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(2, Path(paths[0])))
+            self.video_pane2.set_on_zoom_changed(self._handle_zoom_ui_update)
             self.video_pane2.SetToolTip("Video 2 — drop a file here or use File → Open Video 2")
 
         self._update_control_panel_load_state()
@@ -525,6 +527,11 @@ class Application:
             return
         self.video_pane1.reset_zoom_pan()
         self.video_pane2.reset_zoom_pan()
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
+
+    def _handle_zoom_ui_update(self) -> None:
+        """Refresh zoom labels after pane-driven zoom changes (e.g. mouse wheel)."""
         if self.control_panel is not None:
             self.control_panel.zoom_controls.update_zoom_display()
 
