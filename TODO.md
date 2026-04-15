@@ -614,26 +614,26 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test error handling integration
 
 ### Entry Point / CLI (`__main__.py` and app startup wiring)
-- [ ] Implement command-line parsing with `argparse` (no custom parser)
-- [ ] Support up to two optional positional video path arguments in order (`video1`, `video2`)
-- [ ] Validate positional argument count with `argparse` `nargs`/usage semantics (0, 1, or 2 allowed; >2 rejected with usage error)
-- [ ] Add `--offset` argument parsed as signed integer frame offset (positive/negative supported)
-- [ ] Apply parsed `--offset` value to timeline/controller sync offset during startup initialization
-- [ ] When one positional video is provided, auto-load it into pane 1 at startup
-- [ ] When two positional videos are provided, auto-load both panes at startup in argument order
-- [ ] When both videos and `--offset` are provided, startup state reflects all arguments: both videos loaded and sync offset controls/slider positioned to the parsed offset
-- [ ] Route CLI-driven video loads through the same validation/load path as menu/drag-drop to avoid duplicated logic
-- [ ] Surface CLI load/parse errors through existing error handling flow with clear user-facing messages
+- [x] Implement command-line parsing with `argparse` (no custom parser)
+- [x] Support up to two optional positional video path arguments in order (`video1`, `video2`)
+- [x] Validate positional argument count with `argparse` `nargs`/usage semantics (0, 1, or 2 allowed; >2 rejected with usage error)
+- [x] Add `--offset` argument parsed as signed integer frame offset (positive/negative supported)
+- [x] Apply parsed `--offset` value to timeline/controller sync offset during startup initialization
+- [x] When one positional video is provided, auto-load it into pane 1 at startup
+- [x] When two positional videos are provided, auto-load both panes at startup in argument order
+- [x] When both videos and `--offset` are provided, startup state reflects all arguments: both videos loaded and sync offset controls/slider positioned to the parsed offset
+- [x] Route CLI-driven video loads through the same validation/load path as menu/drag-drop to avoid duplicated logic
+- [x] Surface CLI load/parse errors through existing error handling flow with clear user-facing messages
 
 **Unit Tests Required:**
-- [ ] Test `argparse` parser accepts 0, 1, and 2 positional video arguments
-- [ ] Test parser rejects 3+ positional video arguments with usage error
-- [ ] Test parser accepts `--offset 0`, positive, and negative integer values
-- [ ] Test parser rejects non-integer `--offset` values
-- [ ] Test startup with one positional video calls pane-1 load path
-- [ ] Test startup with two positional videos calls pane-1 and pane-2 load paths in order
-- [ ] Test startup with two positional videos plus `--offset` sets sync offset in controller and updates slider/display state
-- [ ] Test startup continues to support normal launch with no positional videos and default offset
+- [x] Test `argparse` parser accepts 0, 1, and 2 positional video arguments
+- [x] Test parser rejects 3+ positional video arguments with usage error
+- [x] Test parser accepts `--offset 0`, positive, and negative integer values
+- [x] Test parser rejects non-integer `--offset` values
+- [x] Test startup with one positional video calls pane-1 load path
+- [x] Test startup with two positional videos calls pane-1 and pane-2 load paths in order
+- [x] Test startup with two positional videos plus `--offset` sets sync offset in controller and updates slider/display state
+- [x] Test startup continues to support normal launch with no positional videos and default offset
 
 ### Drag and drop (video files onto panes)
 - [x] Enable drag-and-drop on each `VideoPane` (e.g. `wx.FileDropTarget` or `wx.DropTarget` with file URL/text) so users can drop video files from the OS file manager

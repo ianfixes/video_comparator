@@ -423,3 +423,54 @@ class TestApplication(unittest.TestCase):
                 app.initialize()
         self.assertEqual(mock_video_pane.set_on_files_dropped.call_count, 2)
         self.assertEqual(mock_video_pane.SetToolTip.call_count, 2)
+
+    def test_startup_with_one_positional_video_calls_pane1_load_path(self) -> None:
+        """CLI startup with one video loads slot 1."""
+        app = Application(
+            settings_manager=self.settings_manager,
+            error_handler=self.error_handler,
+            initial_video_paths=[Path("/video1.mp4")],
+        )
+        app.timeline_controller = MagicMock()
+        app.control_panel = MagicMock()
+        with patch.object(app, "_load_video_path_for_slot") as mock_load:
+            with patch.object(app, "_apply_initial_sync_offset"):
+                app._load_initial_videos()
+        mock_load.assert_called_once_with(1, Path("/video1.mp4"))
+
+    def test_startup_with_two_positional_videos_loads_in_argument_order(self) -> None:
+        """CLI startup with two videos loads pane 1 then pane 2."""
+        app = Application(
+            settings_manager=self.settings_manager,
+            error_handler=self.error_handler,
+            initial_video_paths=[Path("/video1.mp4"), Path("/video2.mp4")],
+        )
+        app.timeline_controller = MagicMock()
+        app.control_panel = MagicMock()
+        with patch.object(app, "_load_video_path_for_slot") as mock_load:
+            with patch.object(app, "_apply_initial_sync_offset"):
+                app._load_initial_videos()
+        self.assertEqual(
+            mock_load.call_args_list,
+            [
+                unittest.mock.call(1, Path("/video1.mp4")),
+                unittest.mock.call(2, Path("/video2.mp4")),
+            ],
+        )
+
+    def test_startup_with_two_videos_and_offset_applies_sync_offset_and_updates_ui(self) -> None:
+        """CLI startup applies offset to controller and sync controls before interaction."""
+        app = Application(
+            settings_manager=self.settings_manager,
+            error_handler=self.error_handler,
+            initial_video_paths=[Path("/video1.mp4"), Path("/video2.mp4")],
+            initial_sync_offset_frames=-12,
+        )
+        app.timeline_controller = MagicMock()
+        app.control_panel = MagicMock()
+        app.control_panel.sync_controls = MagicMock()
+        with patch.object(app, "_on_sync_offset_changed") as mock_sync_changed:
+            app._apply_initial_sync_offset()
+        app.timeline_controller.set_sync_offset.assert_called_once_with(-12)
+        app.control_panel.sync_controls.update_offset.assert_called_once()
+        mock_sync_changed.assert_called_once()

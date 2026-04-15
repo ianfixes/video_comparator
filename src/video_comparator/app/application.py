@@ -45,6 +45,7 @@ class Application:
         settings_manager: SettingsManager,
         error_handler: ErrorHandler,
         initial_video_paths: Optional[List[Path]] = None,
+        initial_sync_offset_frames: int = 0,
     ) -> None:
         """Initialize application with required dependencies.
 
@@ -52,10 +53,12 @@ class Application:
             settings_manager: Settings manager for loading/saving configuration
             error_handler: Error handler for displaying errors
             initial_video_paths: Optional list of paths (max 2) to load on launch; first=video1, second=video2
+            initial_sync_offset_frames: Initial sync offset for video 2 in frames
         """
         self.settings_manager: SettingsManager = settings_manager
         self.error_handler: ErrorHandler = error_handler
         self._initial_video_paths: List[Path] = list(initial_video_paths)[:2] if initial_video_paths else []
+        self._initial_sync_offset_frames: int = initial_sync_offset_frames
         self.app: Optional[wx.App] = None
         self.main_frame: Optional[MainFrame] = None
 
@@ -297,9 +300,23 @@ class Application:
         """Load videos from command-line paths if any were provided."""
         for i, path in enumerate(self._initial_video_paths):
             slot = i + 1
-            metadata = self.media_loader.load_video_file_from_path(path)
-            if metadata is not None:
-                self._apply_loaded_video(slot, metadata)
+            self._load_video_path_for_slot(slot, path)
+        self._apply_initial_sync_offset()
+
+    def _load_video_path_for_slot(self, slot: int, path: Path) -> None:
+        """Load a filesystem video path into a slot using shared load/apply flow."""
+        metadata = self.media_loader.load_video_file_from_path(path)
+        if metadata is not None:
+            self._apply_loaded_video(slot, metadata)
+
+    def _apply_initial_sync_offset(self) -> None:
+        """Apply startup sync offset and refresh UI/frames."""
+        if self.timeline_controller is None:
+            return
+        self.timeline_controller.set_sync_offset(self._initial_sync_offset_frames)
+        if self.control_panel is not None:
+            self.control_panel.sync_controls.update_offset()
+        self._on_sync_offset_changed()
 
     def _create_placeholder_metadata(self) -> VideoMetadata:
         """Create placeholder metadata for initial state (no video loaded).
@@ -550,9 +567,7 @@ class Application:
         if not self.media_loader.is_plausible_video_path(path):
             self.error_handler.handle_error(ValueError(f"Not a supported video file type: {path.name}"))
             return
-        metadata = self.media_loader.load_video_file_from_path(path)
-        if metadata is not None:
-            self._apply_loaded_video(slot, metadata)
+        self._load_video_path_for_slot(slot, path)
 
     def _apply_loaded_video(self, slot: int, metadata: VideoMetadata) -> None:
         """Apply loaded metadata to the given slot (1 or 2) and update decoders/caches/UI."""
