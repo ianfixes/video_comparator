@@ -172,6 +172,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - all seeks/steps go through this controller
 - converts between wall-clock, timestamps, and frame indices
 - provides resolved target frame/time to consumers.
+- **Resolved-time semantics:** `resolved_time_video1` and `resolved_time_video2` are per-video source times for the actually resolved display frames. With non-zero sync offset, these times should typically differ by approximately `offset / fps_video2` (subject to clamping/rounding at bounds), and must not collapse to identical values due to inverse-conversion cancellation.
+- **Offset consistency invariant:** for video 2, `time -> frame -> time` and `frame -> time -> frame` mappings must preserve offset semantics consistently, including positive and negative offsets and boundary clamps.
 
 #### Testability
 - pure logic tests for offset math
@@ -193,6 +195,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - provides frame callbacks that receive `FrameResult` objects from FrameCache
 - coordinates frame display via callbacks (does not directly manage prefetching)
 - synchronizes both frame caches to ensure both first frames arrive before display
+- **Displayed frame metadata correctness:** callback time/frame metadata used by overlays must correspond to the delivered frame results for that callback cycle (not stale/advanced timeline state from a later moment).
+- **Step/play continuity:** after pause + frame-step (+/-) + play, playback should continue from the stepped position without discontinuous jumps to an unrelated timestamp.
 #### Design
 - PlaybackController creates PrefillStrategy instances based on current position
 - Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()` for both videos
@@ -228,6 +232,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - native dimensions
 - playback time/frame
 - zoom level
+- overlay time/frame text reflects the actual frame currently displayed in that pane, including per-video sync offsets
 - maintain zoom/pan state across seeks/steps/layout changes
 - mouse interactions:
   - mouse drag for panning

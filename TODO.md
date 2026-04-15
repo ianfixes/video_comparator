@@ -276,7 +276,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement time-to-frame conversion for video 2 (with offset)
 - [x] Implement position setting (seek)
 - [x] Implement sync offset adjustment (set, increment, decrement)
-- [x] Implement resolved frame/time calculation for both videos
+- [ ] Implement resolved frame/time calculation for both videos (ensure video2 resolved time reflects sync offset semantics and does not cancel offset via round-trip conversion)
 - [x] Handle differing framerates between videos
 - [x] Define per-class exceptions for timeline errors (e.g., `InvalidPositionError`, `OutOfRangeError`)
 
@@ -294,7 +294,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test sync offset decrement (-1 frame)
 - [x] Test resolved frame calculation for video 1
 - [x] Test resolved frame calculation for video 2 (with offset)
-- [x] Test resolved time calculation for both videos
+- [ ] Test resolved time calculation for both videos, including non-zero offsets where resolved times are expected to differ between panes
 - [x] Test with videos of different framerates (e.g., 24fps vs 30fps)
 - [x] Test edge cases (position at start, position at end, large offsets)
 
@@ -358,6 +358,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test CANCELLED FrameResult status handling (discarded)
 - [x] Test error FrameResult status handling (ErrorHandler integration)
 - [x] Test user callback receives FrameResult objects for both videos
+- [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
+- [ ] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
 
 ---
 
@@ -651,6 +653,8 @@ This document outlines the implementation plan from lowest-level modules to high
 ### Integration Tests
 - [ ] Drag and drop: drop a supported video onto each pane → correct pane loads and displays; unsupported file shows error
 - [ ] Sync offset: changing slider/±1 while **paused** updates both panes immediately; changing while **playing** does not glitch or double-refresh (offset applies via playback path)
+- [ ] Overlay correctness with offset: with non-zero sync offset, pane 1 and pane 2 overlay times/frames reflect different resolved source positions as expected (within rounding/clamp tolerance)
+- [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
 - [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
 - [ ] Test complete workflow: load two videos → align → step through frames
