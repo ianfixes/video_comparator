@@ -625,6 +625,34 @@ class TestPlaybackController(unittest.TestCase):
             self.assertEqual(callback_results[0][0], result1)
             self.assertEqual(callback_results[0][1], result2)
 
+    def test_pause_step_forward_then_play_resumes_from_stepped_position(self) -> None:
+        """Pause -> step -> play advances from stepped timeline position without jump."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play()
+        controller.tick(0.1)
+        controller.pause()
+
+        position_before_step = self.timeline_controller.current_position
+        controller.frame_step_forward()
+        stepped_position = self.timeline_controller.current_position
+        self.assertGreater(stepped_position, position_before_step)
+
+        controller.play()
+        controller.tick(0.1)
+
+        self.assertAlmostEqual(
+            self.timeline_controller.current_position,
+            stepped_position + 0.1,
+            places=6,
+        )
+
     def test_tick_stops_at_end_of_video(self) -> None:
         """Test tick stops playback at end of video."""
         controller = PlaybackController(

@@ -359,7 +359,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test error FrameResult status handling (ErrorHandler integration)
 - [x] Test user callback receives FrameResult objects for both videos
 - [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
-- [ ] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
+- [x] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
 
 ---
 

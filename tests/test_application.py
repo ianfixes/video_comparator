@@ -485,3 +485,34 @@ class TestApplication(unittest.TestCase):
         app.timeline_controller.set_sync_offset.assert_called_once_with(-12)
         app.control_panel.sync_controls.update_offset.assert_called_once()
         mock_sync_changed.assert_called_once()
+
+    def test_playback_timer_resets_tick_baseline_when_not_playing(self) -> None:
+        """Paused/stopped timer ticks clear stale baseline to prevent resume jumps."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.playback_controller = MagicMock()
+        app.playback_controller.state = PlaybackState.PAUSED
+        app._last_tick_time = 123.0
+
+        app._on_playback_timer(MagicMock())
+
+        self.assertEqual(app._last_tick_time, 0.0)
+        app.playback_controller.tick.assert_not_called()
+
+    def test_playback_timer_resume_skips_pause_elapsed_time(self) -> None:
+        """After pause, first playing timer event establishes baseline without ticking."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.playback_controller = MagicMock()
+        app.control_panel = None
+
+        app.playback_controller.state = PlaybackState.PAUSED
+        app._last_tick_time = 10.0
+        app._on_playback_timer(MagicMock())
+
+        app.playback_controller.state = PlaybackState.PLAYING
+        with patch("video_comparator.app.application.time.perf_counter", side_effect=[50.0, 50.2]):
+            app._on_playback_timer(MagicMock())
+            app._on_playback_timer(MagicMock())
+
+        app.playback_controller.tick.assert_called_once()
+        delta = app.playback_controller.tick.call_args[0][0]
+        self.assertAlmostEqual(delta, 0.2, places=6)

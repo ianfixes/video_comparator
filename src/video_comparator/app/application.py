@@ -445,6 +445,9 @@ class Application:
         if self.playback_controller is None:
             return
         if self.playback_controller.state != PlaybackState.PLAYING:
+            # Drop stale baseline while paused/stopped so resume does not
+            # apply elapsed wall-clock pause time as playback delta.
+            self._last_tick_time = 0.0
             return
         now = time.perf_counter()
         if self._last_tick_time > 0:
