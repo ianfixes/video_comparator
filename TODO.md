@@ -148,7 +148,10 @@ This document outlines the implementation plan from lowest-level modules to high
 ### FrameCache (`cache/frame_cache.py`)
 - [x] Implement frame storage (Dict[int, np.ndarray])
 - [x] Implement cache hit/miss logic
-- [x] Implement LRU eviction policy
+- [ ] Implement eviction policy so strategy-preferred frames take precedence and LRU is used only for surplus/tie-breaking.
+- [ ] Use O(1)-style recency bookkeeping for LRU operations in hot paths (no list remove/scan for common access/update operations).
+- [ ] Use incremental running memory accounting rather than full-cache memory summations on insert/evict path.
+- [ ] Implement non-redundant frame-copy operations on hot cache/decode path while preserving frame-safety guarantees.
 - [x] Implement protected frame mechanism (frames from PrefillStrategy are not evicted)
 - [x] Implement memory bounds checking and eviction
 - [x] Implement frame retrieval by frame index
@@ -174,6 +177,11 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Ensure worker can be cancelled even while waiting for sync signal
   - [x] Queue remaining frames after first frame but pause worker until sync signal
 - [x] Add per-decoder locking so VideoDecoder is only used from one thread at a time when FrameCache calls decode (PyAV/FFmpeg not thread-safe; see Architecture.md § Decode Engine and § Frame Cache).
+- [ ] Enforce strict task priority: UI-requested frame is always first in decode scheduling order.
+- [ ] Implement cooperative reprioritization at decode-operation boundaries (no forced mid-operation thread interruption).
+- [ ] Ensure strategy-preferred frame residency takes precedence over pure LRU eviction.
+- [ ] Ensure lower-priority in-flight work cannot schedule follow-on work ahead of newly arrived higher-priority strategy work.
+- [ ] Establish single cache insertion authority in FrameCache (eliminate duplicate insertion paths across decoder and cache layers).
 
 **Design Notes:**
 - FrameCache operates as an autonomous entity with its own background prefetch thread
@@ -191,11 +199,14 @@ This document outlines the implementation plan from lowest-level modules to high
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When strategy is updated, FrameCache cancels stale prefetch requests and starts new prefetch cycle
 - Callbacks receive `FrameResult` objects that convey frame data or failure reasons (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- Cache is the scheduler/retention authority; decoder is the decode execution engine.
+- Any frame decoded while satisfying a cache request must be surfaced back to cache for retention decisions.
+- Implementation detail (callback vs return values) is flexible as long as all decoded work is surfaced to cache.
 
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
 - [x] Test cache miss when frame doesn't exist
-- [x] Test cache eviction when max_memory_mb exceeded (LRU, skipping protected frames)
+- [ ] Test cache eviction when max_memory_mb exceeded with strategy-first residency and LRU tie-breaking for non-strategy/surplus frames.
 - [x] Test protected frames are not evicted even when cache is full
 - [x] Test cache invalidation clears all frames
 - [x] Test cache with various frame sizes
@@ -223,7 +234,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement frame decoding to NumPy array
 - [x] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
 - [x] Implement error handling for decode failures
-- [x] Integrate with FrameCache (optional)
+- [ ] Implement decoder/cache integration contract: decoder surfaces all decoded frames from each decode operation; FrameCache decides retention/eviction.
 - [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
 - [x] Implement frame-accurate decode: after keyframe-based seek, decode forward to the requested frame index (see Architecture.md § Decode Engine — Frame-accurate decode). Uses stream `time_base` / `start_time`, a first-frame PTS base for 0-based indexing, and sequential counting after seek when PTS order is non-monotonic. For the last frame index (`total_frames - 1`), if the decode iterator ends before an exact match, returns the last decodable frame (best-effort).
 
@@ -242,8 +253,19 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test seek to middle frame
 - [x] Test seek with videos of different framerates
 - [x] Test decode error handling (corrupted frame, unsupported codec)
-- [x] Test decoder with FrameCache integration
+- [ ] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions.
 - [x] Test that decoding two successive frames (e.g. frame N and N+1) from a test video yields different images (ensures frame-accurate decode, not keyframe-only)
+- [ ] Expose decode operation results so FrameCache can receive all decoded frames from a request (target + intermediates), using API shape that best matches PyAV container behavior.
+- [ ] Keep decoder free of cache prioritization/retention policy decisions.
+- [ ] Add decoder locality optimization policy: choose decode-forward from current cursor for nearby targets and seek+decode-forward for distant targets, prioritizing UI request latency.
+
+**Performance Acceptance Criteria (Cache/Decoder Priority):**
+- [ ] For each UI frame request, the requested frame is delivered before any lower-priority prefetch frame from the same request cycle.
+- [ ] New high-priority requests supersede older lower-priority queued work at the next decode boundary.
+- [ ] Decoder work contributes decoded frames back to FrameCache for retention decisions.
+- [ ] Throughput optimization does not override the primary objective: minimize UI request-to-frame latency.
+- [ ] Verify single-writer cache contract with tests (decoder does not write cache directly; FrameCache performs authoritative insertion exactly once per accepted decoded frame).
+- [ ] Add targeted performance tests for cache hot paths to guard against O(n) regression in recency updates and insertion/eviction accounting.
 
 ### TimelineController (`sync/timeline_controller.py`)
 - [x] Implement current position tracking (in seconds)
