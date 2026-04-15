@@ -47,6 +47,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - frame-accurate seek (time- or frame-based)
 - decode to NumPy arrays
 - handle differing fps/timebases.
+- surface all decoded work products to the caller (single target frame plus any intermediate frames decoded while satisfying that request)
+- optimize for low latency to requested frame, not maximum background throughput.
 #### Testability
 - unit tests on deterministic sample clips to assert decoded frame indices/timestamps
 - test files from `tests/sample_data/` directory.
@@ -57,6 +59,10 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 **Frame-accurate decode:** FFmpeg/PyAV container seek is keyframe-based: seeking lands on the nearest keyframe (I-frame) at or before the requested time, not on an arbitrary frame. To deliver the exact requested frame index, the decode engine must seek to that timestamp (keyframe), then **decode forward** from the keyframe until the decoded frame index matches the request, and return that frame. Returning only the first decoded frame after seek yields the keyframe repeatedly for all requests within that GOP (e.g. frames 0–249 identical if keyframe interval is 250).
 
+**Decoder/Cache contract:** The decoder does not decide frame priority or retention policy. FrameCache chooses what to request and when. Decoder APIs may expose results either by return values or callbacks (implementation detail), but must make all decoded frames from a decode operation available to FrameCache so FrameCache can apply retention policy.
+
+**Decoder locality policy:** For each request, decoder execution should prefer the lowest-latency operation relative to current decode cursor/container state. If the target frame is near current decode position, decode forward without a new seek; if far, perform seek+decode-forward from keyframe. This is a latency optimization policy owned by decoder execution, while request priority remains owned by FrameCache.
+
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
 - LRU eviction policy with protected frame set
@@ -65,13 +71,16 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - autonomous background prefetching of frames
 - integration with PrefillStrategy to protect frames from eviction
 - race condition handling via request cancellation
+- strict request prioritization so UI-requested frame is always first
+- retention policy where strategy-preferred frames take precedence over pure LRU.
 #### Design
 - FrameCache operates as an autonomous entity with its own background prefetch thread
 - PlaybackController submits a fully-configured PrefillStrategy and a callback function to FrameCache
+- FrameCache is the scheduler and retention authority; decoder is an execution engine
 - FrameCache interface:
   1. Receives PrefillStrategy + callback from PlaybackController
   2. **Cancels all pending requests** when new request arrives (prevents race conditions)
-  3. Generates first frame number from strategy (`generate_protected_frames`) and acquires it (cache hit or miss via VideoDecoder)
+  3. Generates first frame number from strategy (`generate_protected_frames`) and acquires it first (cache hit or miss via VideoDecoder)
   4. Signals callback immediately with `FrameResult` object for the first frame
   5. **Queues remaining frames for background prefetch but pauses worker until sync signal**
   6. Background worker waits for `signal_sync_complete()` before processing queued frames
@@ -82,11 +91,17 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - This ensures both videos are synchronized before any additional prefetching occurs
   - If new `request_prefill_frame()` arrives before sync completes, cancellation prevents old workers from continuing
 - Consumed frames become the protected set (in priority order) that cannot be evicted
+- Strategy-preferred frames always outrank non-strategy frames for residency decisions; LRU resolves ties/surplus among non-preferred frames
 - Capacity is calculated based on available memory and frame size estimates
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When new request arrives, FrameCache cancels all pending prefetch requests and starts new prefetch cycle
 - Callbacks receive `FrameResult` objects that convey frame data or failure reasons
 - **Decoder access:** The same VideoDecoder may be used from the main thread (first-frame fetch) and from the prefetch worker. Because PyAV/FFmpeg are not thread-safe, decode calls must be serialized per decoder (e.g. a lock in FrameCache around decode, or a per-decoder lock).
+- **Priority and preemption model:** Use cooperative, low-complexity reprioritization. In-flight decode is not force-interrupted mid-operation; after each decode operation completes, FrameCache must immediately choose the current highest-priority task (with UI-requested frame first). This minimizes UI latency without adding extra thread-coordination complexity.
+- **Cache population rule:** Any frame the decoder actually decodes for a FrameCache request must be offered to FrameCache for potential insertion. FrameCache may still evict/drop based on strategy and memory constraints.
+- **Single insertion authority:** FrameCache is the sole cache writer. Decoder must not independently insert into cache; this prevents duplicate insertion paths and ambiguous ownership.
+- **Hot-path complexity target:** Cache recency bookkeeping and membership checks should be O(1)-style operations in steady state. Memory accounting should be maintained incrementally (running totals) rather than repeatedly summing all cached frame sizes on each insert/evict path.
+- **Copy minimization policy:** Frame copies in hot cache paths should be minimized while preserving safety/correctness. Avoid redundant copy chains across decode -> cache insert -> cache read when immutability guarantees already exist.
 #### FrameResult Object
 - `FrameResult` dataclass contains:
   - `frame_number: int` - The requested frame index
@@ -130,6 +145,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - tracks how many frames were actually consumed by the cache
 - can reconstruct the protected frame set based on consumed count
 - swappable strategy pattern for different prefetching approaches
+- optimizes for low latency of requested UI frame delivery over total cache-fill speed.
 #### Design
 - Strategies generate frames via `generate_protected_frames()` generator
 - FrameCache consumes frames from the generator until it reaches capacity
@@ -156,6 +172,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - all seeks/steps go through this controller
 - converts between wall-clock, timestamps, and frame indices
 - provides resolved target frame/time to consumers.
+- **Resolved-time semantics:** `resolved_time_video1` and `resolved_time_video2` are per-video source times for the actually resolved display frames. With non-zero sync offset, these times should typically differ by approximately `offset / fps_video2` (subject to clamping/rounding at bounds), and must not collapse to identical values due to inverse-conversion cancellation.
+- **Offset consistency invariant:** for video 2, `time -> frame -> time` and `frame -> time -> frame` mappings must preserve offset semantics consistently, including positive and negative offsets and boundary clamps.
 
 #### Testability
 - pure logic tests for offset math
@@ -177,6 +195,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - provides frame callbacks that receive `FrameResult` objects from FrameCache
 - coordinates frame display via callbacks (does not directly manage prefetching)
 - synchronizes both frame caches to ensure both first frames arrive before display
+- **Displayed frame metadata correctness:** callback time/frame metadata used by overlays must correspond to the delivered frame results for that callback cycle (not stale/advanced timeline state from a later moment).
+- **Step/play continuity:** after pause + frame-step (+/-) + play, playback should continue from the stepped position without discontinuous jumps to an unrelated timestamp.
 #### Design
 - PlaybackController creates PrefillStrategy instances based on current position
 - Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()` for both videos
@@ -212,6 +232,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - native dimensions
 - playback time/frame
 - zoom level
+- overlay time/frame text reflects the actual frame currently displayed in that pane, including per-video sync offsets
 - maintain zoom/pan state across seeks/steps/layout changes
 - mouse interactions:
   - mouse drag for panning

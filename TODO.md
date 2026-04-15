@@ -148,7 +148,10 @@ This document outlines the implementation plan from lowest-level modules to high
 ### FrameCache (`cache/frame_cache.py`)
 - [x] Implement frame storage (Dict[int, np.ndarray])
 - [x] Implement cache hit/miss logic
-- [x] Implement LRU eviction policy
+- [ ] Implement eviction policy so strategy-preferred frames take precedence and LRU is used only for surplus/tie-breaking.
+- [ ] Use O(1)-style recency bookkeeping for LRU operations in hot paths (no list remove/scan for common access/update operations).
+- [ ] Use incremental running memory accounting rather than full-cache memory summations on insert/evict path.
+- [ ] Implement non-redundant frame-copy operations on hot cache/decode path while preserving frame-safety guarantees.
 - [x] Implement protected frame mechanism (frames from PrefillStrategy are not evicted)
 - [x] Implement memory bounds checking and eviction
 - [x] Implement frame retrieval by frame index
@@ -174,6 +177,11 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Ensure worker can be cancelled even while waiting for sync signal
   - [x] Queue remaining frames after first frame but pause worker until sync signal
 - [x] Add per-decoder locking so VideoDecoder is only used from one thread at a time when FrameCache calls decode (PyAV/FFmpeg not thread-safe; see Architecture.md § Decode Engine and § Frame Cache).
+- [ ] Enforce strict task priority: UI-requested frame is always first in decode scheduling order.
+- [ ] Implement cooperative reprioritization at decode-operation boundaries (no forced mid-operation thread interruption).
+- [ ] Ensure strategy-preferred frame residency takes precedence over pure LRU eviction.
+- [ ] Ensure lower-priority in-flight work cannot schedule follow-on work ahead of newly arrived higher-priority strategy work.
+- [ ] Establish single cache insertion authority in FrameCache (eliminate duplicate insertion paths across decoder and cache layers).
 
 **Design Notes:**
 - FrameCache operates as an autonomous entity with its own background prefetch thread
@@ -191,11 +199,14 @@ This document outlines the implementation plan from lowest-level modules to high
 - FrameCache manages its own prefetch thread lifecycle and queue
 - When strategy is updated, FrameCache cancels stale prefetch requests and starts new prefetch cycle
 - Callbacks receive `FrameResult` objects that convey frame data or failure reasons (SUCCESS, CANCELLED, DECODE_ERROR, SEEK_ERROR, OUT_OF_RANGE)
+- Cache is the scheduler/retention authority; decoder is the decode execution engine.
+- Any frame decoded while satisfying a cache request must be surfaced back to cache for retention decisions.
+- Implementation detail (callback vs return values) is flexible as long as all decoded work is surfaced to cache.
 
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
 - [x] Test cache miss when frame doesn't exist
-- [x] Test cache eviction when max_memory_mb exceeded (LRU, skipping protected frames)
+- [ ] Test cache eviction when max_memory_mb exceeded with strategy-first residency and LRU tie-breaking for non-strategy/surplus frames.
 - [x] Test protected frames are not evicted even when cache is full
 - [x] Test cache invalidation clears all frames
 - [x] Test cache with various frame sizes
@@ -223,7 +234,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement frame decoding to NumPy array
 - [x] Implement frame format conversion (PyAV → NumPy → wx.Bitmap compatible)
 - [x] Implement error handling for decode failures
-- [x] Integrate with FrameCache (optional)
+- [ ] Implement decoder/cache integration contract: decoder surfaces all decoded frames from each decode operation; FrameCache decides retention/eviction.
 - [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
 - [x] Implement frame-accurate decode: after keyframe-based seek, decode forward to the requested frame index (see Architecture.md § Decode Engine — Frame-accurate decode). Uses stream `time_base` / `start_time`, a first-frame PTS base for 0-based indexing, and sequential counting after seek when PTS order is non-monotonic. For the last frame index (`total_frames - 1`), if the decode iterator ends before an exact match, returns the last decodable frame (best-effort).
 
@@ -242,8 +253,19 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test seek to middle frame
 - [x] Test seek with videos of different framerates
 - [x] Test decode error handling (corrupted frame, unsupported codec)
-- [x] Test decoder with FrameCache integration
+- [x] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions.
 - [x] Test that decoding two successive frames (e.g. frame N and N+1) from a test video yields different images (ensures frame-accurate decode, not keyframe-only)
+- [x] Expose decode operation results so FrameCache can receive all decoded frames from a request (target + intermediates), using API shape that best matches PyAV container behavior.
+- [x] Keep decoder free of cache prioritization/retention policy decisions.
+- [x] Add decoder locality optimization policy: choose decode-forward from current cursor for nearby targets and seek+decode-forward for distant targets, prioritizing UI request latency.
+
+**Performance Acceptance Criteria (Cache/Decoder Priority):**
+- [ ] For each UI frame request, the requested frame is delivered before any lower-priority prefetch frame from the same request cycle.
+- [ ] New high-priority requests supersede older lower-priority queued work at the next decode boundary.
+- [x] Decoder work contributes decoded frames back to FrameCache for retention decisions.
+- [ ] Throughput optimization does not override the primary objective: minimize UI request-to-frame latency.
+- [x] Verify single-writer cache contract with tests (decoder does not write cache directly; FrameCache performs authoritative insertion exactly once per accepted decoded frame).
+- [x] Add targeted performance tests for cache hot paths to guard against O(n) regression in recency updates and insertion/eviction accounting.
 
 ### TimelineController (`sync/timeline_controller.py`)
 - [x] Implement current position tracking (in seconds)
@@ -254,7 +276,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement time-to-frame conversion for video 2 (with offset)
 - [x] Implement position setting (seek)
 - [x] Implement sync offset adjustment (set, increment, decrement)
-- [x] Implement resolved frame/time calculation for both videos
+- [ ] Implement resolved frame/time calculation for both videos (ensure video2 resolved time reflects sync offset semantics and does not cancel offset via round-trip conversion)
 - [x] Handle differing framerates between videos
 - [x] Define per-class exceptions for timeline errors (e.g., `InvalidPositionError`, `OutOfRangeError`)
 
@@ -272,7 +294,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test sync offset decrement (-1 frame)
 - [x] Test resolved frame calculation for video 1
 - [x] Test resolved frame calculation for video 2 (with offset)
-- [x] Test resolved time calculation for both videos
+- [ ] Test resolved time calculation for both videos, including non-zero offsets where resolved times are expected to differ between panes
 - [x] Test with videos of different framerates (e.g., 24fps vs 30fps)
 - [x] Test edge cases (position at start, position at end, large offsets)
 
@@ -336,6 +358,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test CANCELLED FrameResult status handling (discarded)
 - [x] Test error FrameResult status handling (ErrorHandler integration)
 - [x] Test user callback receives FrameResult objects for both videos
+- [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
+- [x] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
 
 ---
 
@@ -589,6 +613,28 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test settings loading on startup
 - [x] Test error handling integration
 
+### Entry Point / CLI (`__main__.py` and app startup wiring)
+- [x] Implement command-line parsing with `argparse` (no custom parser)
+- [x] Support up to two optional positional video path arguments in order (`video1`, `video2`)
+- [x] Validate positional argument count with `argparse` `nargs`/usage semantics (0, 1, or 2 allowed; >2 rejected with usage error)
+- [x] Add `--offset` argument parsed as signed integer frame offset (positive/negative supported)
+- [x] Apply parsed `--offset` value to timeline/controller sync offset during startup initialization
+- [x] When one positional video is provided, auto-load it into pane 1 at startup
+- [x] When two positional videos are provided, auto-load both panes at startup in argument order
+- [x] When both videos and `--offset` are provided, startup state reflects all arguments: both videos loaded and sync offset controls/slider positioned to the parsed offset
+- [x] Route CLI-driven video loads through the same validation/load path as menu/drag-drop to avoid duplicated logic
+- [x] Surface CLI load/parse errors through existing error handling flow with clear user-facing messages
+
+**Unit Tests Required:**
+- [x] Test `argparse` parser accepts 0, 1, and 2 positional video arguments
+- [x] Test parser rejects 3+ positional video arguments with usage error
+- [x] Test parser accepts `--offset 0`, positive, and negative integer values
+- [x] Test parser rejects non-integer `--offset` values
+- [x] Test startup with one positional video calls pane-1 load path
+- [x] Test startup with two positional videos calls pane-1 and pane-2 load paths in order
+- [x] Test startup with two positional videos plus `--offset` sets sync offset in controller and updates slider/display state
+- [x] Test startup continues to support normal launch with no positional videos and default offset
+
 ### Drag and drop (video files onto panes)
 - [x] Enable drag-and-drop on each `VideoPane` (e.g. `wx.FileDropTarget` or `wx.DropTarget` with file URL/text) so users can drop video files from the OS file manager
 - [x] Route a drop on pane 1 vs pane 2 to the same load path as **File → Open Video 1/2** (reuse `MediaLoader` / `_apply_loaded_video` logic; avoid duplicating validation)
@@ -607,6 +653,9 @@ This document outlines the implementation plan from lowest-level modules to high
 ### Integration Tests
 - [ ] Drag and drop: drop a supported video onto each pane → correct pane loads and displays; unsupported file shows error
 - [ ] Sync offset: changing slider/±1 while **paused** updates both panes immediately; changing while **playing** does not glitch or double-refresh (offset applies via playback path)
+- [ ] Overlay correctness with offset: with non-zero sync offset, pane 1 and pane 2 overlay times/frames reflect different resolved source positions as expected (within rounding/clamp tolerance)
+- [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
+- [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
 - [ ] Test complete workflow: load two videos → align → step through frames
 - [ ] Test complete workflow: load videos → zoom → pan → step

@@ -7,6 +7,7 @@ Responsibilities:
 - Handle differing fps/timebases
 """
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Type, cast
 
 import av
@@ -28,6 +29,14 @@ class SeekError(DecodeError):
 
 class UnsupportedFormatError(DecodeError):
     """Raised when a video format is not supported for decoding."""
+
+
+@dataclass(frozen=True)
+class DecodeOperationResult:
+    """Represents a decode operation output for a single target request."""
+
+    requested_frame: np.ndarray
+    decoded_frames: list[tuple[int, np.ndarray]]
 
 
 class VideoDecoder:
@@ -54,6 +63,8 @@ class VideoDecoder:
         self._container: Optional[Any] = None
         self._video_stream: Optional[Any] = None
         self._first_frame_pts: Optional[int] = None
+        self._decode_cursor_frame_index: Optional[int] = None
+        self._decode_forward_window_frames = 24
 
     def _ensure_open(self) -> None:
         """Open container and select video stream if not already open."""
@@ -83,6 +94,7 @@ class VideoDecoder:
             self._container = None
             self._video_stream = None
             self._first_frame_pts = None
+            self._decode_cursor_frame_index = None
 
     def _stream_pts_for_frame_index(self, frame_index: int) -> int:
         """Return PTS in stream time_base units for the given 0-based frame index."""
@@ -162,19 +174,28 @@ class VideoDecoder:
         if frame_index < 0 or frame_index >= self.metadata.total_frames:
             raise ValueError(f"Frame index {frame_index} out of range [0, {self.metadata.total_frames - 1}]")
 
-        if self.frame_cache is not None:
-            cached_frame = self.frame_cache.get(frame_index)
-            if cached_frame is not None:
-                return cached_frame
+        return self.decode_frame_operation(frame_index).requested_frame
+
+    def decode_frame_operation(self, frame_index: int) -> DecodeOperationResult:
+        """Decode a target frame and expose all decoded frames up to that target."""
+        if frame_index < 0 or frame_index >= self.metadata.total_frames:
+            raise ValueError(f"Frame index {frame_index} out of range [0, {self.metadata.total_frames - 1}]")
 
         self._ensure_open()
 
-        self.seek_to_frame(frame_index)
+        should_seek = (
+            self._decode_cursor_frame_index is None
+            or frame_index <= self._decode_cursor_frame_index
+            or frame_index - self._decode_cursor_frame_index > self._decode_forward_window_frames
+        )
+        if should_seek:
+            self.seek_to_frame(frame_index)
 
         try:
             if self._container is not None and self._video_stream is not None:
-                decode_index: Optional[int] = None
+                decode_index: Optional[int] = self._decode_cursor_frame_index if not should_seek else None
                 last_decodable_frame: Any = None
+                decoded_frames: list[tuple[int, np.ndarray]] = []
                 for frame in self._container.decode(self._video_stream):  # type: ignore
                     if not hasattr(frame, "to_ndarray"):
                         continue
@@ -190,16 +211,16 @@ class VideoDecoder:
                         decode_index += 1
                     if decode_index > frame_index:
                         break
+                    frame_array = cast(np.ndarray, frame.to_ndarray(format="rgb24"))
+                    decoded_frames.append((decode_index, frame_array))
                     if decode_index == frame_index:
-                        frame_array = cast(np.ndarray, frame.to_ndarray(format="rgb24"))
-                        if self.frame_cache is not None:
-                            self.frame_cache.put(frame_index, frame_array)
-                        return frame_array
+                        self._decode_cursor_frame_index = frame_index
+                        return DecodeOperationResult(requested_frame=frame_array, decoded_frames=decoded_frames)
                 if frame_index == self.metadata.total_frames - 1 and last_decodable_frame is not None:
                     frame_array = cast(np.ndarray, last_decodable_frame.to_ndarray(format="rgb24"))
-                    if self.frame_cache is not None:
-                        self.frame_cache.put(frame_index, frame_array)
-                    return frame_array
+                    decoded_frames.append((frame_index, frame_array))
+                    self._decode_cursor_frame_index = frame_index
+                    return DecodeOperationResult(requested_frame=frame_array, decoded_frames=decoded_frames)
         except av.AVError as e:
             raise DecodeError(f"Failed to decode frame {frame_index}") from e
         except AssertionError as e:

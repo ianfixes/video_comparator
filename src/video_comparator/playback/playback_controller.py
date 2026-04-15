@@ -12,7 +12,7 @@ Responsibilities:
 import threading
 from typing import Callable, Iterator, Optional, Tuple
 
-from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.cache.frame_cache import FrameCache, print_framedebug
 from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy, TrivialPrefillStrategy
 from video_comparator.common.types import FrameRequestStatus, PlaybackState
@@ -126,7 +126,7 @@ class PlaybackController:
         max_duration = self._get_max_duration()
         new_time = min(new_time, max_duration)
 
-        print("[FrameDebug] Step forward requested: position %.3f -> %.3f" % (current_time, new_time))
+        print_framedebug("Step forward requested: position %.3f -> %.3f" % (current_time, new_time))
         self.timeline_controller.set_position(new_time)
         self._request_frames()
 
@@ -191,8 +191,8 @@ class PlaybackController:
         self._prefill_strategy_video1 = TrivialPrefillStrategy(frames_video1)
         self._prefill_strategy_video2 = TrivialPrefillStrategy(frames_video2)
 
-        print(
-            "[FrameDebug] PlaybackController: requesting frames at position %.3f "
+        print_framedebug(
+            "PlaybackController: requesting frames at position %.3f "
             "frame_v1=%d frame_v2=%d" % (current_position, frame_video1, frame_video2)
         )
 
@@ -234,8 +234,8 @@ class PlaybackController:
             video_id: 1 for video1, 2 for video2
             result: FrameResult from the frame cache
         """
-        print(
-            "[FrameDebug] PlaybackController: frame result received video_id=%d "
+        print_framedebug(
+            "PlaybackController: frame result received video_id=%d "
             "frame_number=%d status=%s has_frame=%s"
             % (
                 video_id,
@@ -245,7 +245,7 @@ class PlaybackController:
             )
         )
         if result.status == FrameRequestStatus.CANCELLED:
-            print("[FrameDebug] PlaybackController: frame discarded (cancelled)")
+            print_framedebug("PlaybackController: frame discarded (cancelled)")
             return
 
         if result.status != FrameRequestStatus.SUCCESS and result.error is not None:
@@ -268,9 +268,8 @@ class PlaybackController:
                     frame_v1 = self.timeline_controller.get_resolved_frame_video1()
                     time_v2 = self.timeline_controller.get_resolved_time_video2()
                     frame_v2 = self.timeline_controller.get_resolved_frame_video2()
-                    print(
-                        "[FrameDebug] PlaybackController: invoking frame_callback "
-                        "frame_v1=%d frame_v2=%d" % (frame_v1, frame_v2)
+                    print_framedebug(
+                        "PlaybackController: invoking frame_callback " "frame_v1=%d frame_v2=%d" % (frame_v1, frame_v2)
                     )
                     self.frame_callback(result1, result2, time_v1, frame_v1, time_v2, frame_v2)
 

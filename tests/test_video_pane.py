@@ -405,6 +405,22 @@ class TestVideoPane(unittest.TestCase):
                 self.assertLess(self.pane.zoom_level, 2.0)
                 mock_refresh.assert_called_once()
 
+    def test_zoom_change_callback_invoked_on_mouse_wheel(self) -> None:
+        """Mouse wheel zoom notifies zoom-change callback for UI label refresh."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            mock_event = MagicMock(spec=wx.MouseEvent)
+        mock_event.GetWheelRotation.return_value = 120
+        mock_event.GetPosition.return_value = wx.Point(400, 300)
+        on_zoom_changed = MagicMock()
+        self.pane.set_on_zoom_changed(on_zoom_changed)
+
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "Refresh"):
+                self.pane._on_mouse_wheel(mock_event)
+
+        on_zoom_changed.assert_called_once()
+
     def test_zoom_anchor_video_center_preserves_pan(self) -> None:
         """Button-style zoom about the video center should not drift pan."""
         self.pane.pan_x = 12.5

@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.decode.video_decoder import UnsupportedFormatError, VideoDecoder
 from video_comparator.media.video_metadata import VideoMetadata
 
@@ -296,32 +295,57 @@ class TestVideoDecoder(unittest.TestCase):
         finally:
             decoder.close()
 
-    def test_decoder_with_frame_cache_integration(self) -> None:
-        """Test decoder with FrameCache integration."""
+    def test_decode_operation_surfaces_target_and_intermediates(self) -> None:
+        """Decoder operation should expose decoded intermediates and requested frame."""
         avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
         if not avi_file.exists():
             self.skipTest(f"Test video file not found: {avi_file}")
 
         metadata = VideoMetadata.from_path(avi_file)
-        frame_cache = FrameCache(max_memory_mb=100)
-        decoder = VideoDecoder(metadata, frame_cache=frame_cache)
+        decoder = VideoDecoder(metadata)
 
         try:
             frame_index = 50
-            self.assertFalse(frame_cache.has_frame(frame_index))
-
-            frame1 = decoder.decode_frame(frame_index)
-            self.assertTrue(frame_cache.has_frame(frame_index))
-
-            frame2 = decoder.decode_frame(frame_index)
-            np.testing.assert_array_equal(frame1, frame2)
-
-            cached_frame = frame_cache.get(frame_index)
-            self.assertIsNotNone(cached_frame)
-            if cached_frame is not None:
-                np.testing.assert_array_equal(frame1, cached_frame)
+            result = decoder.decode_frame_operation(frame_index)
+            self.assertTrue(result.decoded_frames)
+            self.assertEqual(result.decoded_frames[-1][0], frame_index)
+            np.testing.assert_array_equal(result.decoded_frames[-1][1], result.requested_frame)
         finally:
             decoder.close()
+
+    def test_decode_operation_prefers_local_forward_decode_for_nearby_targets(self) -> None:
+        """Nearby forward requests should avoid an extra seek."""
+        avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
+        if not avi_file.exists():
+            self.skipTest(f"Test video file not found: {avi_file}")
+        metadata = VideoMetadata.from_path(avi_file)
+        mock_stream = MagicMock()
+        mock_stream.time_base = 1.0 / 30.0
+        mock_stream.start_time = 0
+
+        frame_a = MagicMock()
+        frame_a.pts = 0
+        frame_a.to_ndarray.return_value = np.zeros((2, 2, 3), dtype=np.uint8)
+        frame_b = MagicMock()
+        frame_b.pts = 1
+        frame_b.to_ndarray.return_value = np.ones((2, 2, 3), dtype=np.uint8)
+        frame_c = MagicMock()
+        frame_c.pts = 2
+        frame_c.to_ndarray.return_value = np.full((2, 2, 3), 2, dtype=np.uint8)
+
+        mock_container = MagicMock()
+        mock_container.decode.side_effect = [[frame_a], [frame_b, frame_c]]
+
+        with patch.object(VideoDecoder, "_ensure_open") as mock_ensure_open:
+            decoder = VideoDecoder(metadata)
+            decoder._container = mock_container
+            decoder._video_stream = mock_stream
+            with patch.object(decoder, "seek_to_frame") as mock_seek:
+                decoder.decode_frame_operation(0)
+                decoder.decode_frame_operation(2)
+
+            mock_ensure_open.assert_called()
+            self.assertEqual(mock_seek.call_count, 1)
 
     def test_successive_frames_yield_different_images(self) -> None:
         """Decoding two successive frames must yield different images (frame-accurate decode)."""

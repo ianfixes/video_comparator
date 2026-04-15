@@ -17,7 +17,7 @@ import numpy as np
 import wx
 
 from video_comparator.app.main_frame import MainFrame
-from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.cache.frame_cache import FrameCache, print_framedebug
 from video_comparator.common.types import LayoutOrientation, ScalingMode
 from video_comparator.config.settings import Settings
 from video_comparator.config.settings_manager import SettingsManager
@@ -45,6 +45,7 @@ class Application:
         settings_manager: SettingsManager,
         error_handler: ErrorHandler,
         initial_video_paths: Optional[List[Path]] = None,
+        initial_sync_offset_frames: int = 0,
     ) -> None:
         """Initialize application with required dependencies.
 
@@ -52,10 +53,12 @@ class Application:
             settings_manager: Settings manager for loading/saving configuration
             error_handler: Error handler for displaying errors
             initial_video_paths: Optional list of paths (max 2) to load on launch; first=video1, second=video2
+            initial_sync_offset_frames: Initial sync offset for video 2 in frames
         """
         self.settings_manager: SettingsManager = settings_manager
         self.error_handler: ErrorHandler = error_handler
         self._initial_video_paths: List[Path] = list(initial_video_paths)[:2] if initial_video_paths else []
+        self._initial_sync_offset_frames: int = initial_sync_offset_frames
         self.app: Optional[wx.App] = None
         self.main_frame: Optional[MainFrame] = None
 
@@ -282,10 +285,12 @@ class Application:
         if self.video_pane1 is not None:
             self.video_pane1.set_on_request_open_file(self._handle_open_video_1)
             self.video_pane1.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(1, Path(paths[0])))
+            self.video_pane1.set_on_zoom_changed(self._handle_zoom_ui_update)
             self.video_pane1.SetToolTip("Video 1 — drop a file here or use File → Open Video 1")
         if self.video_pane2 is not None:
             self.video_pane2.set_on_request_open_file(self._handle_open_video_2)
             self.video_pane2.set_on_files_dropped(lambda paths: self._handle_dropped_path_for_slot(2, Path(paths[0])))
+            self.video_pane2.set_on_zoom_changed(self._handle_zoom_ui_update)
             self.video_pane2.SetToolTip("Video 2 — drop a file here or use File → Open Video 2")
 
         self._update_control_panel_load_state()
@@ -297,9 +302,23 @@ class Application:
         """Load videos from command-line paths if any were provided."""
         for i, path in enumerate(self._initial_video_paths):
             slot = i + 1
-            metadata = self.media_loader.load_video_file_from_path(path)
-            if metadata is not None:
-                self._apply_loaded_video(slot, metadata)
+            self._load_video_path_for_slot(slot, path)
+        self._apply_initial_sync_offset()
+
+    def _load_video_path_for_slot(self, slot: int, path: Path) -> None:
+        """Load a filesystem video path into a slot using shared load/apply flow."""
+        metadata = self.media_loader.load_video_file_from_path(path)
+        if metadata is not None:
+            self._apply_loaded_video(slot, metadata)
+
+    def _apply_initial_sync_offset(self) -> None:
+        """Apply startup sync offset and refresh UI/frames."""
+        if self.timeline_controller is None:
+            return
+        self.timeline_controller.set_sync_offset(self._initial_sync_offset_frames)
+        if self.control_panel is not None:
+            self.control_panel.sync_controls.update_offset()
+        self._on_sync_offset_changed()
 
     def _create_placeholder_metadata(self) -> VideoMetadata:
         """Create placeholder metadata for initial state (no video loaded).
@@ -343,8 +362,8 @@ class Application:
         """
         has1 = result_video1.frame is not None
         has2 = result_video2.frame is not None
-        print(
-            "[FrameDebug] Application: frames_ready received frame_v1=%d frame_v2=%d "
+        print_framedebug(
+            "Application: frames_ready received frame_v1=%d frame_v2=%d "
             "has_frame1=%s has_frame2=%s status1=%s status2=%s"
             % (
                 frame_v1,
@@ -356,9 +375,8 @@ class Application:
             )
         )
         if not has1 or not has2:
-            print(
-                "[FrameDebug] Application: frame discarded before render (missing): "
-                "video1=%s video2=%s" % (not has1, not has2)
+            print_framedebug(
+                "Application: frame discarded before render (missing): " "video1=%s video2=%s" % (not has1, not has2)
             )
         frame1 = result_video1.frame.copy() if result_video1.frame is not None else None
         frame2 = result_video2.frame.copy() if result_video2.frame is not None else None
@@ -384,8 +402,8 @@ class Application:
         """Set frame data and playback info on video panes (must run on main thread)."""
         shape1 = frame1.shape if frame1 is not None else None
         shape2 = frame2.shape if frame2 is not None else None
-        print(
-            "[FrameDebug] Application: rendering to panes frame_v1=%d frame_v2=%d "
+        print_framedebug(
+            "Application: rendering to panes frame_v1=%d frame_v2=%d "
             "pane1=%s pane2=%s" % (frame_v1, frame_v2, shape1, shape2)
         )
         if self.video_pane1 is not None:
@@ -427,6 +445,9 @@ class Application:
         if self.playback_controller is None:
             return
         if self.playback_controller.state != PlaybackState.PLAYING:
+            # Drop stale baseline while paused/stopped so resume does not
+            # apply elapsed wall-clock pause time as playback delta.
+            self._last_tick_time = 0.0
             return
         now = time.perf_counter()
         if self._last_tick_time > 0:
@@ -512,6 +533,11 @@ class Application:
         if self.control_panel is not None:
             self.control_panel.zoom_controls.update_zoom_display()
 
+    def _handle_zoom_ui_update(self) -> None:
+        """Refresh zoom labels after pane-driven zoom changes (e.g. mouse wheel)."""
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
+
     def _handle_toggle_scaling(self) -> None:
         """Handle toggle scaling mode command."""
         if self.layout_manager is None:
@@ -551,9 +577,7 @@ class Application:
         if not self.media_loader.is_plausible_video_path(path):
             self.error_handler.handle_error(ValueError(f"Not a supported video file type: {path.name}"))
             return
-        metadata = self.media_loader.load_video_file_from_path(path)
-        if metadata is not None:
-            self._apply_loaded_video(slot, metadata)
+        self._load_video_path_for_slot(slot, path)
 
     def _apply_loaded_video(self, slot: int, metadata: VideoMetadata) -> None:
         """Apply loaded metadata to the given slot (1 or 2) and update decoders/caches/UI."""
