@@ -17,7 +17,7 @@ import numpy as np
 import wx
 
 from video_comparator.app.main_frame import MainFrame
-from video_comparator.cache.frame_cache import FrameCache
+from video_comparator.cache.frame_cache import FrameCache, print_framedebug
 from video_comparator.common.types import LayoutOrientation, ScalingMode
 from video_comparator.config.settings import Settings
 from video_comparator.config.settings_manager import SettingsManager
@@ -343,8 +343,8 @@ class Application:
         """
         has1 = result_video1.frame is not None
         has2 = result_video2.frame is not None
-        print(
-            "[FrameDebug] Application: frames_ready received frame_v1=%d frame_v2=%d "
+        print_framedebug(
+            "Application: frames_ready received frame_v1=%d frame_v2=%d "
             "has_frame1=%s has_frame2=%s status1=%s status2=%s"
             % (
                 frame_v1,
@@ -356,9 +356,8 @@ class Application:
             )
         )
         if not has1 or not has2:
-            print(
-                "[FrameDebug] Application: frame discarded before render (missing): "
-                "video1=%s video2=%s" % (not has1, not has2)
+            print_framedebug(
+                "Application: frame discarded before render (missing): " "video1=%s video2=%s" % (not has1, not has2)
             )
         frame1 = result_video1.frame.copy() if result_video1.frame is not None else None
         frame2 = result_video2.frame.copy() if result_video2.frame is not None else None
@@ -384,8 +383,8 @@ class Application:
         """Set frame data and playback info on video panes (must run on main thread)."""
         shape1 = frame1.shape if frame1 is not None else None
         shape2 = frame2.shape if frame2 is not None else None
-        print(
-            "[FrameDebug] Application: rendering to panes frame_v1=%d frame_v2=%d "
+        print_framedebug(
+            "Application: rendering to panes frame_v1=%d frame_v2=%d "
             "pane1=%s pane2=%s" % (frame_v1, frame_v2, shape1, shape2)
         )
         if self.video_pane1 is not None:
