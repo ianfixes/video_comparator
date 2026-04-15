@@ -10,6 +10,7 @@ Responsibilities:
 
 import queue
 import threading
+from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, Set, TextIO, Tuple
 
 import numpy as np
@@ -61,9 +62,11 @@ class FrameCache:
         self.frame_size_estimate_bytes: Optional[int] = frame_size_estimate_bytes
 
         self._cache: Dict[int, np.ndarray] = {}
-        self._access_order: List[int] = []
+        self._access_order: OrderedDict[int, None] = OrderedDict()
         self._protected_frames: List[int] = []
         self._protected_frames_set: Set[int] = set()
+        self._frame_sizes: Dict[int, int] = {}
+        self._current_memory_bytes = 0
         self._lock = threading.Lock()
 
         if prefetch_coordination_semaphore is not None:
@@ -113,9 +116,13 @@ class FrameCache:
                 self._update_access_order(frame_index)
                 return
 
-            self._evict_if_needed(frame)
-            self._cache[frame_index] = frame.copy()
-            self._access_order.append(frame_index)
+            stored = frame.copy()
+            self._evict_if_needed(stored)
+            self._cache[frame_index] = stored
+            frame_size = self._calculate_frame_memory(stored)
+            self._frame_sizes[frame_index] = frame_size
+            self._current_memory_bytes += frame_size
+            self._access_order[frame_index] = None
 
     def request_prefill_frame(
         self,
@@ -188,9 +195,11 @@ class FrameCache:
         """Clear all cached frames (thread-safe)."""
         with self._lock:
             self._cache.clear()
-            self._access_order.clear()
+            self._access_order = OrderedDict()
             self._protected_frames.clear()
             self._protected_frames_set.clear()
+            self._frame_sizes.clear()
+            self._current_memory_bytes = 0
 
     def prepare_for_decoder_close(self) -> None:
         """Stop the prefetch thread before closing the paired VideoDecoder (reload path).
@@ -338,8 +347,9 @@ class FrameCache:
     ) -> Tuple[FrameRequestStatus, Optional[Exception]]:
         try:
             with self._decoder_lock:
-                frame = decoder.decode_frame(frame_index)
-            self.put(frame_index, frame)
+                decode_result = decoder.decode_frame_operation(frame_index)
+            for decoded_frame_index, decoded_frame in decode_result.decoded_frames:
+                self.put(decoded_frame_index, decoded_frame)
             return FrameRequestStatus.SUCCESS, None
         except SeekError as e:
             return FrameRequestStatus.SEEK_ERROR, e
@@ -412,8 +422,9 @@ class FrameCache:
             frame_index: Frame index that was accessed
         """
         if frame_index in self._access_order:
-            self._access_order.remove(frame_index)
-        self._access_order.append(frame_index)
+            self._access_order.move_to_end(frame_index)
+        else:
+            self._access_order[frame_index] = None
 
     def _evict_if_needed(self, new_frame: np.ndarray) -> None:
         """Evict frames if cache limits are exceeded, using LRU but skipping protected frames (must be called with lock held).
@@ -426,7 +437,7 @@ class FrameCache:
         """
         new_frame_memory = self._calculate_frame_memory(new_frame)
 
-        while self._calculate_total_memory() + new_frame_memory > self.max_memory_bytes:
+        while self._current_memory_bytes + new_frame_memory > self.max_memory_bytes:
             if not self._access_order:
                 break
 
@@ -436,13 +447,7 @@ class FrameCache:
                 if oldest_frame_index is None:
                     break
 
-            if oldest_frame_index in self._cache:
-                del self._cache[oldest_frame_index]
-            if oldest_frame_index in self._access_order:
-                self._access_order.remove(oldest_frame_index)
-            if oldest_frame_index in self._protected_frames_set:
-                self._protected_frames.remove(oldest_frame_index)
-                self._protected_frames_set.remove(oldest_frame_index)
+            self._remove_cached_frame(oldest_frame_index)
 
     def _find_evictable_frame(self) -> Optional[int]:
         """Find the least recently used frame that is not protected (must be called with lock held).
@@ -485,7 +490,19 @@ class FrameCache:
         Returns:
             Total memory usage in bytes
         """
-        return sum(self._calculate_frame_memory(frame) for frame in self._cache.values())
+        return self._current_memory_bytes
+
+    def _remove_cached_frame(self, frame_index: int) -> None:
+        """Remove a frame and all related bookkeeping (must be called with lock held)."""
+        if frame_index in self._cache:
+            del self._cache[frame_index]
+        if frame_index in self._access_order:
+            del self._access_order[frame_index]
+        frame_size = self._frame_sizes.pop(frame_index, 0)
+        self._current_memory_bytes = max(0, self._current_memory_bytes - frame_size)
+        if frame_index in self._protected_frames_set:
+            self._protected_frames_set.remove(frame_index)
+            self._protected_frames = [idx for idx in self._protected_frames if idx != frame_index]
 
     def num_entries(self) -> int:
         """Return the number of frames currently stored in the cache (thread-safe)."""
@@ -495,7 +512,7 @@ class FrameCache:
     def cache_size(self) -> int:
         """Return the total space used by the cache in bytes (thread-safe)."""
         with self._lock:
-            return sum(self._calculate_frame_memory(frame) for frame in self._cache.values())
+            return self._current_memory_bytes
 
     def num_free_entries(self) -> int:
         """Return the number of additional frames that can be inserted before exceeding memory limit (thread-safe).

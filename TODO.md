@@ -253,19 +253,19 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test seek to middle frame
 - [x] Test seek with videos of different framerates
 - [x] Test decode error handling (corrupted frame, unsupported codec)
-- [ ] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions.
+- [x] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions.
 - [x] Test that decoding two successive frames (e.g. frame N and N+1) from a test video yields different images (ensures frame-accurate decode, not keyframe-only)
-- [ ] Expose decode operation results so FrameCache can receive all decoded frames from a request (target + intermediates), using API shape that best matches PyAV container behavior.
-- [ ] Keep decoder free of cache prioritization/retention policy decisions.
-- [ ] Add decoder locality optimization policy: choose decode-forward from current cursor for nearby targets and seek+decode-forward for distant targets, prioritizing UI request latency.
+- [x] Expose decode operation results so FrameCache can receive all decoded frames from a request (target + intermediates), using API shape that best matches PyAV container behavior.
+- [x] Keep decoder free of cache prioritization/retention policy decisions.
+- [x] Add decoder locality optimization policy: choose decode-forward from current cursor for nearby targets and seek+decode-forward for distant targets, prioritizing UI request latency.
 
 **Performance Acceptance Criteria (Cache/Decoder Priority):**
 - [ ] For each UI frame request, the requested frame is delivered before any lower-priority prefetch frame from the same request cycle.
 - [ ] New high-priority requests supersede older lower-priority queued work at the next decode boundary.
-- [ ] Decoder work contributes decoded frames back to FrameCache for retention decisions.
+- [x] Decoder work contributes decoded frames back to FrameCache for retention decisions.
 - [ ] Throughput optimization does not override the primary objective: minimize UI request-to-frame latency.
-- [ ] Verify single-writer cache contract with tests (decoder does not write cache directly; FrameCache performs authoritative insertion exactly once per accepted decoded frame).
-- [ ] Add targeted performance tests for cache hot paths to guard against O(n) regression in recency updates and insertion/eviction accounting.
+- [x] Verify single-writer cache contract with tests (decoder does not write cache directly; FrameCache performs authoritative insertion exactly once per accepted decoded frame).
+- [x] Add targeted performance tests for cache hot paths to guard against O(n) regression in recency updates and insertion/eviction accounting.
 
 ### TimelineController (`sync/timeline_controller.py`)
 - [x] Implement current position tracking (in seconds)
