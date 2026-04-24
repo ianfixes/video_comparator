@@ -34,7 +34,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 #### Responsibilities
 - file selection
 - validation
-- probing via PyAV (duration, fps, dimensions, pixel format, total_frames, time_base)
+- probing via PyAV (duration, fps, coded dimensions, pixel format, total_frames, time_base, sample/display aspect metadata)
 - user-facing errors for unsupported formats.
 #### Testability
 - unit tests with known media samples from `tests/sample_data/`
@@ -230,6 +230,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - matched bounding boxes for comparison
 - overlays for filename
 - native dimensions
+- display aspect-aware presentation (honor SAR/DAR so anamorphic sources are not stretched)
 - playback time/frame
 - zoom level
 - overlay time/frame text reflects the actual frame currently displayed in that pane, including per-video sync offsets

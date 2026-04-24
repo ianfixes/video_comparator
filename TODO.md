@@ -36,9 +36,11 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test Settings deserialization from dict/JSON
 
 ### VideoMetadata (`media/video_metadata.py`)
-- [x] Implement VideoMetadata class with all PyAV fields (duration, fps, width, height, pixel_format, total_frames, time_base)
-- [x] Implement `dimensions` property
+- [x] Implement VideoMetadata class with all PyAV fields (including sample/display aspect metadata needed for display geometry)
+- [x] Implement `dimensions` property (coded raster dimensions: width, height)
+- [x] Add companion display-geometry property/properties (e.g., `display_dimensions` and/or `display_aspect_ratio`) derived from coded size + SAR/DAR metadata
 - [x] Add validation for metadata values (positive durations, fps, dimensions)
+- [x] Add explicit metadata fields for coded dimensions vs display geometry (e.g., SAR numerator/denominator and/or derived display aspect ratio)
 
 **Unit Tests Required:**
 - [x] Test VideoMetadata initialization with valid data
@@ -62,7 +64,7 @@ This document outlines the implementation plan from lowest-level modules to high
 ### MetadataExtractor (`media/video_metadata.py`)
 - [x] Implement PyAV container opening
 - [x] Implement video stream detection
-- [x] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base)
+- [x] Implement metadata extraction (duration, fps, dimensions, pixel format, total frames, time_base, sample/display aspect metadata)
 - [x] Implement error handling for unsupported formats
 - [x] Add support for multiple video streams (select first video stream)
 - [x] Define per-class exceptions for metadata errors (e.g., `MetadataExtractionError`, `UnsupportedFormatError`, `NoVideoStreamError`)
@@ -654,6 +656,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Drag and drop: drop a supported video onto each pane → correct pane loads and displays; unsupported file shows error
 - [ ] Sync offset: changing slider/±1 while **paused** updates both panes immediately; changing while **playing** does not glitch or double-refresh (offset applies via playback path)
 - [ ] Overlay correctness with offset: with non-zero sync offset, pane 1 and pane 2 overlay times/frames reflect different resolved source positions as expected (within rounding/clamp tolerance)
+- [ ] Aspect-ratio correctness: anamorphic/non-square-pixel source displays with correct widescreen geometry (no vertical stretch)
 - [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
 - [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed

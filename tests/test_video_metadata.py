@@ -18,7 +18,7 @@ class TestVideoMetadata(unittest.TestCase):
         self.sample_data_dir = Path(__file__).parent / "sample_data"
 
     def test_dimensions_property_returns_tuple(self) -> None:
-        """Test dimensions property returns correct (width, height) tuple."""
+        """Test dimensions property returns correct coded (width, height) tuple."""
         metadata = VideoMetadata(
             file_path=Path("/test/path.avi"),
             duration=10.0,
@@ -32,6 +32,69 @@ class TestVideoMetadata(unittest.TestCase):
 
         self.assertEqual(metadata.dimensions, (1920, 1080))
         self.assertIsInstance(metadata.dimensions, tuple)
+
+    def test_display_dimensions_default_to_coded_dimensions(self) -> None:
+        """Square-pixel metadata uses coded dimensions for display dimensions."""
+        metadata = VideoMetadata(
+            file_path=Path("/test/path.avi"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+
+        self.assertEqual(metadata.display_dimensions, (1920, 1080))
+        self.assertAlmostEqual(metadata.display_aspect_ratio, 1920 / 1080, places=6)
+
+    def test_display_dimensions_apply_sample_aspect_ratio(self) -> None:
+        """Non-square pixels produce adjusted display dimensions."""
+        metadata = VideoMetadata(
+            file_path=Path("/test/path.avi"),
+            duration=10.0,
+            fps=30.0,
+            width=720,
+            height=576,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+            sample_aspect_ratio_num=64,
+            sample_aspect_ratio_den=45,
+        )
+
+        self.assertEqual(metadata.display_dimensions, (1024, 576))
+        self.assertAlmostEqual(metadata.display_aspect_ratio, 1024 / 576, places=6)
+
+    def test_validation_rejects_invalid_sample_aspect_ratio(self) -> None:
+        """Sample aspect ratio values must be positive."""
+        with self.assertRaises(ValueError):
+            VideoMetadata(
+                file_path=Path("/test/path.avi"),
+                duration=10.0,
+                fps=30.0,
+                width=720,
+                height=576,
+                pixel_format="yuv420p",
+                total_frames=300,
+                time_base=0.001,
+                sample_aspect_ratio_num=0,
+                sample_aspect_ratio_den=1,
+            )
+        with self.assertRaises(ValueError):
+            VideoMetadata(
+                file_path=Path("/test/path.avi"),
+                duration=10.0,
+                fps=30.0,
+                width=720,
+                height=576,
+                pixel_format="yuv420p",
+                total_frames=300,
+                time_base=0.001,
+                sample_aspect_ratio_num=1,
+                sample_aspect_ratio_den=0,
+            )
 
     def test_validation_rejects_zero_duration(self) -> None:
         """Test VideoMetadata validation rejects zero duration."""
@@ -320,6 +383,8 @@ class TestVideoMetadata(unittest.TestCase):
         self.assertIsNotNone(metadata.pixel_format)
         self.assertIsNotNone(metadata.total_frames)
         self.assertIsNotNone(metadata.time_base)
+        self.assertIsNotNone(metadata.sample_aspect_ratio_num)
+        self.assertIsNotNone(metadata.sample_aspect_ratio_den)
 
     def test_extract_dimensions_property_works(self) -> None:
         """Test extracted metadata dimensions property works correctly."""

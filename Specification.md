@@ -25,6 +25,7 @@ This software project aims to deliver a cross-platform graphical user interface 
      1. Each video scaled to fill its own bounding box (preserving aspect ratio).
      2. The larger video fills the box, and the smaller video is scaled proportionally to the displayed size of the larger one.
    - Each video's native dimensions must be displayed in text.
+   - Display geometry must honor stream/display aspect metadata. For sources with non-square pixels (anamorphic content), rendering must use display aspect ratio semantics (e.g., SAR/DAR) rather than coded raster dimensions alone.
    - The system must permit zooming in both panes to analyze specific regions of the videos in more detail.
 
 3. **Timeline Navigation**
@@ -78,7 +79,7 @@ This software project aims to deliver a cross-platform graphical user interface 
     - The application must support a range of commonly used video formats (e.g., .mp4, .mkv, .avi, ProRes, H.264, H.265), depending on backend capabilities.
 
 11. **User Interface and Usability**
-    - Each pane should display video filename, resolution, native video dimensions, and playback time/frame.
+    - Each pane should display video filename, coded resolution, display dimensions/aspect context (when non-square pixel metadata is present), and playback time/frame.
     - Tooltips and labels should clarify the purpose of all controls, including zoom and pan features.
     - Keyboard shortcuts must be documented and customizable if possible.
     - UI should clearly indicate the current zoom level and allow resetting the view easily.

@@ -227,7 +227,7 @@ class VideoPane(wx.Panel):
             self.Refresh()
             return
 
-        video_size = self.metadata.dimensions
+        video_size = self.metadata.display_dimensions
         reference_size = self.display_size if self.scaling_mode == ScalingMode.MATCH_LARGER else None
         try:
             base_scale_x, base_scale_y = self.scaling_calculator.calculate_scale(
@@ -322,7 +322,7 @@ class VideoPane(wx.Panel):
 
         try:
             # Calculate base scale for fitting video to display
-            video_size = self.metadata.dimensions
+            video_size = self.metadata.display_dimensions
             reference_size = self.display_size if self.scaling_mode == ScalingMode.MATCH_LARGER else None
             base_scale_x, base_scale_y = self.scaling_calculator.calculate_scale(
                 video_size, (pane_width, pane_height), self.scaling_mode, reference_size
@@ -448,7 +448,13 @@ class VideoPane(wx.Panel):
         if self.metadata is not None and self.metadata.file_path is not None:
             lines.append(self.metadata.file_path.name)
         if self.metadata is not None:
-            lines.append(f"{self.metadata.width}x{self.metadata.height}")
+            display_width, display_height = self.metadata.display_dimensions
+            if (display_width, display_height) == self.metadata.dimensions:
+                lines.append(f"{self.metadata.width}x{self.metadata.height}")
+            else:
+                lines.append(
+                    f"{self.metadata.width}x{self.metadata.height} " f"(display {display_width}x{display_height})"
+                )
         lines.append("Load the other video to compare")
         y = (height - len(lines) * 18) // 2
         for line in lines:
@@ -476,7 +482,14 @@ class VideoPane(wx.Panel):
         overlay_lines = []
         if self.metadata.file_path is not None:
             overlay_lines.append(f"File: {self.metadata.file_path.name}")
-        overlay_lines.append(f"Dimensions: {self.metadata.width}x{self.metadata.height}")
+        display_width, display_height = self.metadata.display_dimensions
+        if (display_width, display_height) == self.metadata.dimensions:
+            overlay_lines.append(f"Dimensions: {self.metadata.width}x{self.metadata.height}")
+        else:
+            overlay_lines.append(
+                f"Dimensions: {self.metadata.width}x{self.metadata.height} "
+                f"(display {display_width}x{display_height})"
+            )
         overlay_lines.append(f"Time: {self.current_time:.3f}s / Frame: {self.current_frame_index}")
         overlay_lines.append(f"Zoom: {self.zoom_level:.2f}x")
 
