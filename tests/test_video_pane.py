@@ -386,8 +386,70 @@ class TestVideoPane(unittest.TestCase):
                     self.assertGreater(mock_dc.DrawText.call_count, 0)
                     draw_text_calls = [str(call) for call in mock_dc.DrawText.call_args_list]
                     self.assertTrue(any("1920x1080" in str(call) for call in draw_text_calls))
+                    self.assertTrue(any("fps" in str(call) for call in draw_text_calls))
                     self.assertTrue(any("5.5" in str(call) for call in draw_text_calls))
                     self.assertTrue(any("165" in str(call) for call in draw_text_calls))
+
+    def test_overlay_filename_line_includes_friendly_file_size(self) -> None:
+        """Overlay filename line includes friendly file size when stat is available."""
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        self.pane.set_frame(frame)
+        self.pane.set_playback_info(0.0, 0)
+
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
+                mock_bitmap = MagicMock()
+                mock_image = MagicMock()
+                mock_bitmap.ConvertToImage.return_value = mock_image
+                mock_image.Scale.return_value = MagicMock()
+                mock_convert.return_value = mock_bitmap
+
+                mock_dc = MagicMock()
+                mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
+                    with patch.object(Path, "stat", return_value=MagicMock(st_size=1536)):
+                        self.pane._render_frame(mock_dc)
+
+                draw_text_calls = [str(call) for call in mock_dc.DrawText.call_args_list]
+                self.assertTrue(any("File: test_video.mp4 (1.5 kB)" in call for call in draw_text_calls))
+
+    def test_overlay_dimensions_line_includes_fps_value(self) -> None:
+        """Overlay dimensions line includes FPS value."""
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        self.pane.set_frame(frame)
+        self.pane.set_playback_info(0.0, 0)
+
+        with patch.object(self.pane, "GetSize", return_value=wx.Size(800, 600)):
+            with patch.object(self.pane, "_frame_to_bitmap") as mock_convert:
+                mock_bitmap = MagicMock()
+                mock_image = MagicMock()
+                mock_bitmap.ConvertToImage.return_value = mock_image
+                mock_image.Scale.return_value = MagicMock()
+                mock_convert.return_value = mock_bitmap
+
+                mock_dc = MagicMock()
+                mock_dc.GetTextExtent.return_value = (100, 20)
+                with patch("video_comparator.render.video_pane.wx.Colour") as mock_colour_class, patch(
+                    "video_comparator.render.video_pane.wx.Font"
+                ) as mock_font_class, patch("video_comparator.render.video_pane.wx.Brush") as mock_brush_class, patch(
+                    "video_comparator.render.video_pane.wx.Bitmap"
+                ) as mock_bitmap_class:
+                    mock_colour_class.return_value = MagicMock()
+                    mock_font_class.return_value = MagicMock()
+                    mock_brush_class.return_value = MagicMock()
+                    mock_bitmap_class.return_value = MagicMock()
+                    self.pane._render_frame(mock_dc)
+
+                draw_text_calls = [str(call) for call in mock_dc.DrawText.call_args_list]
+                self.assertTrue(any("Dimensions: 1920x1080 @ 30.000 fps" in call for call in draw_text_calls))
 
     def test_mouse_drag_pan_interaction(self) -> None:
         """Test mouse drag pan interaction."""
