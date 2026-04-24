@@ -8,7 +8,7 @@ Responsibilities:
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import av
 
@@ -37,6 +37,8 @@ class VideoMetadata:
     pixel_format: str
     total_frames: int
     time_base: float
+    sample_aspect_ratio_num: int = 1
+    sample_aspect_ratio_den: int = 1
 
     def __post_init__(self) -> None:
         """Validate metadata values.
@@ -59,11 +61,42 @@ class VideoMetadata:
             raise ValueError("pixel_format cannot be empty")
         if self.time_base <= 0:
             raise ValueError(f"time_base must be > 0, got {self.time_base}")
+        if self.sample_aspect_ratio_num <= 0:
+            raise ValueError(f"sample_aspect_ratio_num must be > 0, got {self.sample_aspect_ratio_num}")
+        if self.sample_aspect_ratio_den <= 0:
+            raise ValueError(f"sample_aspect_ratio_den must be > 0, got {self.sample_aspect_ratio_den}")
 
     @property
     def dimensions(self) -> Tuple[int, int]:
-        """Return video dimensions as (width, height) tuple."""
+        """Return coded raster dimensions as (width, height)."""
         return (self.width, self.height)
+
+    @property
+    def display_dimensions(self) -> Tuple[int, int]:
+        """Return display dimensions adjusted by sample aspect ratio."""
+        display_width = int(round(self.width * self.sample_aspect_ratio_num / self.sample_aspect_ratio_den))
+        return (max(1, display_width), self.height)
+
+    @property
+    def display_aspect_ratio(self) -> float:
+        """Return effective display aspect ratio (DAR)."""
+        display_width, display_height = self.display_dimensions
+        return display_width / display_height
+
+    @staticmethod
+    def _parse_aspect_ratio(value: Any) -> Tuple[int, int]:
+        """Parse FFmpeg/PyAV aspect ratio value into positive numerator/denominator."""
+        if value is None:
+            return (1, 1)
+        num = getattr(value, "numerator", None)
+        den = getattr(value, "denominator", None)
+        if num is None or den is None:
+            return (1, 1)
+        num_i = int(num)
+        den_i = int(den)
+        if num_i <= 0 or den_i <= 0:
+            return (1, 1)
+        return (num_i, den_i)
 
     @classmethod
     def from_path(cls, file_path: Path) -> "VideoMetadata":
@@ -117,6 +150,13 @@ class VideoMetadata:
             pixel_format = video_stream.codec_context.pix_fmt or "unknown"
             width = video_stream.codec_context.width
             height = video_stream.codec_context.height
+            sample_aspect_ratio_num, sample_aspect_ratio_den = cls._parse_aspect_ratio(
+                getattr(video_stream, "sample_aspect_ratio", None)
+            )
+            if sample_aspect_ratio_num == 1 and sample_aspect_ratio_den == 1:
+                sample_aspect_ratio_num, sample_aspect_ratio_den = cls._parse_aspect_ratio(
+                    getattr(video_stream.codec_context, "sample_aspect_ratio", None)
+                )
 
             if width is None or width <= 0:
                 raise ValueError(f"Invalid video width: {width}")
@@ -132,6 +172,8 @@ class VideoMetadata:
                 pixel_format=pixel_format,
                 total_frames=total_frames,
                 time_base=time_base,
+                sample_aspect_ratio_num=sample_aspect_ratio_num,
+                sample_aspect_ratio_den=sample_aspect_ratio_den,
             )
         finally:
             container.close()

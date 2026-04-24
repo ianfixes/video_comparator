@@ -320,6 +320,41 @@ class TestVideoPane(unittest.TestCase):
                             (1920, 1080), (800, 600), ScalingMode.MATCH_LARGER, (2560, 1440)
                         )
 
+    def test_rendering_uses_display_dimensions_for_non_square_pixels(self) -> None:
+        """Rendering scale input uses display geometry, not coded raster geometry."""
+        metadata = VideoMetadata(
+            file_path=Path("anamorphic.mp4"),
+            duration=5.0,
+            fps=25.0,
+            width=720,
+            height=576,
+            pixel_format="yuv420p",
+            total_frames=125,
+            time_base=1.0 / 90000.0,
+            sample_aspect_ratio_num=64,
+            sample_aspect_ratio_den=45,
+        )
+        with create_video_pane(self.parent, self.scaling_calculator, metadata) as pane:
+            pane.set_frame(np.zeros((576, 720, 3), dtype=np.uint8))
+            with patch.object(pane, "GetSize", return_value=wx.Size(800, 600)):
+                with patch.object(pane.scaling_calculator, "calculate_scale", return_value=(0.5, 0.5)) as mock_calc:
+                    with patch.object(pane, "_frame_to_bitmap") as mock_convert:
+                        mock_bitmap = MagicMock()
+                        mock_image = MagicMock()
+                        mock_bitmap.ConvertToImage.return_value = mock_image
+                        mock_image.Scale.return_value = MagicMock()
+                        mock_convert.return_value = mock_bitmap
+                        with patch("video_comparator.render.video_pane.wx.Colour", return_value=MagicMock()), patch(
+                            "video_comparator.render.video_pane.wx.Brush", return_value=MagicMock()
+                        ), patch("video_comparator.render.video_pane.wx.Font", return_value=MagicMock()), patch(
+                            "video_comparator.render.video_pane.wx.Bitmap", return_value=MagicMock()
+                        ):
+                            mock_dc = MagicMock()
+                            mock_dc.GetTextExtent.return_value = (100, 20)
+                            pane._render_frame(mock_dc)
+
+                    mock_calc.assert_called_once_with((1024, 576), (800, 600), ScalingMode.INDEPENDENT, None)
+
     def test_overlay_text_rendering(self) -> None:
         """Test overlay text rendering."""
         frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
