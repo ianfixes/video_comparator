@@ -10,6 +10,7 @@ Responsibilities:
 - Mouse interactions: drag to pan, scroll wheel to zoom, Shift-drag rectangle to zoom to region
 """
 
+from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -58,6 +59,7 @@ class VideoPane(wx.Panel):
     MIN_ZOOM: float = 0.1
     MAX_ZOOM: float = 10.0
     ZOOM_STEP_FACTOR: float = 1.1
+    _FILE_SIZE_UNITS: Tuple[str, ...] = ("B", "kB", "MB", "GB")
 
     def __init__(
         self,
@@ -465,6 +467,31 @@ class VideoPane(wx.Panel):
             dc.DrawText(line, (width - text_width) // 2, y)
             y += 18
 
+    @classmethod
+    def _format_file_size(cls, size_bytes: int) -> str:
+        """Format file size into friendly units (B, kB, MB, GB)."""
+        size = float(size_bytes)
+        unit_index = 0
+        while size >= 1024.0 and unit_index < len(cls._FILE_SIZE_UNITS) - 1:
+            size /= 1024.0
+            unit_index += 1
+        unit = cls._FILE_SIZE_UNITS[unit_index]
+        if unit_index == 0:
+            return f"{int(size)} {unit}"
+        return f"{size:.1f} {unit}"
+
+    @classmethod
+    def _build_file_overlay_line(cls, path: Optional[Path]) -> Optional[str]:
+        """Build overlay file line with friendly size when available."""
+        if not hasattr(path, "name") or path is None:
+            return None
+        line = f"File: {path.name}"
+        try:
+            size_bytes = int(path.stat().st_size)
+        except (OSError, ValueError, TypeError, AttributeError):
+            return line
+        return f"{line} ({cls._format_file_size(size_bytes)})"
+
     def _draw_overlays(self, dc: wx.DC, width: int, height: int) -> None:
         """Draw overlay information (filename, dimensions, time/frame, zoom level).
 
@@ -481,14 +508,18 @@ class VideoPane(wx.Panel):
 
         overlay_lines = []
         if self.metadata.file_path is not None:
-            overlay_lines.append(f"File: {self.metadata.file_path.name}")
+            file_line = self._build_file_overlay_line(self.metadata.file_path)
+            if file_line is not None:
+                overlay_lines.append(file_line)
         display_width, display_height = self.metadata.display_dimensions
         if (display_width, display_height) == self.metadata.dimensions:
-            overlay_lines.append(f"Dimensions: {self.metadata.width}x{self.metadata.height}")
+            overlay_lines.append(
+                f"Dimensions: {self.metadata.width}x{self.metadata.height} @ {self.metadata.fps:.3f} fps"
+            )
         else:
             overlay_lines.append(
                 f"Dimensions: {self.metadata.width}x{self.metadata.height} "
-                f"(display {display_width}x{display_height})"
+                f"(display {display_width}x{display_height}) @ {self.metadata.fps:.3f} fps"
             )
         overlay_lines.append(f"Time: {self.current_time:.3f}s / Frame: {self.current_frame_index}")
         overlay_lines.append(f"Zoom: {self.zoom_level:.2f}x")

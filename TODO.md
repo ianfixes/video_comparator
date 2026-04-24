@@ -398,6 +398,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement scaling mode support (independent vs match_larger)
 - [x] Implement matched bounding box calculation
 - [x] Implement overlay rendering (filename, dimensions, time/frame, zoom level)
+- [x] Extend filename overlay line to include file size in friendly units (B, kB, MB, GB)
+- [x] Extend dimensions overlay line to include FPS
 - [x] Handle click on "no video loaded" overlay to open file chooser for that video pane
 - [x] Implement mouse event handlers:
   - [x] Mouse drag (click-and-drag) for panning the zoomed region
@@ -418,6 +420,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test match_larger scaling mode rendering
 - [x] Test matched bounding box calculation
 - [x] Test overlay text rendering (mock wx.PaintDC)
+- [x] Test overlay filename line includes friendly file size when metadata has file path/size
+- [x] Test overlay dimensions line includes FPS value
 - [x] Test mouse drag pan interaction (mock mouse events)
 - [x] Test mouse wheel zoom in/out (mock wheel events)
 - [x] Test Shift-drag rectangle selection and zoom to region (mock mouse events)
