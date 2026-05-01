@@ -109,6 +109,47 @@ class TestApplication(unittest.TestCase):
                 app.initialize()
                 self.assertEqual(app.main_frame, mock_main_frame)
                 mock_main_frame.Show.assert_called_once()
+                mock_main_frame.Raise.assert_called_once()
+                mock_main_frame.RaiseLater.assert_called_once()
+
+    def test_request_main_window_foreground_uses_raise_later_when_available(self) -> None:
+        """Deferred Raise via RaiseLater when the toolkit provides it."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+
+        class _FrameWithRaiseLater:
+            def __init__(self) -> None:
+                self.raise_calls = 0
+                self.raise_later_calls = 0
+
+            def Raise(self) -> None:
+                self.raise_calls += 1
+
+            def RaiseLater(self) -> None:
+                self.raise_later_calls += 1
+
+        frame = _FrameWithRaiseLater()
+        app.main_frame = frame  # type: ignore[assignment]
+        with patch("video_comparator.app.application.wx.CallAfter") as mock_call_after:
+            app._request_main_window_foreground()
+        self.assertEqual(frame.raise_calls, 1)
+        self.assertEqual(frame.raise_later_calls, 1)
+        mock_call_after.assert_not_called()
+
+    def test_request_main_window_foreground_falls_back_to_call_after_without_raise_later(self) -> None:
+        """Older wx builds without RaiseLater still get a deferred Raise via wx.CallAfter."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+
+        class _FrameNoRaiseLater:
+            def Raise(self) -> None:
+                pass
+
+        frame = _FrameNoRaiseLater()
+        app.main_frame = frame  # type: ignore[assignment]
+        with patch("video_comparator.app.application.wx.CallAfter") as mock_call_after:
+            app._request_main_window_foreground()
+        mock_call_after.assert_called_once()
+        args, _kwargs = mock_call_after.call_args
+        self.assertEqual(args[0], frame.Raise)
 
     def test_application_can_start_without_loading_media(self) -> None:
         """Test application can start without loading media (smoke test)."""

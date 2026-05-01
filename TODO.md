@@ -604,6 +604,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement wx.App subclass or wrapper
 - [x] Implement dependency wiring (create all subsystems)
 - [x] Implement MainFrame creation and display
+- [x] On startup, after showing the main frame, request foreground activation (e.g. `Raise()` / `RaiseLater()` per wxWidgets guidance so the window reliably comes forward on macOS/Linux where `Show()` alone is insufficient). Accept that the OS may still refuse focus in edge launch contexts.
 - [x] Implement application initialization
 - [x] Implement application shutdown/cleanup
 - [x] Implement main event loop
@@ -614,6 +615,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test Application initialization
 - [x] Test dependency wiring creates all subsystems
 - [x] Test MainFrame is created and shown
+- [x] Test finalize/startup calls foreground helpers on the main frame after `Show()` (mock `MainFrame`: assert `Raise` or equivalent is invoked as wired)
 - [x] Test application can start without loading media (smoke test)
 - [x] Test application shutdown cleanup
 - [x] Test settings loading on startup

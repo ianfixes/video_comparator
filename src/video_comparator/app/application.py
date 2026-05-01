@@ -296,7 +296,27 @@ class Application:
         self._update_control_panel_load_state()
         self._create_playback_timer()
         self.main_frame.Show()
+        self._request_main_window_foreground()
         self._load_initial_videos()
+
+    def _request_main_window_foreground(self) -> None:
+        """Request foreground activation after the main frame is shown.
+
+        ``Show()`` alone is often insufficient on macOS/Linux for stacking order and
+        focus; wxWidgets recommends ``Raise()`` with a deferred raise via
+        ``RaiseLater()`` when the toolkit provides it, otherwise ``wx.CallAfter(Raise)``.
+        The OS may still refuse activation
+        (e.g. launch from certain terminals or background contexts).
+        """
+        frame = self.main_frame
+        if frame is None:
+            return
+        frame.Raise()
+        raise_later = getattr(frame, "RaiseLater", None)
+        if callable(raise_later):
+            raise_later()
+        else:
+            wx.CallAfter(frame.Raise)
 
     def _load_initial_videos(self) -> None:
         """Load videos from command-line paths if any were provided."""

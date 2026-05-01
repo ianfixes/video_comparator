@@ -12,6 +12,7 @@ This software project aims to deliver a cross-platform graphical user interface 
 1. **Cross-Platform GUI**
    - The application shall be built using a cross-platform GUI toolkit, preferably GNU-based (e.g., Qt, GTK, wxWidgets), to ensure compatibility with at least OSX and Linux desktops.
    - The application must not depend on platform-specific video decoders, and should use well-supported open-source video processing libraries (such as FFmpeg or GStreamer).
+   - On normal startup, the main window shall request activation and come to the foreground (receive keyboard focus where the OS allows). Platform policies may prevent activation in some contexts (e.g. launching from certain terminals or background services); the implementation should follow wxWidgets best practices for raising the frame after `Show()`.
 
 2. **Dual Video Display**
    - The application shall allow the user to load two independent video files.
