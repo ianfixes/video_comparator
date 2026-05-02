@@ -476,6 +476,84 @@ class TestApplication(unittest.TestCase):
 
         app.control_panel.zoom_controls.update_zoom_display.assert_called_once()
 
+    def test_apply_loaded_video_resets_zoom_on_both_panes_when_synchronized(self) -> None:
+        """Loading into one pane resets zoom on both panes when zoom controls are synchronized."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta = VideoMetadata(
+            file_path=Path("/a.mp4"),
+            duration=1.0,
+            fps=30.0,
+            width=640,
+            height=480,
+            pixel_format="yuv420p",
+            total_frames=30,
+            time_base=1.0 / 30.0,
+        )
+        app.timeline_controller = MagicMock()
+        app.frame_cache_video1 = MagicMock()
+        app.frame_cache_video2 = MagicMock()
+        app.decoder_video1 = None
+        app.decoder_video2 = None
+        mock_pane1 = MagicMock()
+        mock_pane2 = MagicMock()
+        app.video_pane1 = mock_pane1
+        app.video_pane2 = mock_pane2
+        mock_zc = MagicMock()
+        mock_zc.synchronized = True
+        app.control_panel = MagicMock()
+        app.control_panel.timeline_slider = MagicMock()
+        app.control_panel.zoom_controls = mock_zc
+        app.main_frame = MagicMock()
+        app.layout_manager = MagicMock()
+
+        with patch("video_comparator.decode.video_decoder.VideoDecoder"), patch(
+            "video_comparator.app.application.PlaybackController"
+        ):
+            app._apply_loaded_video(1, meta)
+
+        mock_pane1.reset_zoom_pan.assert_called_once()
+        mock_pane2.reset_zoom_pan.assert_called_once()
+        mock_zc.update_zoom_display.assert_called()
+
+    def test_apply_loaded_video_resets_zoom_loaded_pane_only_when_independent(self) -> None:
+        """Independent zoom: only the pane that received the file gets reset_zoom_pan."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta = VideoMetadata(
+            file_path=Path("/b.mp4"),
+            duration=1.0,
+            fps=30.0,
+            width=640,
+            height=480,
+            pixel_format="yuv420p",
+            total_frames=30,
+            time_base=1.0 / 30.0,
+        )
+        app.timeline_controller = MagicMock()
+        app.frame_cache_video1 = MagicMock()
+        app.frame_cache_video2 = MagicMock()
+        app.decoder_video1 = None
+        app.decoder_video2 = None
+        mock_pane1 = MagicMock()
+        mock_pane2 = MagicMock()
+        app.video_pane1 = mock_pane1
+        app.video_pane2 = mock_pane2
+        mock_zc = MagicMock()
+        mock_zc.synchronized = False
+        app.control_panel = MagicMock()
+        app.control_panel.timeline_slider = MagicMock()
+        app.control_panel.zoom_controls = mock_zc
+        app.main_frame = MagicMock()
+        app.layout_manager = MagicMock()
+
+        with patch("video_comparator.decode.video_decoder.VideoDecoder"), patch(
+            "video_comparator.app.application.PlaybackController"
+        ):
+            app._apply_loaded_video(2, meta)
+
+        mock_pane1.reset_zoom_pan.assert_not_called()
+        mock_pane2.reset_zoom_pan.assert_called_once()
+        mock_zc.update_zoom_display.assert_called()
+
     def test_startup_with_one_positional_video_calls_pane1_load_path(self) -> None:
         """CLI startup with one video loads slot 1."""
         app = Application(

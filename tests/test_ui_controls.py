@@ -672,7 +672,7 @@ class TestZoomControls(unittest.TestCase):
             self.assertEqual(controls.video_pane1, self.video_pane1)
             self.assertEqual(controls.video_pane2, self.video_pane2)
             self.assertTrue(controls.synchronized)
-            self.assertEqual(mock_button_class.call_count, 3)
+            self.assertEqual(mock_button_class.call_count, 4)
             self.assertEqual(mock_static_text_class.call_count, 1)
 
     def test_initialization_with_independent_mode(self) -> None:
@@ -808,6 +808,110 @@ class TestZoomControls(unittest.TestCase):
             self.assertIn("1.00", call_args)
             self.assertEqual(call_args, "Zoom: 2.00x / 1.00x")
 
+    def test_is_unit_zoom_within_tolerance(self) -> None:
+        """Zoom factor matching 1× uses tight floating tolerance."""
+        self.assertTrue(ZoomControls.is_unit_zoom(1.0))
+        self.assertTrue(ZoomControls.is_unit_zoom(1.0 + 5e-7))
+        self.assertFalse(ZoomControls.is_unit_zoom(1.02))
+
+    def test_zoom_label_default_foreground_when_both_unit_zoom(self) -> None:
+        """Label uses window text colour when both panes are exactly 1×."""
+        expected_normal = wx.Colour(40, 41, 42)
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class, patch("video_comparator.ui.controls.wx.GetApp", return_value=MagicMock()), patch(
+            "video_comparator.ui.controls.wx.SystemSettings.GetColour", return_value=expected_normal
+        ):
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            controls._update_zoom_display()
+            last_fg = mock_static_text.SetForegroundColour.call_args_list[-1][0][0]
+            self.assertEqual(last_fg, expected_normal)
+
+    def test_zoom_label_red_foreground_when_any_pane_non_unit_zoom(self) -> None:
+        """Label uses red when either pane zoom is not exactly 1×."""
+        expected_normal = wx.Colour(40, 41, 42)
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class, patch("video_comparator.ui.controls.wx.GetApp", return_value=MagicMock()), patch(
+            "video_comparator.ui.controls.wx.SystemSettings.GetColour", return_value=expected_normal
+        ):
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 1.5
+            self.video_pane2.zoom_level = 1.0
+            controls._update_zoom_display()
+            last_fg = mock_static_text.SetForegroundColour.call_args_list[-1][0][0]
+            self.assertEqual(last_fg, ZoomControls._NON_UNIT_ZOOM_FOREGROUND)
+
+    def test_zoom_reset_button_enable_tracks_non_unit_zoom(self) -> None:
+        """Reset Zoom is disabled only when both panes are exactly 1×; Reset Pan tracks pan offset."""
+        buttons: list = []
+
+        def make_button(*args, **kwargs):
+            m = MagicMock()
+            buttons.append(m)
+            return m
+
+        with patch("video_comparator.ui.controls.wx.Button", side_effect=make_button), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            zoom_reset_btn = buttons[2]
+            pan_reset_btn = buttons[3]
+            zoom_reset_btn.Enable.reset_mock()
+            pan_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            self.video_pane1.pan_x = 0.0
+            self.video_pane1.pan_y = 0.0
+            self.video_pane2.pan_x = 0.0
+            self.video_pane2.pan_y = 0.0
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(False)
+            pan_reset_btn.Enable.assert_called_with(False)
+
+            zoom_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.1
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(True)
+
+            zoom_reset_btn.Enable.reset_mock()
+            pan_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            self.video_pane1.pan_x = 5.0
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(False)
+            pan_reset_btn.Enable.assert_called_with(True)
+
+    def test_zoom_reset_always_resets_both_panes(self) -> None:
+        """Reset Zoom clears magnification on both panes even when zoom buttons are independent."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=False)
+            self.video_pane1.zoom_level = 2.0
+            self.video_pane2.zoom_level = 3.0
+            controls._on_zoom_reset(MagicMock())
+            self.assertEqual(self.video_pane1.get_zoom_level(), 1.0)
+            self.assertEqual(self.video_pane2.get_zoom_level(), 1.0)
+
+    def test_pan_reset_clears_pan_only_on_both_panes(self) -> None:
+        """Reset Pan restores centered pan without changing zoom."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 2.0
+            self.video_pane1.pan_x = 10.0
+            self.video_pane2.pan_y = -4.0
+            controls._on_pan_reset(MagicMock())
+            self.assertEqual(self.video_pane1.get_zoom_level(), 2.0)
+            self.assertEqual(self.video_pane2.get_zoom_level(), 1.0)
+            self.assertTrue(self.video_pane1.is_default_pan())
+            self.assertTrue(self.video_pane2.is_default_pan())
+
     def test_get_widgets_return_correct_widgets(self) -> None:
         """Test getter methods return correct widgets."""
         with patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
@@ -823,6 +927,7 @@ class TestZoomControls(unittest.TestCase):
             self.assertEqual(controls.get_zoom_in_button(), mock_button)
             self.assertEqual(controls.get_zoom_out_button(), mock_button)
             self.assertEqual(controls.get_zoom_reset_button(), mock_button)
+            self.assertEqual(controls.get_pan_reset_button(), mock_button)
             self.assertEqual(controls.get_zoom_label(), mock_static_text)
 
 

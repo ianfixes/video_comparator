@@ -10,6 +10,7 @@ Responsibilities:
 - Mouse interactions: drag to pan, scroll wheel to zoom, Shift-drag rectangle to zoom to region
 """
 
+import math
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -56,6 +57,7 @@ class FrameConversionError(RenderingError):
 class VideoPane(wx.Panel):
     """Custom wx.Panel for rendering video frames with zoom/pan."""
 
+    _PAN_ORIGIN_ABS_TOL: float = 1e-6
     MIN_ZOOM: float = 0.1
     MAX_ZOOM: float = 10.0
     ZOOM_STEP_FACTOR: float = 1.1
@@ -149,6 +151,7 @@ class VideoPane(wx.Panel):
             self.selection_rect = None
         elif self.is_dragging:
             self.is_dragging = False
+            self._notify_zoom_changed()
 
         self.drag_start_pos = None
         self.Refresh()
@@ -634,6 +637,24 @@ class VideoPane(wx.Panel):
     def reset_zoom_pan(self) -> None:
         """Reset zoom and pan to default values."""
         self.zoom_level = 1.0
+        self.pan_x = 0.0
+        self.pan_y = 0.0
+        self._notify_zoom_changed()
+        self.Refresh()
+
+    @classmethod
+    def is_default_pan_xy(cls, pan_x: float, pan_y: float) -> bool:
+        """True if pan offsets match the default centered alignment."""
+        return math.isclose(pan_x, 0.0, rel_tol=0.0, abs_tol=cls._PAN_ORIGIN_ABS_TOL) and math.isclose(
+            pan_y, 0.0, rel_tol=0.0, abs_tol=cls._PAN_ORIGIN_ABS_TOL
+        )
+
+    def is_default_pan(self) -> bool:
+        """True if this pane's pan is at the default centered position."""
+        return self.is_default_pan_xy(self.pan_x, self.pan_y)
+
+    def reset_pan_only(self) -> None:
+        """Reset pan to default without changing zoom level."""
         self.pan_x = 0.0
         self.pan_y = 0.0
         self._notify_zoom_changed()

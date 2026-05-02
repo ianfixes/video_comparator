@@ -644,6 +644,8 @@ class Application:
         if self.control_panel is not None and self.control_panel.timeline_slider is not None:
             self.control_panel.timeline_slider.update_range()
 
+        self._reset_zoom_for_loaded_slot(slot)
+
         if (
             self.decoder_video1 is not None or self.decoder_video2 is not None
         ) and self.timeline_controller is not None:
@@ -669,6 +671,26 @@ class Application:
                 self.main_frame.GetClientSize().GetWidth(),
                 self.main_frame.GetClientSize().GetHeight(),
             )
+
+    def _reset_zoom_for_loaded_slot(self, slot: int) -> None:
+        """Reset zoom/pan for the pane that received a new file; mirror to both when zoom is synchronized."""
+        if slot not in (1, 2):
+            return
+        if self.video_pane1 is None or self.video_pane2 is None:
+            return
+        synchronized = True
+        if self.control_panel is not None:
+            synchronized = self.control_panel.zoom_controls.synchronized
+        if slot == 1:
+            self.video_pane1.reset_zoom_pan()
+            if synchronized:
+                self.video_pane2.reset_zoom_pan()
+        else:
+            self.video_pane2.reset_zoom_pan()
+            if synchronized:
+                self.video_pane1.reset_zoom_pan()
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
 
     def _handle_sync_nudge_forward(self) -> None:
         """Handle sync nudge forward command."""

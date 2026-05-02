@@ -60,8 +60,13 @@ This software project aims to deliver a cross-platform graphical user interface 
      - **Shift-drag rectangle**: Holding Shift while clicking and dragging must draw a selection rectangle, and releasing the mouse must zoom to fit the selected region.
    - Zoom must be supported independently or synchronously for each video pane, allowing detailed comparison.
    - The zoom state (level and pan position) must remain consistent during video playback, frame stepping, and when seeking the timeline.
+   - When a video file is successfully loaded into a pane (including via **File → Open**, click-to-open on an empty pane, drag-and-drop, or CLI startup paths), **that pane's** zoom factor and pan position shall reset to their defaults (1× zoom and default centered pan for the renderer). If zoom is **synchronized** across both panes, loading a new file into either pane shall reset zoom and pan for **both** panes so magnifications stay aligned.
    - The zoom feature must not interfere with video synchronization or performance.
    - Tooltips and UI labels must clarify the functionality and shortcuts for zoom and pan actions.
+   - The zoom level label in the control panel shall use **red** foreground text whenever **any** zoom factor shown in that label is **not exactly** 1×, and default/neutral foreground (e.g. standard window text colour) when **every** displayed factor is exactly 1× — regardless of synchronized vs independent zoom mode.
+   - The **Reset Zoom** button shall be **enabled** only when at least one pane's zoom factor is **not exactly** 1× (same numerical notion of “exactly 1×” as for the label); it shall be **disabled** when **both** panes are exactly 1×. Its action restores **both** zoom (to 1×) **and** pan (to each pane's default centered alignment) for every pane it affects — consistent with synchronized vs independent zoom behaviour already used for zoom operations.
+   - A **Reset Pan** button shall appear **immediately to the right** of the zoom level label. It shall be **disabled** when **both** panes are at their default pan position (“properly centered” in renderer coordinates); **enabled** when **either** pane's pan differs from that default. When invoked, it resets **only** panning — **not** zoom — on **both** panes (zoom level unchanged), restoring each pane's pan to its default centered alignment.
+   - **Interaction note (non-normative):** Zoom operations (e.g. scaling about the cursor or fitting a region) may change pan components as part of maintaining anchor semantics. This specification does **not** require normalizing or splitting those effects; users rely on **Reset Zoom** to restore both zoom and pan, and **Reset Pan** to correct pan only without changing magnification.
 
 ---
 
@@ -83,7 +88,7 @@ This software project aims to deliver a cross-platform graphical user interface 
     - Each pane should display video filename, coded resolution, display dimensions/aspect context (when non-square pixel metadata is present), and playback time/frame.
     - Tooltips and labels should clarify the purpose of all controls, including zoom and pan features.
     - Keyboard shortcuts must be documented and customizable if possible.
-    - UI should clearly indicate the current zoom level and allow resetting the view easily.
+    - UI should clearly indicate the current zoom level and allow resetting the view easily (including non-default zoom called out via label coloring per §7, **Reset Zoom** / **Reset Pan** enablement per §7, and tooltips that distinguish “reset magnification + pan” from “reset pan only”).
 
 12. **Error Handling**
     - Graceful handling of unsupported formats, missing codecs, or video loading errors.

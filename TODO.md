@@ -406,6 +406,7 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Mouse wheel scroll for zooming in/out - scale about the **point under the cursor** (adjust pan so that pixel stays fixed in video space while zoom changes).
   - [x] Shift-drag rectangle selection for zooming to a specific region
 - [x] Implement zoom state persistence across seeks/steps
+- [x] When a new video is loaded into this pane (replacement or first load via Application `_apply_loaded_video`, including menu / empty-pane click / drag-drop / CLI path), reset **this pane's** zoom factor and pan to defaults (1× and centered/default pan). When zoom is **synchronized** across panes, loading into either pane shall reset **both** panes so factors stay matched (Specification §7).
 - [x] Integrate with ScalingCalculator
 - [x] Integrate with VideoMetadata for overlay info
 - [x] Define per-class exceptions for rendering errors (e.g., `RenderingError`)
@@ -430,6 +431,10 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test coordinate transformations (screen to video space)
 - [x] Test edge cases (very large zoom, extreme pan positions)
 - [x] Test zoom anchor: button zoom leaves **center** of video region stable; wheel zoom leaves **cursor** point stable (logic tests on pan/zoom math)
+- [x] Test zoom/pan reset when pane receives a loaded video (mock load path / `set_metadata` / explicit reset hook as implemented)
+- [x] Test synchronized-zoom mode: loading into either pane resets zoom/pan on **both** panes
+- [x] Implement **pan-only** reset API on `VideoPane` (clear `pan_x` / `pan_y` to default centered alignment, leave `zoom_level` unchanged; refresh / notify similarly to zoom change hooks so controls update)
+- [x] Unit tests: pan-only reset leaves zoom unchanged; default pan predicate matches renderer convention used by enable/disable logic
 
 **Note:** wxPython components should be mocked in unit tests. Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators.
 
@@ -494,6 +499,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement zoom out button
 - [x] Implement zoom reset button
 - [x] Implement zoom level display
+- [x] Zoom label styling: use **red** foreground when any zoom factor shown in the label is not exactly 1×; use default `StaticText` foreground when every displayed factor is exactly 1× (independent vs synchronized modes per Specification §7). Update colors whenever `_update_zoom_display` / theme changes as needed.
 - [x] Integrate with VideoPane widgets for zoom updates
 - [x] **Zoom anchor:** Button-driven zoom should use **center** anchoring; implementation lives primarily in `VideoPane` / `ScalingCalculator` (see Phase 7 — Zoom anchor).
 
@@ -505,6 +511,11 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test zoom updates both VideoPanes (if synchronized)
 - [x] Test zoom updates individual VideoPane (if independent)
 - [x] Test zoom level display updates correctly
+- [x] Test zoom label color: default when zoom is exactly 1× (both panes independent and synchronized cases); red when either pane (independent) or shared factor (synchronized) differs from 1×
+- [x] **Reset Zoom** button: **disabled** when both panes' zoom factors are exactly 1× (same tolerance as `ZoomControls.is_unit_zoom` / label semantics); **enabled** otherwise; wired to existing full reset (`reset_zoom_pan` behaviour including synchronized pane pairing)
+- [x] **Reset Pan** button: placed **to the right** of the zoom level `StaticText` (see `UI_LAYOUT_DIAGRAM.md` Row 4); **disabled** when **both** panes are at default pan (centered); **enabled** when **either** pane pan differs from default; invokes pan-only reset on **both** panes; tooltip clarifies it does **not** change magnification (Specification §7)
+- [x] Centralize refresh of zoom **label** (text + colour) **and** both buttons' enabled states whenever zoom or pan changes (pane callbacks, load-path resets, button handlers — avoid stale grey state)
+- [x] Tests: Reset Zoom enabled/disabled vs mocked pane zoom levels; Reset Pan enabled/disabled vs mocked pane pan positions; handler calls `reset_pan_only` / equivalent on both panes without altering zoom
 
 ### ControlPanel (`ui/controls.py`)
 - [x] Implement container widget (wx.Panel)
@@ -512,6 +523,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement frame-step forward/backward buttons
 - [x] Integrate TimelineSlider, SyncControls, ZoomControls
 - [x] Implement ControlPanel layout per UI_LAYOUT_DIAGRAM.md (`_create_layout()`: vertical BoxSizer, rows for timeline slider+label, playback buttons, sync slider+buttons+label, zoom buttons+label)
+- [x] Extend zoom controls row layout per updated `UI_LAYOUT_DIAGRAM.md`: zoom buttons + zoom label + **Reset Pan** (horizontal spacing consistent with existing controls); expose getter if tests/layout need it
 - [x] Integrate with PlaybackController for button actions
 - [x] Implement button event wiring
 - [x] Enable play button only when at least one video is loaded (disabled when no videos loaded)
@@ -610,6 +622,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement main event loop
 - [x] Integrate SettingsManager for loading settings
 - [x] Integrate ErrorHandler for global error handling
+- [x] After a successful video load into slot 1 or 2, trigger pane zoom/pan reset per Specification §7 / Architecture (delegate to `VideoPane` or shared helper; ensure CLI/drop/menu paths all hit this)
 
 **Unit Tests Required:**
 - [x] Test Application initialization
@@ -620,6 +633,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test application shutdown cleanup
 - [x] Test settings loading on startup
 - [x] Test error handling integration
+- [x] Test `_apply_loaded_video` (or equivalent) invokes zoom/pan reset for the loaded pane(s) consistent with independent vs synchronized zoom mode
 
 ### Entry Point / CLI (`__main__.py` and app startup wiring)
 - [x] Implement command-line parsing with `argparse` (no custom parser)
@@ -666,6 +680,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
 - [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
+- [ ] Zoom: after loading or replacing a video in a pane, that pane shows 1× default pan (both panes if synchronized zoom); label colour matches non-1× state; **Reset Zoom** / **Reset Pan** enabled states match §7 after load and after arbitrary zoom/pan gestures
 - [ ] Test complete workflow: load two videos → align → step through frames
 - [ ] Test complete workflow: load videos → zoom → pan → step
 - [ ] Test complete workflow: load videos → change layout → verify display

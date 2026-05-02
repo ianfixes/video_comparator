@@ -235,6 +235,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - zoom level
 - overlay time/frame text reflects the actual frame currently displayed in that pane, including per-video sync offsets
 - maintain zoom/pan state across seeks/steps/layout changes
+- reset zoom/pan for a pane when a new video is loaded into that pane (and both panes when synchronized-zoom mode requires matched factors); wire from Application/media load path into `VideoPane` / control-panel zoom display
+- expose **pan-only** reset (zoom unchanged), distinct from `reset_zoom_pan()` / full view reset, for the **Reset Pan** control
 - mouse interactions:
   - mouse drag for panning
   - scroll wheel for zoom in/out
@@ -252,7 +254,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - play/pause/stop; **play button enabled only when at least one video is loaded**
 - frame-step buttons
 - sync-offset slider + ±1 buttons; **sync controls enabled only when both videos are loaded**
-- zoom controls (in/out/reset)
+- zoom controls: zoom in/out; **Reset Zoom** (full zoom+pan restore — enabled only when any pane zoom ≠ 1× per §7); **Reset Pan** to the right of the zoom label (pan-only — enabled when either pane pan ≠ default centered); zoom level label foreground turns **red** vs default text colour when any displayed zoom factor is not exactly 1× (see Specification §7); refresh enabled states whenever zoom/pan changes or displays update
 - layout mode toggle
 - routes UI events to controllers.
 #### Testability
@@ -267,6 +269,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - zoom
   - sync nudge
   - layout toggle
+  - (optional / future) **Reset Zoom** and **Reset Pan** if shortcuts are extended beyond toolbar parity with Specification §7
 - tooltip/help text
 - optional shortcut customization
 - unified dispatch so buttons and keys hit the same controller actions.
