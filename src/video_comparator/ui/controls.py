@@ -2,7 +2,7 @@
 
 Responsibilities:
 - Timeline slider
-- Play/pause/stop buttons
+- Reverse/forward play, pause/stop
 - Frame-step buttons
 - Sync-offset slider + ±1 buttons
 - Zoom controls (in/out/reset)
@@ -14,6 +14,7 @@ from typing import Callable, Optional
 
 import wx
 
+from video_comparator.common.types import PlaybackDirection, PlaybackState
 from video_comparator.playback.playback_controller import PlaybackController
 from video_comparator.render.video_pane import VideoPane
 from video_comparator.sync.timeline_controller import TimelineController
@@ -480,13 +481,18 @@ class ControlPanel:
 
         self.panel: wx.Panel = wx.Panel(parent)
 
-        self.play_button: wx.Button = wx.Button(self.panel, label="Play")
+        self.play_reverse_button: wx.Button = wx.Button(self.panel, label="◀ Play")
+        self.play_forward_button: wx.Button = wx.Button(self.panel, label="▶ Play")
         self.pause_button: wx.Button = wx.Button(self.panel, label="Pause")
         self.stop_button: wx.Button = wx.Button(self.panel, label="Stop")
         self.step_forward_button: wx.Button = wx.Button(self.panel, label="Step Forward")
         self.step_backward_button: wx.Button = wx.Button(self.panel, label="Step Backward")
 
-        self.play_button.Bind(wx.EVT_BUTTON, self._on_play)
+        self.play_reverse_button.SetToolTip("Play backward in time (comma). If glyphs fail: < Play. Pause with Space.")
+        self.play_forward_button.SetToolTip("Play forward in time (period). If glyphs fail: > Play. Pause with Space.")
+
+        self.play_reverse_button.Bind(wx.EVT_BUTTON, self._on_play_reverse)
+        self.play_forward_button.Bind(wx.EVT_BUTTON, self._on_play_forward)
         self.pause_button.Bind(wx.EVT_BUTTON, self._on_pause)
         self.stop_button.Bind(wx.EVT_BUTTON, self._on_stop)
         self.step_forward_button.Bind(wx.EVT_BUTTON, self._on_step_forward)
@@ -528,7 +534,8 @@ class ControlPanel:
 
         # Row 2: Playback Controls (horizontal)
         playback_row = wx.BoxSizer(wx.HORIZONTAL)
-        playback_row.Add(self.play_button)
+        playback_row.Add(self.play_reverse_button)
+        playback_row.Add(self.play_forward_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.pause_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.stop_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.step_backward_button, flag=wx.LEFT, border=8)
@@ -560,13 +567,14 @@ class ControlPanel:
 
         self.panel.SetSizer(main_sizer)
 
-    def _on_play(self, event: wx.CommandEvent) -> None:
-        """Handle play button click event.
+    def _on_play_forward(self, event: wx.CommandEvent) -> None:
+        """Handle forward play button click."""
+        self.playback_controller.play_forward()
+        self._update_button_states()
 
-        Args:
-            event: wx.CommandEvent from button
-        """
-        self.playback_controller.play()
+    def _on_play_reverse(self, event: wx.CommandEvent) -> None:
+        """Handle reverse play button click."""
+        self.playback_controller.play_reverse()
         self._update_button_states()
 
     def _on_pause(self, event: wx.CommandEvent) -> None:
@@ -611,12 +619,22 @@ class ControlPanel:
 
     def _update_button_states(self) -> None:
         """Update button enabled/disabled states based on playback state and load state."""
-        from video_comparator.common.types import PlaybackState
-
         has_any_video = self._has_video1 or self._has_video2
         state = self.playback_controller.state
 
-        self.play_button.Enable(has_any_video and state != PlaybackState.PLAYING)
+        if not has_any_video:
+            self.play_reverse_button.Enable(False)
+            self.play_forward_button.Enable(False)
+        elif state != PlaybackState.PLAYING:
+            self.play_reverse_button.Enable(True)
+            self.play_forward_button.Enable(True)
+        elif self.playback_controller.playback_direction == PlaybackDirection.REVERSE:
+            self.play_reverse_button.Enable(False)
+            self.play_forward_button.Enable(True)
+        else:
+            self.play_reverse_button.Enable(True)
+            self.play_forward_button.Enable(False)
+
         self.pause_button.Enable(state == PlaybackState.PLAYING)
         self.stop_button.Enable(has_any_video and state != PlaybackState.STOPPED)
 
@@ -666,13 +684,13 @@ class ControlPanel:
         """
         return self.panel
 
-    def get_play_button(self) -> wx.Button:
-        """Get the play button widget.
+    def get_play_reverse_button(self) -> wx.Button:
+        """Return the reverse play button widget."""
+        return self.play_reverse_button
 
-        Returns:
-            The wx.Button widget
-        """
-        return self.play_button
+    def get_play_forward_button(self) -> wx.Button:
+        """Return the forward play button widget."""
+        return self.play_forward_button
 
     def get_pause_button(self) -> wx.Button:
         """Get the pause button widget.

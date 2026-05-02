@@ -148,6 +148,8 @@ class TestShortcutManager(unittest.TestCase):
         """Test default key bindings are registered."""
         handlers = {
             "play_pause": lambda: None,
+            "play_forward": lambda: None,
+            "play_reverse": lambda: None,
             "stop": lambda: None,
             "step_forward": lambda: None,
             "step_backward": lambda: None,
@@ -163,6 +165,8 @@ class TestShortcutManager(unittest.TestCase):
 
         expected_commands = {
             "play_pause",
+            "play_forward",
+            "play_reverse",
             "stop",
             "step_forward",
             "step_backward",

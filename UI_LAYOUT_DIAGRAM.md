@@ -35,9 +35,10 @@
 │  │  └────────────────────────────────────────────────────┘  │ │
 │  │                                                          │ │
 │  │  Row 2: Playback Controls                                │ │
-│  │  ┌─────────┐ ┌──────┐ ┌───────┐ ┌─────────┐ ┌───────┐    │ │
-│  │  │ Step -1 │ │ Play │ │ Pause │ │ Step +1 │ │ Stop  │    │ │
-│  │  └─────────┘ └──────┘ └───────┘ └─────────┘ └───────┘    │ │
+│  │  ┌─────────┐ ┌─────────┐ ┌───────┐ ┌─────┐ ┌────────────┐ ┌────────────┐ │
+│  │  │ ◀ Play  │ │ ▶ Play  │ │ Pause │ │ Stop│ │ Step Back  │ │ Step Fwd   │ │
+│  │  │ reverse │ │ forward │ │       │ │     │ │            │ │            │ │
+│  │  └─────────┘ └─────────┘ └───────┘ └─────┘ └────────────┘ └────────────┘ │
 │  │                                                          │ │
 │  │  Row 3: Sync Controls (for Video 2)                      │ │
 │  │  ┌────────────────────────────────────────────────────┐  │ │
@@ -82,7 +83,8 @@ MainFrame (wx.Frame)
 │           │   └── Position Label (wx.StaticText)
 │           │
 │           ├── Playback Controls Row (wx.BoxSizer - HORIZONTAL)
-│           │   ├── Play Button
+│           │   ├── Reverse Play Button (`◀ Play`)
+│           │   ├── Forward Play Button (`▶ Play`)
 │           │   ├── Pause Button
 │           │   ├── Stop Button
 │           │   ├── Step Backward Button

@@ -24,7 +24,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
       - View > Toggle Scaling Mode toggles scaling mode (independent vs "match larger").
     - Help
 - quitting lifecycle.
-- **Playback timer**: A wx.Timer fires periodically (e.g. ~33 ms). When PlaybackController state is PLAYING, Application calls tick(delta) and updates the timeline slider so playback advances and panes refresh.
+- **Playback timer**: A wx.Timer fires periodically (e.g. ~33 ms). When PlaybackController state is PLAYING, Application calls `tick(delta)` and updates the timeline slider so playback advances **forward or backward** per controller direction and panes refresh.
 - **Timeline position change**: When the user changes the timeline position (e.g. slider drag), TimelineSlider invokes an optional callback; Application uses it to call PlaybackController.request_frames_at_current_position() so the video panes display the frame(s) at the new position.
 #### Testability
 - unit tests for wiring (mocks)
@@ -182,7 +182,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 ### 6) Playback & Stepping Controller
 #### Responsibilities
-- play/pause/stop state machine
+- play/pause/stop state machine extended with **playback direction**: continuous playback advances timeline toward **maximum** or **minimum** via periodic `tick()` (mirror existing speed/`playback_speed` semantics); reverse playback clamps/stops at timeline **start** analogous to forward at **end**.
 - frame-step forward/backward even when paused
 - drives tick events that request frames from the cache/decoder
 - delegates position math to Sync
@@ -196,7 +196,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - coordinates frame display via callbacks (does not directly manage prefetching)
 - synchronizes both frame caches to ensure both first frames arrive before display
 - **Displayed frame metadata correctness:** callback time/frame metadata used by overlays must correspond to the delivered frame results for that callback cycle (not stale/advanced timeline state from a later moment).
-- **Step/play continuity:** after pause + frame-step (+/-) + play, playback should continue from the stepped position without discontinuous jumps to an unrelated timestamp.
+- **Step/play continuity:** after pause + frame-step (+/-) + play, playback should continue from the stepped position without discontinuous jumps to an unrelated timestamp — **including** after switching between reverse play and forward play from pause or mid-playback as specified.
 #### Design
 - PlaybackController creates PrefillStrategy instances based on current position
 - Submits strategy + callback + decoder to FrameCache via `request_prefill_frame()` for both videos
@@ -251,7 +251,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 #### Responsibilities
 - toggle orientation (horizontal/vertical) and scaling mode (independent fit vs. match larger video), wired to View menu and/or shortcuts
 - timeline slider (optional on_position_changed callback so Application can request frames when user seeks)
-- play/pause/stop; **play button enabled only when at least one video is loaded**
+- play (**forward** and **reverse**, captions `◀ Play` / `▶ Play` per Specification §5); pause/stop; **both direction-specific play buttons enabled only when at least one video is loaded**
 - frame-step buttons
 - sync-offset slider + ±1 buttons; **sync controls enabled only when both videos are loaded**
 - zoom controls: zoom in/out; **Reset Zoom** (full zoom+pan restore — enabled only when any pane zoom ≠ 1× per §7); **Reset Pan** to the right of the zoom label (pan-only — enabled when either pane pan ≠ default centered); zoom level label foreground turns **red** vs default text colour when any displayed zoom factor is not exactly 1× (see Specification §7); refresh enabled states whenever zoom/pan changes or displays update
@@ -264,7 +264,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 ### 9) Input & Shortcuts
 #### Responsibilities
 - keyboard shortcuts for
-  - play/pause
+  - play/pause (extend documentation when implementing reverse vs forward shortcuts — distinct bindings recommended if shortcuts remain parity with toolbar)
   - step
   - zoom
   - sync nudge

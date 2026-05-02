@@ -7,7 +7,7 @@ import wx
 
 from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.cache.frame_result import FrameRequestStatus, FrameResult
-from video_comparator.common.types import PlaybackState
+from video_comparator.common.types import PlaybackDirection, PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
@@ -1047,13 +1047,13 @@ class TestControlPanel(unittest.TestCase):
             self.assertEqual(control_panel.playback_controller, self.playback_controller)
             self.assertEqual(control_panel.timeline_controller, self.timeline_controller)
             mock_panel_class.assert_called_once_with(self.parent)
-            self.assertEqual(mock_button_class.call_count, 5)
+            self.assertEqual(mock_button_class.call_count, 6)
             self.assertIsNotNone(control_panel.timeline_slider)
             self.assertIsNotNone(control_panel.sync_controls)
             self.assertIsNotNone(control_panel.zoom_controls)
 
-    def test_play_button_triggers_playback_controller_play(self) -> None:
-        """Test play button triggers PlaybackController.play()."""
+    def test_play_forward_button_triggers_play_forward(self) -> None:
+        """Forward play button starts forward playback."""
         with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
             "video_comparator.ui.controls.wx.Panel"
         ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
@@ -1070,9 +1070,33 @@ class TestControlPanel(unittest.TestCase):
             )
 
             mock_event = MagicMock()
-            control_panel._on_play(mock_event)
+            control_panel._on_play_forward(mock_event)
 
             self.assertEqual(self.playback_controller.state, PlaybackState.PLAYING)
+            self.assertEqual(self.playback_controller.playback_direction, PlaybackDirection.FORWARD)
+
+    def test_play_reverse_button_triggers_play_reverse(self) -> None:
+        """Reverse play button starts reverse playback."""
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            mock_event = MagicMock()
+            control_panel._on_play_reverse(mock_event)
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.PLAYING)
+            self.assertEqual(self.playback_controller.playback_direction, PlaybackDirection.REVERSE)
 
     def test_pause_button_triggers_playback_controller_pause(self) -> None:
         """Test pause button triggers PlaybackController.pause()."""
@@ -1209,7 +1233,7 @@ class TestControlPanel(unittest.TestCase):
                 self.video_pane2,
             )
 
-            self.assertEqual(mock_button.Bind.call_count, 5)
+            self.assertEqual(mock_button.Bind.call_count, 6)
 
     def test_button_states_update_with_playback_state(self) -> None:
         """Test button states update with playback state."""
@@ -1222,11 +1246,13 @@ class TestControlPanel(unittest.TestCase):
         ), patch(
             "video_comparator.ui.controls.ZoomControls"
         ):
-            mock_play_button = MagicMock()
+            mock_play_reverse = MagicMock()
+            mock_play_forward = MagicMock()
             mock_pause_button = MagicMock()
             mock_stop_button = MagicMock()
             mock_button_class.side_effect = [
-                mock_play_button,
+                mock_play_reverse,
+                mock_play_forward,
                 mock_pause_button,
                 mock_stop_button,
                 MagicMock(),
@@ -1245,17 +1271,20 @@ class TestControlPanel(unittest.TestCase):
             self.assertEqual(self.playback_controller.state, PlaybackState.STOPPED)
             control_panel._update_button_states()
 
-            mock_play_button.Enable.assert_called_with(True)
+            mock_play_reverse.Enable.assert_called_with(True)
+            mock_play_forward.Enable.assert_called_with(True)
             mock_pause_button.Enable.assert_called_with(False)
             mock_stop_button.Enable.assert_called_with(False)
 
-            mock_play_button.reset_mock()
+            mock_play_reverse.reset_mock()
+            mock_play_forward.reset_mock()
             mock_pause_button.reset_mock()
             mock_stop_button.reset_mock()
 
             self.playback_controller.play()
             control_panel._update_button_states()
 
-            mock_play_button.Enable.assert_called_with(False)
+            mock_play_reverse.Enable.assert_called_with(True)
+            mock_play_forward.Enable.assert_called_with(False)
             mock_pause_button.Enable.assert_called_with(True)
             mock_stop_button.Enable.assert_called_with(True)

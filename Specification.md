@@ -40,10 +40,13 @@ This software project aims to deliver a cross-platform graphical user interface 
    - Frame-step hotkeys/buttons should work even when the videos are paused.
 
 5. **Playback Control**
-   - There must be play, pause, and stop controls to start or stop both videos simultaneously and in sync.
-   - The **play** button shall be enabled only when at least one video is loaded; it shall be disabled when no video is loaded.
-   - When only one video is loaded, that video shall still be playable (play, pause, stop, frame step, and timeline seek).
-   - Playback should maintain synchronization between both videos (within the configured sync settings).
+   - There must be **forward play**, **reverse play**, pause, and stop controls so both videos can advance **either direction** through the timeline together while staying in sync.
+   - **Layout:** On the playback control row, **reverse play** shall appear immediately **to the left** of **forward play** (see `UI_LAYOUT_DIAGRAM.md`). Each uses a short caption consisting of a **pointing triangle** and the word **Play**, viz. **`◀ Play`** (U+25C0 BLACK LEFT-POINTING TRIANGLE + space + “Play”) for reverse and **`▶ Play`** (U+25B6 BLACK RIGHT-POINTING TRIANGLE + space + “Play”) for forward. Implementations shall use UTF-8 button labels where the toolkit and fonts allow; if glyphs fail on a platform, ASCII fallback (`< Play` / `> Play`) is acceptable provided tooltips clarify direction.
+   - **Semantics:** **Forward play** advances timeline time as today (toward the end). **Reverse play** advances playback **backward** in time (toward the start) at the same effective speed semantics as forward play (subject to existing playback-speed behaviour). **Pause** and **Stop** apply regardless of direction. Starting **forward play** while reverse-playing (and vice versa) shall switch to the newly requested direction **from the current timeline position** without requiring stop first (smooth directional toggle).
+   - When playback reaches the **start** of the timeline during reverse play, behaviour shall match stopping/pausing at the boundary (e.g. clamp at minimum position and leave playback non-playing — exact STOPPED vs PAUSED policy aligned with forward playback reaching the end).
+   - **Both direction-specific play buttons** shall observe the **same enablement rule** as the single play control today: enabled **only when at least one video is loaded**, disabled when no video is loaded. Button enabled/disabled styling should reflect **which direction is active** when playing (e.g. disable or de-emphasize the inactive-direction play button while one direction is active — exact UX left to implementation provided intent is clear).
+   - When only one video is loaded, that video shall still be playable in **both** directions (plus pause, stop, frame step, and timeline seek).
+   - Playback should maintain synchronization between both videos (within the configured sync settings) in **either** direction.
 
 6. **Sync Adjustment Controls for Second Video**
    - Sync adjustment controls (slider and +/-1 frame buttons) shall be enabled only when **both** videos are loaded; they shall be disabled when fewer than two videos are loaded.
@@ -87,7 +90,7 @@ This software project aims to deliver a cross-platform graphical user interface 
 11. **User Interface and Usability**
     - Each pane should display video filename, coded resolution, display dimensions/aspect context (when non-square pixel metadata is present), and playback time/frame.
     - Tooltips and labels should clarify the purpose of all controls, including zoom and pan features.
-    - Keyboard shortcuts must be documented and customizable if possible.
+    - Keyboard shortcuts must be documented and customizable if possible, **including** (once implemented) distinct documented bindings or toolbar parity for **forward vs reverse play** (§5).
     - UI should clearly indicate the current zoom level and allow resetting the view easily (including non-default zoom called out via label coloring per §7, **Reset Zoom** / **Reset Pan** enablement per §7, and tooltips that distinguish “reset magnification + pan” from “reset pan only”).
 
 12. **Error Handling**

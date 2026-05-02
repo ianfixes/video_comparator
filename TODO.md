@@ -331,6 +331,11 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Integrate with ErrorHandler for error reporting
 - [x] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
+### Reverse playback (Specification §5)
+- [x] Track **playback direction** (forward vs reverse) while `PLAYING`; `tick(delta)` advances timeline toward **max** or **min** using existing speed semantics; at timeline **start** in reverse, clamp/stop in line with how forward playback stops at **end**.
+- [x] Entry points: e.g. `play_forward()` / `play_reverse()` or `play(direction=…)`; pressing the opposite play control while already `PLAYING` switches direction **without** jumping timeline position (Specification §5).
+- [x] PrefillStrategy / FrameCache: verify frame fetch remains correct when timeline moves backward (prefetch may remain forward-biased initially — document limitations if any).
+
 **Unit Tests Required:**
 - [x] Test initial state is STOPPED
 - [x] Test state transition STOPPED → PLAYING
@@ -362,6 +367,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test user callback receives FrameResult objects for both videos
 - [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
 - [x] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
+- [x] Test reverse `tick()` decreases timeline position while preserving dual-video sync semantics
+- [x] Test reverse playback boundary at timeline start (clamp/stop behaviour)
+- [x] Test switching reverse ↔ forward during `PLAYING` does not discontinuously jump timeline position
 
 ---
 
@@ -520,6 +528,8 @@ This document outlines the implementation plan from lowest-level modules to high
 ### ControlPanel (`ui/controls.py`)
 - [x] Implement container widget (wx.Panel)
 - [x] Implement play/pause/stop buttons
+- [x] **Dual-direction play (Specification §5 / `UI_LAYOUT_DIAGRAM.md` Row 2):** add **Reverse Play** (`◀ Play`, U+25C0 + space + `Play`; fallback `< Play`) immediately **left** of **Forward Play**; rename existing Play to **`▶ Play`** (U+25B6 + space + `Play`; fallback `> Play`). Row order: reverse play, forward play, pause, stop, step backward, step forward.
+- [x] Wire Reverse Play / Forward Play to PlaybackController; `_update_button_states` enables **both** when ≥1 video loaded; while `PLAYING`, reflect active direction (disable or de-emphasize inactive play per Specification §5).
 - [x] Implement frame-step forward/backward buttons
 - [x] Integrate TimelineSlider, SyncControls, ZoomControls
 - [x] Implement ControlPanel layout per UI_LAYOUT_DIAGRAM.md (`_create_layout()`: vertical BoxSizer, rows for timeline slider+label, playback buttons, sync slider+buttons+label, zoom buttons+label)
@@ -531,7 +541,8 @@ This document outlines the implementation plan from lowest-level modules to high
 
 **Unit Tests Required:**
 - [x] Test ControlPanel initialization
-- [x] Test play button triggers PlaybackController.play()
+- [x] Test forward play button invokes `PlaybackController.play_forward()`
+- [x] Test reverse play button invokes `PlaybackController.play_reverse()`
 - [x] Test pause button triggers PlaybackController.pause()
 - [x] Test stop button triggers PlaybackController.stop()
 - [x] Test frame-step forward button triggers step_forward()
@@ -544,6 +555,7 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 9: Input Handling
 
 ### ShortcutManager (`input/shortcut_manager.py`)
+- [x] Add distinct default shortcuts for **reverse play** vs **forward play** when implementing dual-direction playback (keeping pause/stop parity); update tooltip/help strings accordingly.
 - [x] Implement default key bindings
 - [x] Implement key binding registration
 - [x] Implement command dispatch to handlers
@@ -678,6 +690,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Overlay correctness with offset: with non-zero sync offset, pane 1 and pane 2 overlay times/frames reflect different resolved source positions as expected (within rounding/clamp tolerance)
 - [ ] Aspect-ratio correctness: anamorphic/non-square-pixel source displays with correct widescreen geometry (no vertical stretch)
 - [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
+- [ ] Reverse play: timeline moves backward in sync; boundary at start; toggle forward ↔ reverse without position glitch
 - [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
 - [ ] Zoom: after loading or replacing a video in a pane, that pane shows 1× default pan (both panes if synchronized zoom); label colour matches non-1× state; **Reset Zoom** / **Reset Pan** enabled states match §7 after load and after arbitrary zoom/pan gestures

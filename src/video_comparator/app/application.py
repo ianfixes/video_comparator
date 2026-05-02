@@ -227,6 +227,8 @@ class Application:
 
         if self.playback_controller is not None:
             command_handlers["play_pause"] = self._handle_play_pause
+            command_handlers["play_forward"] = self._handle_play_forward
+            command_handlers["play_reverse"] = self._handle_play_reverse
             command_handlers["stop"] = self._handle_stop
             command_handlers["step_forward"] = self._handle_step_forward
             command_handlers["step_backward"] = self._handle_step_backward
@@ -489,6 +491,22 @@ class Application:
             self.playback_controller.pause()
         else:
             self.playback_controller.play()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_forward(self) -> None:
+        """Start or switch to forward play."""
+        if self.playback_controller is None:
+            return
+        self.playback_controller.play_forward()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_reverse(self) -> None:
+        """Start or switch to reverse play."""
+        if self.playback_controller is None:
+            return
+        self.playback_controller.play_reverse()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 

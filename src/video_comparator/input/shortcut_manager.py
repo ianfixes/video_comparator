@@ -80,6 +80,18 @@ class ShortcutManager:
                 command="play_pause",
                 tooltip="Space - Play/Pause",
             ),
+            "play_reverse": KeyBinding(
+                key_code=ord(","),
+                modifiers=0,
+                command="play_reverse",
+                tooltip="Comma - Reverse Play",
+            ),
+            "play_forward": KeyBinding(
+                key_code=ord("."),
+                modifiers=0,
+                command="play_forward",
+                tooltip="Period - Forward Play",
+            ),
             "stop": KeyBinding(
                 key_code=ord("S"),
                 modifiers=wx.MOD_CONTROL,

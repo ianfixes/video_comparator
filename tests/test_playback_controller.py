@@ -10,7 +10,7 @@ import numpy as np
 
 from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.cache.frame_result import FrameResult
-from video_comparator.common.types import FrameRequestStatus, PlaybackState
+from video_comparator.common.types import FrameRequestStatus, PlaybackDirection, PlaybackState
 from video_comparator.decode.video_decoder import DecodeError, SeekError, VideoDecoder
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
@@ -683,3 +683,144 @@ class TestPlaybackController(unittest.TestCase):
         initial_position = self.timeline_controller.current_position
         controller.tick(0.1)
         self.assertEqual(self.timeline_controller.current_position, initial_position)
+
+    def test_tick_reverse_decreases_timeline_preserving_sync_offset(self) -> None:
+        """Reverse tick moves timeline backward; resolved frames stay offset-aligned."""
+        meta_match = VideoMetadata(
+            file_path=Path("/test/video_sync.avi"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+        timeline_match = TimelineController(meta_match, meta_match)
+        controller = PlaybackController(
+            timeline_match,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        timeline_match.set_sync_offset(5)
+        timeline_match.set_position(5.0)
+        controller.play_reverse()
+        before = timeline_match.current_position
+        controller.tick(0.1)
+        self.assertLess(timeline_match.current_position, before)
+        f1 = timeline_match.get_resolved_frame_video1()
+        f2 = timeline_match.get_resolved_frame_video2()
+        self.assertEqual(f2, f1 + 5)
+
+    def test_tick_reverse_stops_at_timeline_start(self) -> None:
+        """Reverse playback clamps at minimum timeline position and stops."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play_reverse()
+        self.timeline_controller.set_position(0.05)
+        controller.tick(1.0)
+        self.assertEqual(controller.state, PlaybackState.STOPPED)
+        min_p, _ = self.timeline_controller.get_effective_range()
+        self.assertEqual(self.timeline_controller.current_position, min_p)
+
+    def test_switch_reverse_to_forward_while_playing_no_timeline_jump(self) -> None:
+        """Toggle direction during PLAYING keeps the current timeline instant."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play_reverse()
+        self.timeline_controller.set_position(3.0)
+        anchor = self.timeline_controller.current_position
+        controller.play_forward()
+        self.assertEqual(controller.state, PlaybackState.PLAYING)
+        self.assertEqual(controller.playback_direction, PlaybackDirection.FORWARD)
+        self.assertEqual(self.timeline_controller.current_position, anchor)
+
+    def test_playback_speed_applies_to_reverse_tick(self) -> None:
+        """Reverse tick magnitude scales with playback_speed like forward."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.set_playback_speed(2.0)
+        controller.play_reverse()
+        self.timeline_controller.set_position(5.0)
+        controller.tick(0.1)
+        self.assertAlmostEqual(self.timeline_controller.current_position, 5.0 - 0.2, places=5)
+
+    def test_pause_then_play_resumes_reverse_direction(self) -> None:
+        """Space-style resume keeps playback_direction after reverse play."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play_reverse()
+        controller.pause()
+        controller.play()
+        self.assertEqual(controller.playback_direction, PlaybackDirection.REVERSE)
+        self.assertEqual(controller.state, PlaybackState.PLAYING)
+
+    def test_stop_resets_playback_direction_to_forward(self) -> None:
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play_reverse()
+        controller.stop()
+        self.assertEqual(controller.playback_direction, PlaybackDirection.FORWARD)
+
+    def test_protected_frame_prefetch_prioritizes_past_when_reverse(self) -> None:
+        """Prefetch order yields frames behind the playhead before frames ahead when reversing."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        seq = list(controller._generate_protected_frame_sequence(50, self.metadata_30fps, PlaybackDirection.REVERSE))
+        self.assertEqual(seq[0], 50)
+        self.assertEqual(seq[1], 49)
+        self.assertEqual(seq[5], 45)
+        self.assertEqual(seq[6], 51)
+
+    def test_forward_prefetch_order_unchanged(self) -> None:
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        seq = list(controller._generate_protected_frame_sequence(50, self.metadata_30fps, PlaybackDirection.FORWARD))
+        self.assertEqual(seq[0], 50)
+        self.assertEqual(seq[1], 51)
+        self.assertGreater(seq[1], seq[0])
