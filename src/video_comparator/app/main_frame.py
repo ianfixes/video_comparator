@@ -58,6 +58,7 @@ class MainFrame(wx.Frame):
         file_menu = wx.Menu()
         self._open_item1 = file_menu.Append(wx.ID_OPEN, "&Open Video 1...\tCtrl+O", "Open first video file")
         self._open_item2 = file_menu.Append(wx.ID_ANY, "Open Video &2...\tCtrl+Shift+O", "Open second video file")
+        self._close_videos_item = file_menu.Append(wx.ID_ANY, "&Close Videos", "Unload videos and reset panes")
         file_menu.AppendSeparator()
         exit_item = file_menu.Append(wx.ID_EXIT, "E&xit\tCtrl+Q", "Exit the application")
 
@@ -85,6 +86,7 @@ class MainFrame(wx.Frame):
         self,
         on_open_video_1: Optional[Callable[[], None]] = None,
         on_open_video_2: Optional[Callable[[], None]] = None,
+        on_close_videos: Optional[Callable[[], None]] = None,
         on_toggle_layout: Optional[Callable[[], None]] = None,
         on_toggle_scaling: Optional[Callable[[], None]] = None,
     ) -> None:
@@ -93,6 +95,7 @@ class MainFrame(wx.Frame):
         Args:
             on_open_video_1: Called when File → Open Video 1 is selected
             on_open_video_2: Called when File → Open Video 2 is selected
+            on_close_videos: Called when File → Close Videos is selected
             on_toggle_layout: Called when View → Toggle Layout is selected
             on_toggle_scaling: Called when View → Toggle Scaling Mode is selected
         """
@@ -100,6 +103,8 @@ class MainFrame(wx.Frame):
             self.Bind(wx.EVT_MENU, lambda e: on_open_video_1(), self._open_item1)
         if on_open_video_2 is not None:
             self.Bind(wx.EVT_MENU, lambda e: on_open_video_2(), self._open_item2)
+        if on_close_videos is not None:
+            self.Bind(wx.EVT_MENU, lambda e: on_close_videos(), self._close_videos_item)
         if on_toggle_layout is not None:
             self.Bind(wx.EVT_MENU, lambda e: on_toggle_layout(), self._toggle_layout_item)
         if on_toggle_scaling is not None:

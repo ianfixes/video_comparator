@@ -286,6 +286,7 @@ class Application:
         self.main_frame.set_menu_handlers(
             on_open_video_1=self._handle_open_video_1,
             on_open_video_2=self._handle_open_video_2,
+            on_close_videos=self._handle_close_videos,
             on_toggle_layout=self._handle_toggle_layout,
             on_toggle_scaling=self._handle_toggle_scaling,
         )
@@ -653,6 +654,61 @@ class Application:
         if metadata is None:
             return
         self._apply_loaded_video(2, metadata)
+
+    def _handle_close_videos(self) -> None:
+        """Unload both videos and restore startup-equivalent UI/controller state."""
+        if self.playback_controller is not None:
+            self.playback_controller.stop()
+            self.playback_controller.shutdown()
+            self.playback_controller = None
+
+        if self.frame_cache_video1 is not None:
+            self.frame_cache_video1.prepare_for_decoder_close()
+        if self.decoder_video1 is not None:
+            self.decoder_video1.close()
+            self.decoder_video1 = None
+        if self.frame_cache_video1 is not None:
+            self.frame_cache_video1.invalidate()
+
+        if self.frame_cache_video2 is not None:
+            self.frame_cache_video2.prepare_for_decoder_close()
+        if self.decoder_video2 is not None:
+            self.decoder_video2.close()
+            self.decoder_video2 = None
+        if self.frame_cache_video2 is not None:
+            self.frame_cache_video2.invalidate()
+
+        placeholder1 = self._create_placeholder_metadata()
+        placeholder2 = self._create_placeholder_metadata()
+        self.metadata_video1 = placeholder1
+        self.metadata_video2 = placeholder2
+
+        if self.timeline_controller is not None:
+            self.timeline_controller.set_metadata_video1(placeholder1)
+            self.timeline_controller.set_metadata_video2(placeholder2)
+            self.timeline_controller.set_sync_offset(0)
+            self.timeline_controller.set_position(0.0)
+
+        if self.video_pane1 is not None:
+            self.video_pane1.set_metadata(None)
+            self.video_pane1.set_frame(None)
+            self.video_pane1.set_playback_info(0.0, 0)
+            self.video_pane1.reset_zoom_pan()
+        if self.video_pane2 is not None:
+            self.video_pane2.set_metadata(None)
+            self.video_pane2.set_frame(None)
+            self.video_pane2.set_playback_info(0.0, 0)
+            self.video_pane2.reset_zoom_pan()
+
+        if self.control_panel is not None:
+            self.control_panel.update_load_state(False, False)
+            if self.control_panel.timeline_slider is not None:
+                self.control_panel.timeline_slider.update_range()
+                self.control_panel.timeline_slider.update_position()
+            self.control_panel.sync_controls.update_offset()
+            self.control_panel.zoom_controls.update_zoom_display()
+
+        self._last_tick_time = 0.0
 
     def _handle_dropped_path_for_slot(self, slot: int, path: Path) -> None:
         """Load a video from a dropped filesystem path (same pipeline as File → Open)."""

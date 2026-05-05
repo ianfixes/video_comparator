@@ -19,6 +19,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - top-level menu/toolbars
     - File
       - File > Open Video 1 / Open Video 2 trigger file chooser and load video for the corresponding pane;
+      - File > Close Videos unloads media for both panes, resets both panes to their default empty state, and restores timeline/sync sliders to startup defaults (0/0).
     - View
       - View > Toggle Layout toggles orientation and refreshes layout
       - View > Toggle Scaling Mode toggles scaling mode (independent vs "match larger").
