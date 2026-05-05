@@ -136,14 +136,11 @@ class TestMainFrame(unittest.TestCase):
             frame._create_layout()
             mock_panel_class.assert_called_once()
 
-    def test_window_close_handler(self) -> None:
-        """Test window close handler."""
-        mock_destroy = MagicMock()
+    def test_window_close_handler_skips_event(self) -> None:
+        """Close handler should defer destruction to default processing."""
         with patch("video_comparator.app.main_frame.wx.Frame.__init__", return_value=None), patch.object(
             MainFrame, "_create_menu_bar"
-        ), patch.object(MainFrame, "_create_layout"), patch.object(MainFrame, "_bind_events"), patch.object(
-            MainFrame, "Destroy", mock_destroy
-        ):
+        ), patch.object(MainFrame, "_create_layout"), patch.object(MainFrame, "_bind_events"):
             frame = MainFrame(
                 layout_manager=self.layout_manager,
                 control_panel=self.control_panel,
@@ -151,7 +148,25 @@ class TestMainFrame(unittest.TestCase):
             )
             close_event = MagicMock(spec=wx.CloseEvent)
             frame._on_close(close_event)
-            mock_destroy.assert_called_once()
+            close_event.Skip.assert_called_once()
+
+    def test_window_close_invokes_on_close_request_callback(self) -> None:
+        """MainFrame should delegate close handling to the application callback first."""
+        with patch("video_comparator.app.main_frame.wx.Frame.__init__", return_value=None), patch.object(
+            MainFrame, "_create_menu_bar"
+        ), patch.object(MainFrame, "_create_layout"), patch.object(MainFrame, "_bind_events"):
+            on_close = MagicMock()
+            frame = MainFrame(
+                layout_manager=self.layout_manager,
+                control_panel=self.control_panel,
+                shortcut_manager=self.shortcut_manager,
+                on_close_request=on_close,
+            )
+            close_event = MagicMock(spec=wx.CloseEvent)
+            close_event.GetSkipped.return_value = False
+            frame._on_close(close_event)
+            on_close.assert_called_once_with(close_event)
+            close_event.Skip.assert_called_once()
 
     def test_window_resize_updates_layout(self) -> None:
         """Test window resize updates layout."""

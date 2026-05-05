@@ -24,6 +24,7 @@ class MainFrame(wx.Frame):
         layout_manager: LayoutManager,
         control_panel: ControlPanel,
         shortcut_manager: ShortcutManager,
+        on_close_request: Optional[Callable[[wx.CloseEvent], None]] = None,
         parent: Optional[wx.Window] = None,
         defer_layout: bool = False,
     ) -> None:
@@ -33,6 +34,7 @@ class MainFrame(wx.Frame):
             layout_manager: Manages layout of video panes
             control_panel: Container for playback and control widgets
             shortcut_manager: Manages keyboard shortcuts
+            on_close_request: Optional callback invoked on window close before default handling
             parent: Optional wx.Window parent (typically None for top-level frame)
             defer_layout: If True, skip layout creation (for use with temporary components)
         """
@@ -40,6 +42,7 @@ class MainFrame(wx.Frame):
         self.layout_manager: LayoutManager = layout_manager
         self.control_panel: ControlPanel = control_panel
         self.shortcut_manager: ShortcutManager = shortcut_manager
+        self.on_close_request: Optional[Callable[[wx.CloseEvent], None]] = on_close_request
         self._video_container: Optional[wx.Panel] = None
         self._main_frame_layout_initialized: bool = False
 
@@ -178,7 +181,11 @@ class MainFrame(wx.Frame):
         Args:
             event: wx.CloseEvent
         """
-        self.Destroy()
+        if self.on_close_request is not None:
+            self.on_close_request(event)
+            if event.GetSkipped():
+                return
+        event.Skip()
 
     def _on_resize(self, event: wx.SizeEvent) -> None:
         """Handle window resize event.

@@ -140,6 +140,15 @@ class PlaybackController:
         else:
             raise PlaybackStateError(f"Invalid state transition from {self.state} to STOPPED")
 
+    def shutdown(self) -> None:
+        """Quiesce playback state for application teardown without requesting frames."""
+        self.state = PlaybackState.STOPPED
+        self.playback_direction = PlaybackDirection.FORWARD
+        self._last_position = -1.0
+        with self._sync_lock:
+            self._pending_result_video1 = None
+            self._pending_result_video2 = None
+
     def _get_max_duration(self) -> float:
         """Return effective max timeline duration (handles one or two videos)."""
         _, max_position = self.timeline_controller.get_effective_range()

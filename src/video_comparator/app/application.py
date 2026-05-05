@@ -82,6 +82,7 @@ class Application:
         self.media_loader: MediaLoader = MediaLoader(error_handler)
         self._playback_timer: Optional[wx.Timer] = None
         self._last_tick_time: float = 0.0
+        self._is_shutting_down: bool = False
 
     def initialize(self) -> None:
         """Initialize the application and create all subsystems."""
@@ -122,6 +123,7 @@ class Application:
             layout_manager=dummy_layout_manager,
             control_panel=dummy_control_panel,
             shortcut_manager=dummy_shortcut_manager,
+            on_close_request=self._on_main_frame_close,
             defer_layout=True,
         )
 
@@ -276,6 +278,7 @@ class Application:
         self.main_frame.layout_manager = self.layout_manager
         self.main_frame.control_panel = self.control_panel
         self.main_frame.shortcut_manager = self.shortcut_manager
+        self.main_frame.on_close_request = self._on_main_frame_close
 
         self.main_frame.update_layout()
         self.error_handler.parent_window = self.main_frame
@@ -459,6 +462,11 @@ class Application:
             return
         self._playback_timer = wx.Timer(self.main_frame)
         self.main_frame.Bind(wx.EVT_TIMER, self._on_playback_timer, self._playback_timer)
+
+    def _on_main_frame_close(self, event: wx.CloseEvent) -> None:
+        """Close handler that guarantees timers/threads are stopped before frame destroy."""
+        self.shutdown()
+        event.Skip()
 
     def _on_playback_timer(self, event: wx.TimerEvent) -> None:
         """Advance playback when playing and update timeline slider."""
@@ -786,10 +794,17 @@ class Application:
 
     def shutdown(self) -> None:
         """Shutdown the application and cleanup resources."""
+        if self._is_shutting_down:
+            return
+        self._is_shutting_down = True
+
         if self._playback_timer is not None:
             self._playback_timer.Stop()
+            if self.main_frame is not None:
+                self.main_frame.Unbind(wx.EVT_TIMER, handler=self._on_playback_timer, source=self._playback_timer)
+            self._playback_timer = None
         if self.playback_controller is not None:
-            self.playback_controller.stop()
+            self.playback_controller.shutdown()
 
         if self.frame_cache_video1 is not None:
             self.frame_cache_video1.close()

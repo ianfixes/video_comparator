@@ -200,8 +200,35 @@ class TestApplication(unittest.TestCase):
             app.frame_cache_video2.close.assert_called_once()
             app.decoder_video1.close.assert_called_once()
             app.decoder_video2.close.assert_called_once()
-            app.playback_controller.stop.assert_called_once()
+            app.playback_controller.shutdown.assert_called_once()
             self.settings_manager.save.assert_called_once()
+
+    def test_main_frame_close_handler_calls_shutdown_and_skips(self) -> None:
+        """Close callback should run orderly shutdown before allowing frame destruction."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        event = MagicMock(spec=wx.CloseEvent)
+
+        with patch.object(app, "shutdown") as mock_shutdown:
+            app._on_main_frame_close(event)
+        mock_shutdown.assert_called_once()
+        event.Skip.assert_called_once()
+
+    def test_shutdown_unbinds_timer_and_is_idempotent(self) -> None:
+        """Repeated shutdown should not double-stop resources or leave timer callbacks bound."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.main_frame = MagicMock()
+        app._playback_timer = MagicMock()
+        app.playback_controller = MagicMock()
+        app.frame_cache_video1 = MagicMock()
+        app.frame_cache_video2 = MagicMock()
+        app.decoder_video1 = MagicMock()
+        app.decoder_video2 = MagicMock()
+
+        app.shutdown()
+        app.shutdown()
+
+        app.main_frame.Unbind.assert_called_once()
+        app.playback_controller.shutdown.assert_called_once()
 
     def test_settings_loading_on_startup(self) -> None:
         """Test settings loading on startup."""

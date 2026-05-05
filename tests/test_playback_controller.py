@@ -795,6 +795,28 @@ class TestPlaybackController(unittest.TestCase):
         controller.stop()
         self.assertEqual(controller.playback_direction, PlaybackDirection.FORWARD)
 
+    def test_shutdown_quiesces_without_resetting_timeline_or_requesting_frames(self) -> None:
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        self.timeline_controller.set_position(2.0)
+        controller.play_reverse()
+        self.frame_cache_video1.request_prefill_frame.reset_mock()
+        self.frame_cache_video2.request_prefill_frame.reset_mock()
+
+        controller.shutdown()
+
+        self.assertEqual(controller.state, PlaybackState.STOPPED)
+        self.assertEqual(controller.playback_direction, PlaybackDirection.FORWARD)
+        self.assertEqual(self.timeline_controller.current_position, 2.0)
+        self.frame_cache_video1.request_prefill_frame.assert_not_called()
+        self.frame_cache_video2.request_prefill_frame.assert_not_called()
+
     def test_protected_frame_prefetch_prioritizes_past_when_reverse(self) -> None:
         """Prefetch order yields frames behind the playhead before frames ahead when reversing."""
         controller = PlaybackController(
