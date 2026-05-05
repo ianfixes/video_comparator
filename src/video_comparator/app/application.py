@@ -18,7 +18,7 @@ import wx
 
 from video_comparator.app.main_frame import MainFrame
 from video_comparator.cache.frame_cache import FrameCache, print_framedebug
-from video_comparator.common.types import LayoutOrientation, ScalingMode
+from video_comparator.common.types import LayoutOrientation, PlaybackDirection, PlaybackState, ScalingMode
 from video_comparator.config.settings import Settings
 from video_comparator.config.settings_manager import SettingsManager
 from video_comparator.decode.video_decoder import VideoDecoder
@@ -82,6 +82,7 @@ class Application:
         self.media_loader: MediaLoader = MediaLoader(error_handler)
         self._playback_timer: Optional[wx.Timer] = None
         self._last_tick_time: float = 0.0
+        self._is_shutting_down: bool = False
 
     def initialize(self) -> None:
         """Initialize the application and create all subsystems."""
@@ -122,6 +123,7 @@ class Application:
             layout_manager=dummy_layout_manager,
             control_panel=dummy_control_panel,
             shortcut_manager=dummy_shortcut_manager,
+            on_close_request=self._on_main_frame_close,
             defer_layout=True,
         )
 
@@ -225,11 +227,19 @@ class Application:
         """Create shortcut manager with command handlers."""
         command_handlers: Dict[str, Callable] = {}
 
-        if self.playback_controller is not None:
-            command_handlers["play_pause"] = self._handle_play_pause
-            command_handlers["stop"] = self._handle_stop
-            command_handlers["step_forward"] = self._handle_step_forward
-            command_handlers["step_backward"] = self._handle_step_backward
+        command_handlers["play_pause"] = self._handle_play_pause
+        command_handlers["play_pause_reverse"] = self._handle_play_pause_reverse
+        command_handlers["play_forward"] = self._handle_play_forward
+        command_handlers["play_reverse"] = self._handle_play_reverse
+        command_handlers["stop"] = self._handle_stop
+        command_handlers["step_forward"] = self._handle_step_forward
+        command_handlers["step_backward"] = self._handle_step_backward
+
+        if self.timeline_controller is not None:
+            command_handlers["seek_backward_10s"] = self._handle_seek_backward_10s
+            command_handlers["seek_forward_10s"] = self._handle_seek_forward_10s
+            command_handlers["sync_nudge_forward"] = self._handle_sync_nudge_forward
+            command_handlers["sync_nudge_backward"] = self._handle_sync_nudge_backward
 
         if self.layout_manager is not None:
             command_handlers["toggle_layout"] = self._handle_toggle_layout
@@ -239,10 +249,6 @@ class Application:
             command_handlers["zoom_in"] = self._handle_zoom_in
             command_handlers["zoom_out"] = self._handle_zoom_out
             command_handlers["zoom_reset"] = self._handle_zoom_reset
-
-        if self.timeline_controller is not None:
-            command_handlers["sync_nudge_forward"] = self._handle_sync_nudge_forward
-            command_handlers["sync_nudge_backward"] = self._handle_sync_nudge_backward
 
         settings = self.settings_manager.get_settings()
         custom_bindings = None
@@ -272,6 +278,7 @@ class Application:
         self.main_frame.layout_manager = self.layout_manager
         self.main_frame.control_panel = self.control_panel
         self.main_frame.shortcut_manager = self.shortcut_manager
+        self.main_frame.on_close_request = self._on_main_frame_close
 
         self.main_frame.update_layout()
         self.error_handler.parent_window = self.main_frame
@@ -296,7 +303,27 @@ class Application:
         self._update_control_panel_load_state()
         self._create_playback_timer()
         self.main_frame.Show()
+        self._request_main_window_foreground()
         self._load_initial_videos()
+
+    def _request_main_window_foreground(self) -> None:
+        """Request foreground activation after the main frame is shown.
+
+        ``Show()`` alone is often insufficient on macOS/Linux for stacking order and
+        focus; wxWidgets recommends ``Raise()`` with a deferred raise via
+        ``RaiseLater()`` when the toolkit provides it, otherwise ``wx.CallAfter(Raise)``.
+        The OS may still refuse activation
+        (e.g. launch from certain terminals or background contexts).
+        """
+        frame = self.main_frame
+        if frame is None:
+            return
+        frame.Raise()
+        raise_later = getattr(frame, "RaiseLater", None)
+        if callable(raise_later):
+            raise_later()
+        else:
+            wx.CallAfter(frame.Raise)
 
     def _load_initial_videos(self) -> None:
         """Load videos from command-line paths if any were provided."""
@@ -426,8 +453,6 @@ class Application:
             self.control_panel.timeline_slider.update_range_after_sync_offset_change()
         if self.playback_controller is None:
             return
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller.state != PlaybackState.PLAYING:
             self.playback_controller.request_frames_at_current_position()
 
@@ -438,10 +463,13 @@ class Application:
         self._playback_timer = wx.Timer(self.main_frame)
         self.main_frame.Bind(wx.EVT_TIMER, self._on_playback_timer, self._playback_timer)
 
+    def _on_main_frame_close(self, event: wx.CloseEvent) -> None:
+        """Close handler that guarantees timers/threads are stopped before frame destroy."""
+        self.shutdown()
+        event.Skip()
+
     def _on_playback_timer(self, event: wx.TimerEvent) -> None:
         """Advance playback when playing and update timeline slider."""
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller is None:
             return
         if self.playback_controller.state != PlaybackState.PLAYING:
@@ -460,15 +488,67 @@ class Application:
             self.control_panel.update_button_states()
 
     def _handle_play_pause(self) -> None:
-        """Handle play/pause command."""
+        """Space: pause when playing; unpause always forward; stopped → forward play (Specification §5)."""
         if self.playback_controller is None:
             return
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller.state == PlaybackState.PLAYING:
             self.playback_controller.pause()
         else:
-            self.playback_controller.play()
+            self.playback_controller.play_forward()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_pause_reverse(self) -> None:
+        """Shift+Space: pause when playing; otherwise reverse unpause/reverse start."""
+        if self.playback_controller is None:
+            return
+        pc = self.playback_controller
+        if pc.state == PlaybackState.PLAYING:
+            pc.pause()
+        else:
+            pc.play_reverse()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_seek_backward_10s(self) -> None:
+        """Seek timeline −10 seconds (clamped)."""
+        self._seek_timeline_seconds(-10.0)
+
+    def _handle_seek_forward_10s(self) -> None:
+        """Seek timeline +10 seconds (clamped)."""
+        self._seek_timeline_seconds(10.0)
+
+    def _seek_timeline_seconds(self, delta_seconds: float) -> None:
+        """Apply a signed timeline jump and refresh slider + frames."""
+        if self.timeline_controller is None:
+            return
+        min_p, max_p = self.timeline_controller.get_effective_range()
+        if max_p <= min_p:
+            return
+        cur = self.timeline_controller.current_position
+        new_t = max(min_p, min(cur + delta_seconds, max_p))
+        if new_t == cur:
+            return
+        self.timeline_controller.set_position(new_t)
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
+        self._on_timeline_position_changed()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_forward(self) -> None:
+        """Start or switch to forward play."""
+        if self.playback_controller is None:
+            return
+        self.playback_controller.play_forward()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_reverse(self) -> None:
+        """Start or switch to reverse play."""
+        if self.playback_controller is None:
+            return
+        self.playback_controller.play_reverse()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -485,6 +565,8 @@ class Application:
         if self.playback_controller is None:
             return
         self.playback_controller.frame_step_forward()
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -493,6 +575,8 @@ class Application:
         if self.playback_controller is None:
             return
         self.playback_controller.frame_step_backward()
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -624,6 +708,8 @@ class Application:
         if self.control_panel is not None and self.control_panel.timeline_slider is not None:
             self.control_panel.timeline_slider.update_range()
 
+        self._reset_zoom_for_loaded_slot(slot)
+
         if (
             self.decoder_video1 is not None or self.decoder_video2 is not None
         ) and self.timeline_controller is not None:
@@ -650,9 +736,31 @@ class Application:
                 self.main_frame.GetClientSize().GetHeight(),
             )
 
+    def _reset_zoom_for_loaded_slot(self, slot: int) -> None:
+        """Reset zoom/pan for the pane that received a new file; mirror to both when zoom is synchronized."""
+        if slot not in (1, 2):
+            return
+        if self.video_pane1 is None or self.video_pane2 is None:
+            return
+        synchronized = True
+        if self.control_panel is not None:
+            synchronized = self.control_panel.zoom_controls.synchronized
+        if slot == 1:
+            self.video_pane1.reset_zoom_pan()
+            if synchronized:
+                self.video_pane2.reset_zoom_pan()
+        else:
+            self.video_pane2.reset_zoom_pan()
+            if synchronized:
+                self.video_pane1.reset_zoom_pan()
+        if self.control_panel is not None:
+            self.control_panel.zoom_controls.update_zoom_display()
+
     def _handle_sync_nudge_forward(self) -> None:
         """Handle sync nudge forward command."""
         if self.timeline_controller is None:
+            return
+        if self.control_panel is None or not self.control_panel.sync_controls.offset_slider.IsEnabled():
             return
         self.timeline_controller.increment_sync_offset()
         if self.control_panel is not None:
@@ -662,6 +770,8 @@ class Application:
     def _handle_sync_nudge_backward(self) -> None:
         """Handle sync nudge backward command."""
         if self.timeline_controller is None:
+            return
+        if self.control_panel is None or not self.control_panel.sync_controls.offset_slider.IsEnabled():
             return
         self.timeline_controller.decrement_sync_offset()
         if self.control_panel is not None:
@@ -684,10 +794,17 @@ class Application:
 
     def shutdown(self) -> None:
         """Shutdown the application and cleanup resources."""
+        if self._is_shutting_down:
+            return
+        self._is_shutting_down = True
+
         if self._playback_timer is not None:
             self._playback_timer.Stop()
+            if self.main_frame is not None:
+                self.main_frame.Unbind(wx.EVT_TIMER, handler=self._on_playback_timer, source=self._playback_timer)
+            self._playback_timer = None
         if self.playback_controller is not None:
-            self.playback_controller.stop()
+            self.playback_controller.shutdown()
 
         if self.frame_cache_video1 is not None:
             self.frame_cache_video1.close()

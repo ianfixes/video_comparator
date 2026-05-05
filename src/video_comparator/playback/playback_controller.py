@@ -1,7 +1,7 @@
 """Playback and stepping controller.
 
 Responsibilities:
-- Play/pause/stop state machine
+- Play/pause/stop state machine with forward/reverse continuous playback
 - Frame-step forward/backward even when paused
 - Drives tick events that request frames from the cache/decoder
 - Delegates position math to Sync controller
@@ -15,7 +15,7 @@ from typing import Callable, Iterator, Optional, Tuple
 from video_comparator.cache.frame_cache import FrameCache, print_framedebug
 from video_comparator.cache.frame_result import FrameResult
 from video_comparator.cache.prefill_strategy import PrefillStrategy, TrivialPrefillStrategy
-from video_comparator.common.types import FrameRequestStatus, PlaybackState
+from video_comparator.common.types import FrameRequestStatus, PlaybackDirection, PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
@@ -70,6 +70,7 @@ class PlaybackController:
             Callable[[FrameResult, FrameResult, float, int, float, int], None]
         ] = frame_callback
         self.state: PlaybackState = PlaybackState.STOPPED
+        self.playback_direction: PlaybackDirection = PlaybackDirection.FORWARD
         self.playback_speed: float = 1.0
         self._prefill_strategy_video1: Optional[PrefillStrategy] = None
         self._prefill_strategy_video2: Optional[PrefillStrategy] = None
@@ -80,7 +81,34 @@ class PlaybackController:
         self._pending_result_video2: Optional[FrameResult] = None
 
     def play(self) -> None:
-        """Start or resume playback."""
+        """Start or resume playback.
+
+        From STOPPED, direction is forward. From PAUSED, the previous playback direction is kept.
+        """
+        if self.state == PlaybackState.STOPPED:
+            self.playback_direction = PlaybackDirection.FORWARD
+        self._transition_to_playing()
+
+    def play_forward(self) -> None:
+        """Play forward; if already playing in reverse, switches direction without moving the timeline."""
+        prev_direction = self.playback_direction
+        self.playback_direction = PlaybackDirection.FORWARD
+        self._transition_to_playing()
+        if self.state == PlaybackState.PLAYING and prev_direction != PlaybackDirection.FORWARD:
+            self._last_position = -1.0
+            self._request_frames()
+
+    def play_reverse(self) -> None:
+        """Play in reverse; if already playing forward, switches direction without moving the timeline."""
+        prev_direction = self.playback_direction
+        self.playback_direction = PlaybackDirection.REVERSE
+        self._transition_to_playing()
+        if self.state == PlaybackState.PLAYING and prev_direction != PlaybackDirection.REVERSE:
+            self._last_position = -1.0
+            self._request_frames()
+
+    def _transition_to_playing(self) -> None:
+        """Enter PLAYING from STOPPED or PAUSED, or keep PLAYING (e.g. after direction change)."""
         if self.state == PlaybackState.STOPPED:
             self.state = PlaybackState.PLAYING
             self._update_prefill_strategies()
@@ -104,12 +132,22 @@ class PlaybackController:
         """Stop playback and reset to beginning."""
         if self.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             self.state = PlaybackState.STOPPED
+            self.playback_direction = PlaybackDirection.FORWARD
             self.timeline_controller.set_position(0.0)
             self._update_prefill_strategies()
         elif self.state == PlaybackState.STOPPED:
             pass
         else:
             raise PlaybackStateError(f"Invalid state transition from {self.state} to STOPPED")
+
+    def shutdown(self) -> None:
+        """Quiesce playback state for application teardown without requesting frames."""
+        self.state = PlaybackState.STOPPED
+        self.playback_direction = PlaybackDirection.FORWARD
+        self._last_position = -1.0
+        with self._sync_lock:
+            self._pending_result_video1 = None
+            self._pending_result_video2 = None
 
     def _get_max_duration(self) -> float:
         """Return effective max timeline duration (handles one or two videos)."""
@@ -154,12 +192,19 @@ class PlaybackController:
             return
 
         current_time = self.timeline_controller.current_position
-        max_duration = self._get_max_duration()
+        min_duration, max_duration = self.timeline_controller.get_effective_range()
+        step = delta_time * self.playback_speed
 
-        new_time = current_time + (delta_time * self.playback_speed)
-        if new_time >= max_duration:
-            new_time = max_duration
-            self.state = PlaybackState.STOPPED
+        if self.playback_direction == PlaybackDirection.FORWARD:
+            new_time = current_time + step
+            if new_time >= max_duration:
+                new_time = max_duration
+                self.state = PlaybackState.STOPPED
+        else:
+            new_time = current_time - step
+            if new_time <= min_duration:
+                new_time = min_duration
+                self.state = PlaybackState.STOPPED
 
         self.timeline_controller.set_position(new_time)
         self._request_frames()
@@ -185,8 +230,12 @@ class PlaybackController:
         frame_video1 = self.timeline_controller.get_resolved_frame_video1()
         frame_video2 = self.timeline_controller.get_resolved_frame_video2()
 
-        frames_video1 = self._generate_protected_frame_sequence(frame_video1, self.timeline_controller.metadata_video1)
-        frames_video2 = self._generate_protected_frame_sequence(frame_video2, self.timeline_controller.metadata_video2)
+        frames_video1 = self._generate_protected_frame_sequence(
+            frame_video1, self.timeline_controller.metadata_video1, self.playback_direction
+        )
+        frames_video2 = self._generate_protected_frame_sequence(
+            frame_video2, self.timeline_controller.metadata_video2, self.playback_direction
+        )
 
         self._prefill_strategy_video1 = TrivialPrefillStrategy(frames_video1)
         self._prefill_strategy_video2 = TrivialPrefillStrategy(frames_video2)
@@ -278,18 +327,27 @@ class PlaybackController:
                 if self.decoder_video2 is not None:
                     self.frame_cache_video2.signal_sync_complete()
 
-    def _generate_protected_frame_sequence(self, current_frame: int, metadata: VideoMetadata) -> Iterator[int]:
+    def _generate_protected_frame_sequence(
+        self,
+        current_frame: int,
+        metadata: VideoMetadata,
+        direction: PlaybackDirection,
+    ) -> Iterator[int]:
         """Generate a sequence of frame indices to protect around the current frame.
 
         The current (display) frame is yielded first so the frame cache delivers
         it as the "first" frame to the callback. Remaining frames are for prefetch.
 
+        When playing in reverse, prefetch prioritizes frames before the current frame first
+        (decoder still seeks/decodes forward from keyframes as usual).
+
         Args:
             current_frame: Current frame index (display frame; must be first)
             metadata: VideoMetadata for the video
+            direction: Active playback direction for prefetch ordering
 
         Yields:
-            Frame indices in priority order: current first, then lookahead, then lookbehind
+            Frame indices in priority order (forward: current, ahead, behind; reverse: current, behind, ahead)
         """
         lookahead = 10
         lookbehind = 5
@@ -298,10 +356,16 @@ class PlaybackController:
         start_frame = max(0, current_frame - lookbehind)
 
         yield current_frame
-        for frame_idx in range(current_frame + 1, end_frame + 1):
-            yield frame_idx
-        for frame_idx in range(current_frame - 1, start_frame - 1, -1):
-            yield frame_idx
+        if direction == PlaybackDirection.FORWARD:
+            for frame_idx in range(current_frame + 1, end_frame + 1):
+                yield frame_idx
+            for frame_idx in range(current_frame - 1, start_frame - 1, -1):
+                yield frame_idx
+        else:
+            for frame_idx in range(current_frame - 1, start_frame - 1, -1):
+                yield frame_idx
+            for frame_idx in range(current_frame + 1, end_frame + 1):
+                yield frame_idx
 
     def set_playback_speed(self, speed: float) -> None:
         """Set playback speed multiplier.

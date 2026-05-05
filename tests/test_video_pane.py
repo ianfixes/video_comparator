@@ -743,6 +743,23 @@ class TestVideoPane(unittest.TestCase):
         self.assertEqual(self.pane.pan_x, 0.0)
         self.assertEqual(self.pane.pan_y, 0.0)
 
+    def test_reset_pan_only_preserves_zoom(self) -> None:
+        """Pan-only reset clears pan offsets without changing magnification."""
+        self.pane.zoom_level = 2.5
+        self.pane.pan_x = 12.0
+        self.pane.pan_y = -4.0
+
+        self.pane.reset_pan_only()
+
+        self.assertEqual(self.pane.zoom_level, 2.5)
+        self.assertEqual(self.pane.get_pan_position(), (0.0, 0.0))
+
+    def test_is_default_pan_xy(self) -> None:
+        """Default pan uses origin within floating tolerance."""
+        self.assertTrue(VideoPane.is_default_pan_xy(0.0, 0.0))
+        self.assertTrue(VideoPane.is_default_pan_xy(5e-7, -5e-7))
+        self.assertFalse(VideoPane.is_default_pan_xy(0.01, 0.0))
+
     def test_get_zoom_level(self) -> None:
         """Test get_zoom_level method."""
         self.pane.zoom_level = 2.5

@@ -331,6 +331,11 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Integrate with ErrorHandler for error reporting
 - [x] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
+### Reverse playback (Specification §5)
+- [x] Track **playback direction** (forward vs reverse) while `PLAYING`; `tick(delta)` advances timeline toward **max** or **min** using existing speed semantics; at timeline **start** in reverse, clamp/stop in line with how forward playback stops at **end**.
+- [x] Entry points: e.g. `play_forward()` / `play_reverse()` or `play(direction=…)`; pressing the opposite play control while already `PLAYING` switches direction **without** jumping timeline position (Specification §5).
+- [x] PrefillStrategy / FrameCache: verify frame fetch remains correct when timeline moves backward (prefetch may remain forward-biased initially — document limitations if any).
+
 **Unit Tests Required:**
 - [x] Test initial state is STOPPED
 - [x] Test state transition STOPPED → PLAYING
@@ -362,6 +367,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test user callback receives FrameResult objects for both videos
 - [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
 - [x] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
+- [x] Test reverse `tick()` decreases timeline position while preserving dual-video sync semantics
+- [x] Test reverse playback boundary at timeline start (clamp/stop behaviour)
+- [x] Test switching reverse ↔ forward during `PLAYING` does not discontinuously jump timeline position
 
 ---
 
@@ -406,6 +414,7 @@ This document outlines the implementation plan from lowest-level modules to high
   - [x] Mouse wheel scroll for zooming in/out - scale about the **point under the cursor** (adjust pan so that pixel stays fixed in video space while zoom changes).
   - [x] Shift-drag rectangle selection for zooming to a specific region
 - [x] Implement zoom state persistence across seeks/steps
+- [x] When a new video is loaded into this pane (replacement or first load via Application `_apply_loaded_video`, including menu / empty-pane click / drag-drop / CLI path), reset **this pane's** zoom factor and pan to defaults (1× and centered/default pan). When zoom is **synchronized** across panes, loading into either pane shall reset **both** panes so factors stay matched (Specification §7).
 - [x] Integrate with ScalingCalculator
 - [x] Integrate with VideoMetadata for overlay info
 - [x] Define per-class exceptions for rendering errors (e.g., `RenderingError`)
@@ -430,6 +439,10 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test coordinate transformations (screen to video space)
 - [x] Test edge cases (very large zoom, extreme pan positions)
 - [x] Test zoom anchor: button zoom leaves **center** of video region stable; wheel zoom leaves **cursor** point stable (logic tests on pan/zoom math)
+- [x] Test zoom/pan reset when pane receives a loaded video (mock load path / `set_metadata` / explicit reset hook as implemented)
+- [x] Test synchronized-zoom mode: loading into either pane resets zoom/pan on **both** panes
+- [x] Implement **pan-only** reset API on `VideoPane` (clear `pan_x` / `pan_y` to default centered alignment, leave `zoom_level` unchanged; refresh / notify similarly to zoom change hooks so controls update)
+- [x] Unit tests: pan-only reset leaves zoom unchanged; default pan predicate matches renderer convention used by enable/disable logic
 
 **Note:** wxPython components should be mocked in unit tests. Use context manager-based mocking (e.g., `unittest.mock.patch`) rather than decorators.
 
@@ -494,6 +507,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement zoom out button
 - [x] Implement zoom reset button
 - [x] Implement zoom level display
+- [x] Zoom label styling: use **red** foreground when any zoom factor shown in the label is not exactly 1×; use default `StaticText` foreground when every displayed factor is exactly 1× (independent vs synchronized modes per Specification §7). Update colors whenever `_update_zoom_display` / theme changes as needed.
 - [x] Integrate with VideoPane widgets for zoom updates
 - [x] **Zoom anchor:** Button-driven zoom should use **center** anchoring; implementation lives primarily in `VideoPane` / `ScalingCalculator` (see Phase 7 — Zoom anchor).
 
@@ -505,13 +519,21 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test zoom updates both VideoPanes (if synchronized)
 - [x] Test zoom updates individual VideoPane (if independent)
 - [x] Test zoom level display updates correctly
+- [x] Test zoom label color: default when zoom is exactly 1× (both panes independent and synchronized cases); red when either pane (independent) or shared factor (synchronized) differs from 1×
+- [x] **Reset Zoom** button: **disabled** when both panes' zoom factors are exactly 1× (same tolerance as `ZoomControls.is_unit_zoom` / label semantics); **enabled** otherwise; wired to existing full reset (`reset_zoom_pan` behaviour including synchronized pane pairing)
+- [x] **Reset Pan** button: placed **to the right** of the zoom level `StaticText` (see `UI_LAYOUT_DIAGRAM.md` Row 4); **disabled** when **both** panes are at default pan (centered); **enabled** when **either** pane pan differs from default; invokes pan-only reset on **both** panes; tooltip clarifies it does **not** change magnification (Specification §7)
+- [x] Centralize refresh of zoom **label** (text + colour) **and** both buttons' enabled states whenever zoom or pan changes (pane callbacks, load-path resets, button handlers — avoid stale grey state)
+- [x] Tests: Reset Zoom enabled/disabled vs mocked pane zoom levels; Reset Pan enabled/disabled vs mocked pane pan positions; handler calls `reset_pan_only` / equivalent on both panes without altering zoom
 
 ### ControlPanel (`ui/controls.py`)
 - [x] Implement container widget (wx.Panel)
 - [x] Implement play/pause/stop buttons
+- [x] **Dual-direction play (Specification §5 / `UI_LAYOUT_DIAGRAM.md` Row 2):** add **Reverse Play** (`◀ Play`, U+25C0 + space + `Play`; fallback `< Play`) immediately **left** of **Forward Play**; rename existing Play to **`▶ Play`** (U+25B6 + space + `Play`; fallback `> Play`). Row order: reverse play, forward play, pause, stop, step backward, step forward.
+- [x] Wire Reverse Play / Forward Play to PlaybackController; `_update_button_states` enables **both** when ≥1 video loaded; while `PLAYING`, reflect active direction (disable or de-emphasize inactive play per Specification §5).
 - [x] Implement frame-step forward/backward buttons
 - [x] Integrate TimelineSlider, SyncControls, ZoomControls
 - [x] Implement ControlPanel layout per UI_LAYOUT_DIAGRAM.md (`_create_layout()`: vertical BoxSizer, rows for timeline slider+label, playback buttons, sync slider+buttons+label, zoom buttons+label)
+- [x] Extend zoom controls row layout per updated `UI_LAYOUT_DIAGRAM.md`: zoom buttons + zoom label + **Reset Pan** (horizontal spacing consistent with existing controls); expose getter if tests/layout need it
 - [x] Integrate with PlaybackController for button actions
 - [x] Implement button event wiring
 - [x] Enable play button only when at least one video is loaded (disabled when no videos loaded)
@@ -519,7 +541,8 @@ This document outlines the implementation plan from lowest-level modules to high
 
 **Unit Tests Required:**
 - [x] Test ControlPanel initialization
-- [x] Test play button triggers PlaybackController.play()
+- [x] Test forward play button invokes `PlaybackController.play_forward()`
+- [x] Test reverse play button invokes `PlaybackController.play_reverse()`
 - [x] Test pause button triggers PlaybackController.pause()
 - [x] Test stop button triggers PlaybackController.stop()
 - [x] Test frame-step forward button triggers step_forward()
@@ -532,10 +555,13 @@ This document outlines the implementation plan from lowest-level modules to high
 ## Phase 9: Input Handling
 
 ### ShortcutManager (`input/shortcut_manager.py`)
+- [x] Add distinct default shortcuts for **reverse play** vs **forward play** when implementing dual-direction playback (keeping pause/stop parity); update tooltip/help strings accordingly.
+- [x] **Reconcile defaults with `Specification.md` §11:** **Space** / **Shift+Space** play semantics; **←/→** ±10 s timeline seek (not frame step); **comma** / **period** frame step (not continuous play); **minus** / **equals** sync ±1; zoom on **Ctrl+[** / **Ctrl+]** per §7.
+- [x] **Focus / routing:** **`MainFrame`** uses **`EVT_CHAR_HOOK`** so **`ShortcutManager`** runs before focused children consume keys.
 - [x] Implement default key bindings
 - [x] Implement key binding registration
 - [x] Implement command dispatch to handlers
-- [x] Implement keyboard event handling (wx.EVT_KEY_DOWN)
+- [x] Implement keyboard event handling (`EVT_CHAR_HOOK` on main frame → `ShortcutManager`)
 - [x] Implement tooltip/help text generation
 - [x] Implement custom binding override support
 
@@ -604,20 +630,24 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement wx.App subclass or wrapper
 - [x] Implement dependency wiring (create all subsystems)
 - [x] Implement MainFrame creation and display
+- [x] On startup, after showing the main frame, request foreground activation (e.g. `Raise()` / `RaiseLater()` per wxWidgets guidance so the window reliably comes forward on macOS/Linux where `Show()` alone is insufficient). Accept that the OS may still refuse focus in edge launch contexts.
 - [x] Implement application initialization
 - [x] Implement application shutdown/cleanup
 - [x] Implement main event loop
 - [x] Integrate SettingsManager for loading settings
 - [x] Integrate ErrorHandler for global error handling
+- [x] After a successful video load into slot 1 or 2, trigger pane zoom/pan reset per Specification §7 / Architecture (delegate to `VideoPane` or shared helper; ensure CLI/drop/menu paths all hit this)
 
 **Unit Tests Required:**
 - [x] Test Application initialization
 - [x] Test dependency wiring creates all subsystems
 - [x] Test MainFrame is created and shown
+- [x] Test finalize/startup calls foreground helpers on the main frame after `Show()` (mock `MainFrame`: assert `Raise` or equivalent is invoked as wired)
 - [x] Test application can start without loading media (smoke test)
 - [x] Test application shutdown cleanup
 - [x] Test settings loading on startup
 - [x] Test error handling integration
+- [x] Test `_apply_loaded_video` (or equivalent) invokes zoom/pan reset for the loaded pane(s) consistent with independent vs synchronized zoom mode
 
 ### Entry Point / CLI (`__main__.py` and app startup wiring)
 - [x] Implement command-line parsing with `argparse` (no custom parser)
@@ -662,8 +692,10 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Overlay correctness with offset: with non-zero sync offset, pane 1 and pane 2 overlay times/frames reflect different resolved source positions as expected (within rounding/clamp tolerance)
 - [ ] Aspect-ratio correctness: anamorphic/non-square-pixel source displays with correct widescreen geometry (no vertical stretch)
 - [ ] Playback continuity: pause -> step one frame -> play does not jump to an unrelated timestamp on either pane
+- [ ] Reverse play: timeline moves backward in sync; boundary at start; toggle forward ↔ reverse without position glitch
 - [ ] CLI startup: launch with `video1 video2 --offset N` loads both videos and initializes sync offset slider/display to `N` before first interaction
 - [ ] Zoom: button zoom keeps **center** fixed; wheel zoom keeps **cursor** point fixed
+- [ ] Zoom: after loading or replacing a video in a pane, that pane shows 1× default pan (both panes if synchronized zoom); label colour matches non-1× state; **Reset Zoom** / **Reset Pan** enabled states match §7 after load and after arbitrary zoom/pan gestures
 - [ ] Test complete workflow: load two videos → align → step through frames
 - [ ] Test complete workflow: load videos → zoom → pan → step
 - [ ] Test complete workflow: load videos → change layout → verify display
@@ -678,7 +710,7 @@ This document outlines the implementation plan from lowest-level modules to high
 
 ### Documentation
 - [ ] Write user documentation (how to use the application)
-- [ ] Document keyboard shortcuts
+- [x] Document keyboard shortcuts (**normative:** `Specification.md` §§3–7 & §11 table; **quick reference:** `README.md`; **engineering:** `Architecture.md` §9 — implementation still pending)
 - [ ] Write developer documentation (architecture overview)
 - [ ] Document extension points for future features
 

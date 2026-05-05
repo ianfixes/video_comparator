@@ -24,6 +24,7 @@ class MainFrame(wx.Frame):
         layout_manager: LayoutManager,
         control_panel: ControlPanel,
         shortcut_manager: ShortcutManager,
+        on_close_request: Optional[Callable[[wx.CloseEvent], None]] = None,
         parent: Optional[wx.Window] = None,
         defer_layout: bool = False,
     ) -> None:
@@ -33,6 +34,7 @@ class MainFrame(wx.Frame):
             layout_manager: Manages layout of video panes
             control_panel: Container for playback and control widgets
             shortcut_manager: Manages keyboard shortcuts
+            on_close_request: Optional callback invoked on window close before default handling
             parent: Optional wx.Window parent (typically None for top-level frame)
             defer_layout: If True, skip layout creation (for use with temporary components)
         """
@@ -40,6 +42,7 @@ class MainFrame(wx.Frame):
         self.layout_manager: LayoutManager = layout_manager
         self.control_panel: ControlPanel = control_panel
         self.shortcut_manager: ShortcutManager = shortcut_manager
+        self.on_close_request: Optional[Callable[[wx.CloseEvent], None]] = on_close_request
         self._video_container: Optional[wx.Panel] = None
         self._main_frame_layout_initialized: bool = False
 
@@ -168,7 +171,9 @@ class MainFrame(wx.Frame):
         """Bind window events."""
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.Bind(wx.EVT_SIZE, self._on_resize)
-        self.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+        # CHAR_HOOK runs before focused-child key handling so shortcuts work when
+        # video panes or control widgets have focus (Specification §11).
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_char_hook)
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event.
@@ -176,7 +181,11 @@ class MainFrame(wx.Frame):
         Args:
             event: wx.CloseEvent
         """
-        self.Destroy()
+        if self.on_close_request is not None:
+            self.on_close_request(event)
+            if event.GetSkipped():
+                return
+        event.Skip()
 
     def _on_resize(self, event: wx.SizeEvent) -> None:
         """Handle window resize event.
@@ -189,14 +198,11 @@ class MainFrame(wx.Frame):
             self.layout_manager.update_layout(size.GetWidth(), size.GetHeight())
         event.Skip()
 
-    def _on_key_down(self, event: wx.KeyEvent) -> None:
-        """Handle keyboard events and dispatch to ShortcutManager.
-
-        Args:
-            event: wx.KeyEvent
-        """
-        if not self.shortcut_manager.handle_key_event(event):
-            event.Skip()
+    def _on_char_hook(self, event: wx.KeyEvent) -> None:
+        """Dispatch application shortcuts before child widgets consume keys."""
+        if self.shortcut_manager.handle_key_event(event):
+            return
+        event.Skip()
 
     def _on_exit(self, event: wx.CommandEvent) -> None:
         """Handle exit menu item.

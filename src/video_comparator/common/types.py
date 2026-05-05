@@ -25,6 +25,13 @@ class PlaybackState(Enum):
     PAUSED = "paused"
 
 
+class PlaybackDirection(Enum):
+    """Timeline direction while playing (continuous playback)."""
+
+    FORWARD = "forward"
+    REVERSE = "reverse"
+
+
 class FrameRequestStatus(Enum):
     """Enum representing the status of a frame request, as produced by FrameCache."""
 

@@ -2,17 +2,19 @@
 
 Responsibilities:
 - Timeline slider
-- Play/pause/stop buttons
+- Reverse/forward play, pause/stop
 - Frame-step buttons
 - Sync-offset slider + ±1 buttons
 - Zoom controls (in/out/reset)
 - Routes UI events to controllers
 """
 
+import math
 from typing import Callable, Optional
 
 import wx
 
+from video_comparator.common.types import PlaybackDirection, PlaybackState
 from video_comparator.playback.playback_controller import PlaybackController
 from video_comparator.render.video_pane import VideoPane
 from video_comparator.sync.timeline_controller import TimelineController
@@ -296,6 +298,13 @@ class ZoomControls:
     """Zoom control buttons with zoom level display."""
 
     ZOOM_FACTOR: float = VideoPane.ZOOM_STEP_FACTOR
+    _UNIT_ZOOM_ABS_TOL: float = 1e-6
+    _NON_UNIT_ZOOM_FOREGROUND = wx.Colour(200, 32, 32)
+
+    @classmethod
+    def is_unit_zoom(cls, zoom_level: float) -> bool:
+        """True if ``zoom_level`` is exactly 1× within floating-point tolerance."""
+        return math.isclose(zoom_level, 1.0, rel_tol=0.0, abs_tol=cls._UNIT_ZOOM_ABS_TOL)
 
     def __init__(
         self,
@@ -310,7 +319,8 @@ class ZoomControls:
             parent: Parent wx.Window widget
             video_pane1: First VideoPane widget
             video_pane2: Second VideoPane widget
-            synchronized: If True, zoom operations affect both panes; if False, only pane1 (default: True)
+            synchronized: If True, zoom in/out buttons affect both panes; if False, only pane1.
+                Reset Zoom always restores both panes to 1× and default pan; Reset Pan always centers both.
         """
         self.parent: wx.Window = parent
         self.video_pane1: VideoPane = video_pane1
@@ -320,12 +330,21 @@ class ZoomControls:
         self.zoom_in_button: wx.Button = wx.Button(parent, label="Zoom In")
         self.zoom_out_button: wx.Button = wx.Button(parent, label="Zoom Out")
         self.zoom_reset_button: wx.Button = wx.Button(parent, label="Reset Zoom")
+        self.pan_reset_button: wx.Button = wx.Button(parent, label="Reset Pan")
 
         self.zoom_label: wx.StaticText = wx.StaticText(parent, label="Zoom: 1.00x")
+
+        self.zoom_reset_button.SetToolTip(
+            "Restore 1× zoom and centered pan on both videos (magnification and framing)."
+        )
+        self.pan_reset_button.SetToolTip(
+            "Center pan only on both videos; magnification stays unchanged. Zoom adjustments may still imply pan shifts."
+        )
 
         self.zoom_in_button.Bind(wx.EVT_BUTTON, self._on_zoom_in)
         self.zoom_out_button.Bind(wx.EVT_BUTTON, self._on_zoom_out)
         self.zoom_reset_button.Bind(wx.EVT_BUTTON, self._on_zoom_reset)
+        self.pan_reset_button.Bind(wx.EVT_BUTTON, self._on_pan_reset)
 
         self._update_zoom_display()
 
@@ -352,8 +371,13 @@ class ZoomControls:
             event: wx.CommandEvent from button
         """
         self.video_pane1.reset_zoom_pan()
-        if self.synchronized:
-            self.video_pane2.reset_zoom_pan()
+        self.video_pane2.reset_zoom_pan()
+        self._update_zoom_display()
+
+    def _on_pan_reset(self, event: wx.CommandEvent) -> None:
+        """Reset pan only on both panes (zoom unchanged)."""
+        self.video_pane1.reset_pan_only()
+        self.video_pane2.reset_pan_only()
         self._update_zoom_display()
 
     def _apply_zoom(self, zoom_factor: float) -> None:
@@ -375,6 +399,13 @@ class ZoomControls:
         zoom2 = self.video_pane2.get_zoom_level()
         label_text = f"Zoom: {zoom1:.2f}x / {zoom2:.2f}x"
         self.zoom_label.SetLabel(label_text)
+        app = wx.GetApp()
+        normal = wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWTEXT) if app is not None else wx.Colour(0, 0, 0)
+        both_unit = self.is_unit_zoom(zoom1) and self.is_unit_zoom(zoom2)
+        self.zoom_label.SetForegroundColour(normal if both_unit else self._NON_UNIT_ZOOM_FOREGROUND)
+        self.zoom_reset_button.Enable(not both_unit)
+        both_pan_default = self.video_pane1.is_default_pan() and self.video_pane2.is_default_pan()
+        self.pan_reset_button.Enable(not both_pan_default)
 
     def update_zoom_display(self) -> None:
         """Update zoom display from video panes.
@@ -406,6 +437,10 @@ class ZoomControls:
             The wx.Button widget
         """
         return self.zoom_reset_button
+
+    def get_pan_reset_button(self) -> wx.Button:
+        """Return the Reset Pan button widget for layout purposes."""
+        return self.pan_reset_button
 
     def get_zoom_label(self) -> wx.StaticText:
         """Get the zoom level display label widget for layout purposes.
@@ -446,13 +481,18 @@ class ControlPanel:
 
         self.panel: wx.Panel = wx.Panel(parent)
 
-        self.play_button: wx.Button = wx.Button(self.panel, label="Play")
+        self.play_reverse_button: wx.Button = wx.Button(self.panel, label="◀ Play")
+        self.play_forward_button: wx.Button = wx.Button(self.panel, label="▶ Play")
         self.pause_button: wx.Button = wx.Button(self.panel, label="Pause")
         self.stop_button: wx.Button = wx.Button(self.panel, label="Stop")
         self.step_forward_button: wx.Button = wx.Button(self.panel, label="Step Forward")
         self.step_backward_button: wx.Button = wx.Button(self.panel, label="Step Backward")
 
-        self.play_button.Bind(wx.EVT_BUTTON, self._on_play)
+        self.play_reverse_button.SetToolTip("Play backward in time (comma). If glyphs fail: < Play. Pause with Space.")
+        self.play_forward_button.SetToolTip("Play forward in time (period). If glyphs fail: > Play. Pause with Space.")
+
+        self.play_reverse_button.Bind(wx.EVT_BUTTON, self._on_play_reverse)
+        self.play_forward_button.Bind(wx.EVT_BUTTON, self._on_play_forward)
         self.pause_button.Bind(wx.EVT_BUTTON, self._on_pause)
         self.stop_button.Bind(wx.EVT_BUTTON, self._on_stop)
         self.step_forward_button.Bind(wx.EVT_BUTTON, self._on_step_forward)
@@ -494,7 +534,8 @@ class ControlPanel:
 
         # Row 2: Playback Controls (horizontal)
         playback_row = wx.BoxSizer(wx.HORIZONTAL)
-        playback_row.Add(self.play_button)
+        playback_row.Add(self.play_reverse_button)
+        playback_row.Add(self.play_forward_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.pause_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.stop_button, flag=wx.LEFT, border=8)
         playback_row.Add(self.step_backward_button, flag=wx.LEFT, border=8)
@@ -521,17 +562,19 @@ class ControlPanel:
         zoom_row.Add(self.zoom_controls.get_zoom_out_button(), flag=wx.LEFT, border=8)
         zoom_row.Add(self.zoom_controls.get_zoom_reset_button(), flag=wx.LEFT, border=8)
         zoom_row.Add(self.zoom_controls.get_zoom_label(), flag=wx.LEFT, border=12)
+        zoom_row.Add(self.zoom_controls.get_pan_reset_button(), flag=wx.LEFT, border=8)
         main_sizer.Add(zoom_row, flag=wx.TOP, border=12)
 
         self.panel.SetSizer(main_sizer)
 
-    def _on_play(self, event: wx.CommandEvent) -> None:
-        """Handle play button click event.
+    def _on_play_forward(self, event: wx.CommandEvent) -> None:
+        """Handle forward play button click."""
+        self.playback_controller.play_forward()
+        self._update_button_states()
 
-        Args:
-            event: wx.CommandEvent from button
-        """
-        self.playback_controller.play()
+    def _on_play_reverse(self, event: wx.CommandEvent) -> None:
+        """Handle reverse play button click."""
+        self.playback_controller.play_reverse()
         self._update_button_states()
 
     def _on_pause(self, event: wx.CommandEvent) -> None:
@@ -576,12 +619,22 @@ class ControlPanel:
 
     def _update_button_states(self) -> None:
         """Update button enabled/disabled states based on playback state and load state."""
-        from video_comparator.common.types import PlaybackState
-
         has_any_video = self._has_video1 or self._has_video2
         state = self.playback_controller.state
 
-        self.play_button.Enable(has_any_video and state != PlaybackState.PLAYING)
+        if not has_any_video:
+            self.play_reverse_button.Enable(False)
+            self.play_forward_button.Enable(False)
+        elif state != PlaybackState.PLAYING:
+            self.play_reverse_button.Enable(True)
+            self.play_forward_button.Enable(True)
+        elif self.playback_controller.playback_direction == PlaybackDirection.REVERSE:
+            self.play_reverse_button.Enable(False)
+            self.play_forward_button.Enable(True)
+        else:
+            self.play_reverse_button.Enable(True)
+            self.play_forward_button.Enable(False)
+
         self.pause_button.Enable(state == PlaybackState.PLAYING)
         self.stop_button.Enable(has_any_video and state != PlaybackState.STOPPED)
 
@@ -631,13 +684,13 @@ class ControlPanel:
         """
         return self.panel
 
-    def get_play_button(self) -> wx.Button:
-        """Get the play button widget.
+    def get_play_reverse_button(self) -> wx.Button:
+        """Return the reverse play button widget."""
+        return self.play_reverse_button
 
-        Returns:
-            The wx.Button widget
-        """
-        return self.play_button
+    def get_play_forward_button(self) -> wx.Button:
+        """Return the forward play button widget."""
+        return self.play_forward_button
 
     def get_pause_button(self) -> wx.Button:
         """Get the pause button widget.

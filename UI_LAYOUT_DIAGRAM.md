@@ -35,9 +35,10 @@
 │  │  └────────────────────────────────────────────────────┘  │ │
 │  │                                                          │ │
 │  │  Row 2: Playback Controls                                │ │
-│  │  ┌─────────┐ ┌──────┐ ┌───────┐ ┌─────────┐ ┌───────┐    │ │
-│  │  │ Step -1 │ │ Play │ │ Pause │ │ Step +1 │ │ Stop  │    │ │
-│  │  └─────────┘ └──────┘ └───────┘ └─────────┘ └───────┘    │ │
+│  │  ┌─────────┐ ┌─────────┐ ┌───────┐ ┌─────┐ ┌────────────┐ ┌────────────┐ │
+│  │  │ ◀ Play  │ │ ▶ Play  │ │ Pause │ │ Stop│ │ Step Back  │ │ Step Fwd   │ │
+│  │  │ reverse │ │ forward │ │       │ │     │ │            │ │            │ │
+│  │  └─────────┘ └─────────┘ └───────┘ └─────┘ └────────────┘ └────────────┘ │
 │  │                                                          │ │
 │  │  Row 3: Sync Controls (for Video 2)                      │ │
 │  │  ┌────────────────────────────────────────────────────┐  │ │
@@ -48,10 +49,10 @@
 │  │  └──────┘ └──────┘ └──────────────────────────────────┘  │ │
 │  │                                                          │ │
 │  │  Row 4: Zoom Controls                                    │ │
-│  │  ┌──────────┐ ┌──────────┐ ┌────────────┐ ┌────────┐     │ │
-│  │  │ Zoom In  │ │ Zoom Out │ │ Reset Zoom │ │ Zoom:  │     │ │
-│  │  │          │ │          │ │            │ │ 1.00x  │     │ │
-│  │  └──────────┘ └──────────┘ └────────────┘ └────────┘     │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌────────────┐ ┌────────┐ ┌────────────┐ │
+│  │  │ Zoom In  │ │ Zoom Out │ │ Reset Zoom │ │ Zoom:  │ │ Reset Pan  │ │
+│  │  │          │ │          │ │            │ │ 1.00x  │ │            │ │
+│  │  └──────────┘ └──────────┘ └────────────┘ └────────┘ └────────────┘ │
 │  │                                                          │ │
 │  └──────────────────────────────────────────────────────────┘ │
 │                                                               │
@@ -82,7 +83,8 @@ MainFrame (wx.Frame)
 │           │   └── Position Label (wx.StaticText)
 │           │
 │           ├── Playback Controls Row (wx.BoxSizer - HORIZONTAL)
-│           │   ├── Play Button
+│           │   ├── Reverse Play Button (`◀ Play`)
+│           │   ├── Forward Play Button (`▶ Play`)
 │           │   ├── Pause Button
 │           │   ├── Stop Button
 │           │   ├── Step Backward Button
@@ -99,7 +101,8 @@ MainFrame (wx.Frame)
 │               ├── Zoom In Button
 │               ├── Zoom Out Button
 │               ├── Reset Zoom Button
-│               └── Zoom Label (wx.StaticText)
+│               ├── Zoom Label (wx.StaticText)
+│               └── Reset Pan Button
 ```
 
 ## Key Layout Principles

@@ -7,7 +7,7 @@ import wx
 
 from video_comparator.cache.frame_cache import FrameCache
 from video_comparator.cache.frame_result import FrameRequestStatus, FrameResult
-from video_comparator.common.types import PlaybackState
+from video_comparator.common.types import PlaybackDirection, PlaybackState
 from video_comparator.decode.video_decoder import VideoDecoder
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
@@ -672,7 +672,7 @@ class TestZoomControls(unittest.TestCase):
             self.assertEqual(controls.video_pane1, self.video_pane1)
             self.assertEqual(controls.video_pane2, self.video_pane2)
             self.assertTrue(controls.synchronized)
-            self.assertEqual(mock_button_class.call_count, 3)
+            self.assertEqual(mock_button_class.call_count, 4)
             self.assertEqual(mock_static_text_class.call_count, 1)
 
     def test_initialization_with_independent_mode(self) -> None:
@@ -808,6 +808,110 @@ class TestZoomControls(unittest.TestCase):
             self.assertIn("1.00", call_args)
             self.assertEqual(call_args, "Zoom: 2.00x / 1.00x")
 
+    def test_is_unit_zoom_within_tolerance(self) -> None:
+        """Zoom factor matching 1× uses tight floating tolerance."""
+        self.assertTrue(ZoomControls.is_unit_zoom(1.0))
+        self.assertTrue(ZoomControls.is_unit_zoom(1.0 + 5e-7))
+        self.assertFalse(ZoomControls.is_unit_zoom(1.02))
+
+    def test_zoom_label_default_foreground_when_both_unit_zoom(self) -> None:
+        """Label uses window text colour when both panes are exactly 1×."""
+        expected_normal = wx.Colour(40, 41, 42)
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class, patch("video_comparator.ui.controls.wx.GetApp", return_value=MagicMock()), patch(
+            "video_comparator.ui.controls.wx.SystemSettings.GetColour", return_value=expected_normal
+        ):
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            controls._update_zoom_display()
+            last_fg = mock_static_text.SetForegroundColour.call_args_list[-1][0][0]
+            self.assertEqual(last_fg, expected_normal)
+
+    def test_zoom_label_red_foreground_when_any_pane_non_unit_zoom(self) -> None:
+        """Label uses red when either pane zoom is not exactly 1×."""
+        expected_normal = wx.Colour(40, 41, 42)
+        with patch("video_comparator.ui.controls.wx.Button"), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ) as mock_static_text_class, patch("video_comparator.ui.controls.wx.GetApp", return_value=MagicMock()), patch(
+            "video_comparator.ui.controls.wx.SystemSettings.GetColour", return_value=expected_normal
+        ):
+            mock_static_text = MagicMock()
+            mock_static_text_class.return_value = mock_static_text
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 1.5
+            self.video_pane2.zoom_level = 1.0
+            controls._update_zoom_display()
+            last_fg = mock_static_text.SetForegroundColour.call_args_list[-1][0][0]
+            self.assertEqual(last_fg, ZoomControls._NON_UNIT_ZOOM_FOREGROUND)
+
+    def test_zoom_reset_button_enable_tracks_non_unit_zoom(self) -> None:
+        """Reset Zoom is disabled only when both panes are exactly 1×; Reset Pan tracks pan offset."""
+        buttons: list = []
+
+        def make_button(*args, **kwargs):
+            m = MagicMock()
+            buttons.append(m)
+            return m
+
+        with patch("video_comparator.ui.controls.wx.Button", side_effect=make_button), patch(
+            "video_comparator.ui.controls.wx.StaticText"
+        ):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            zoom_reset_btn = buttons[2]
+            pan_reset_btn = buttons[3]
+            zoom_reset_btn.Enable.reset_mock()
+            pan_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            self.video_pane1.pan_x = 0.0
+            self.video_pane1.pan_y = 0.0
+            self.video_pane2.pan_x = 0.0
+            self.video_pane2.pan_y = 0.0
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(False)
+            pan_reset_btn.Enable.assert_called_with(False)
+
+            zoom_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.1
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(True)
+
+            zoom_reset_btn.Enable.reset_mock()
+            pan_reset_btn.Enable.reset_mock()
+            self.video_pane1.zoom_level = 1.0
+            self.video_pane2.zoom_level = 1.0
+            self.video_pane1.pan_x = 5.0
+            controls._update_zoom_display()
+            zoom_reset_btn.Enable.assert_called_with(False)
+            pan_reset_btn.Enable.assert_called_with(True)
+
+    def test_zoom_reset_always_resets_both_panes(self) -> None:
+        """Reset Zoom clears magnification on both panes even when zoom buttons are independent."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2, synchronized=False)
+            self.video_pane1.zoom_level = 2.0
+            self.video_pane2.zoom_level = 3.0
+            controls._on_zoom_reset(MagicMock())
+            self.assertEqual(self.video_pane1.get_zoom_level(), 1.0)
+            self.assertEqual(self.video_pane2.get_zoom_level(), 1.0)
+
+    def test_pan_reset_clears_pan_only_on_both_panes(self) -> None:
+        """Reset Pan restores centered pan without changing zoom."""
+        with patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.wx.StaticText"):
+            controls = ZoomControls(self.parent, self.video_pane1, self.video_pane2)
+            self.video_pane1.zoom_level = 2.0
+            self.video_pane1.pan_x = 10.0
+            self.video_pane2.pan_y = -4.0
+            controls._on_pan_reset(MagicMock())
+            self.assertEqual(self.video_pane1.get_zoom_level(), 2.0)
+            self.assertEqual(self.video_pane2.get_zoom_level(), 1.0)
+            self.assertTrue(self.video_pane1.is_default_pan())
+            self.assertTrue(self.video_pane2.is_default_pan())
+
     def test_get_widgets_return_correct_widgets(self) -> None:
         """Test getter methods return correct widgets."""
         with patch("video_comparator.ui.controls.wx.Button") as mock_button_class, patch(
@@ -823,6 +927,7 @@ class TestZoomControls(unittest.TestCase):
             self.assertEqual(controls.get_zoom_in_button(), mock_button)
             self.assertEqual(controls.get_zoom_out_button(), mock_button)
             self.assertEqual(controls.get_zoom_reset_button(), mock_button)
+            self.assertEqual(controls.get_pan_reset_button(), mock_button)
             self.assertEqual(controls.get_zoom_label(), mock_static_text)
 
 
@@ -942,13 +1047,13 @@ class TestControlPanel(unittest.TestCase):
             self.assertEqual(control_panel.playback_controller, self.playback_controller)
             self.assertEqual(control_panel.timeline_controller, self.timeline_controller)
             mock_panel_class.assert_called_once_with(self.parent)
-            self.assertEqual(mock_button_class.call_count, 5)
+            self.assertEqual(mock_button_class.call_count, 6)
             self.assertIsNotNone(control_panel.timeline_slider)
             self.assertIsNotNone(control_panel.sync_controls)
             self.assertIsNotNone(control_panel.zoom_controls)
 
-    def test_play_button_triggers_playback_controller_play(self) -> None:
-        """Test play button triggers PlaybackController.play()."""
+    def test_play_forward_button_triggers_play_forward(self) -> None:
+        """Forward play button starts forward playback."""
         with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
             "video_comparator.ui.controls.wx.Panel"
         ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
@@ -965,9 +1070,33 @@ class TestControlPanel(unittest.TestCase):
             )
 
             mock_event = MagicMock()
-            control_panel._on_play(mock_event)
+            control_panel._on_play_forward(mock_event)
 
             self.assertEqual(self.playback_controller.state, PlaybackState.PLAYING)
+            self.assertEqual(self.playback_controller.playback_direction, PlaybackDirection.FORWARD)
+
+    def test_play_reverse_button_triggers_play_reverse(self) -> None:
+        """Reverse play button starts reverse playback."""
+        with patch("video_comparator.ui.controls.ControlPanel._create_layout"), patch(
+            "video_comparator.ui.controls.wx.Panel"
+        ), patch("video_comparator.ui.controls.wx.Button"), patch("video_comparator.ui.controls.TimelineSlider"), patch(
+            "video_comparator.ui.controls.SyncControls"
+        ), patch(
+            "video_comparator.ui.controls.ZoomControls"
+        ):
+            control_panel = ControlPanel(
+                self.parent,
+                self.playback_controller,
+                self.timeline_controller,
+                self.video_pane1,
+                self.video_pane2,
+            )
+
+            mock_event = MagicMock()
+            control_panel._on_play_reverse(mock_event)
+
+            self.assertEqual(self.playback_controller.state, PlaybackState.PLAYING)
+            self.assertEqual(self.playback_controller.playback_direction, PlaybackDirection.REVERSE)
 
     def test_pause_button_triggers_playback_controller_pause(self) -> None:
         """Test pause button triggers PlaybackController.pause()."""
@@ -1104,7 +1233,7 @@ class TestControlPanel(unittest.TestCase):
                 self.video_pane2,
             )
 
-            self.assertEqual(mock_button.Bind.call_count, 5)
+            self.assertEqual(mock_button.Bind.call_count, 6)
 
     def test_button_states_update_with_playback_state(self) -> None:
         """Test button states update with playback state."""
@@ -1117,11 +1246,13 @@ class TestControlPanel(unittest.TestCase):
         ), patch(
             "video_comparator.ui.controls.ZoomControls"
         ):
-            mock_play_button = MagicMock()
+            mock_play_reverse = MagicMock()
+            mock_play_forward = MagicMock()
             mock_pause_button = MagicMock()
             mock_stop_button = MagicMock()
             mock_button_class.side_effect = [
-                mock_play_button,
+                mock_play_reverse,
+                mock_play_forward,
                 mock_pause_button,
                 mock_stop_button,
                 MagicMock(),
@@ -1140,17 +1271,20 @@ class TestControlPanel(unittest.TestCase):
             self.assertEqual(self.playback_controller.state, PlaybackState.STOPPED)
             control_panel._update_button_states()
 
-            mock_play_button.Enable.assert_called_with(True)
+            mock_play_reverse.Enable.assert_called_with(True)
+            mock_play_forward.Enable.assert_called_with(True)
             mock_pause_button.Enable.assert_called_with(False)
             mock_stop_button.Enable.assert_called_with(False)
 
-            mock_play_button.reset_mock()
+            mock_play_reverse.reset_mock()
+            mock_play_forward.reset_mock()
             mock_pause_button.reset_mock()
             mock_stop_button.reset_mock()
 
             self.playback_controller.play()
             control_panel._update_button_states()
 
-            mock_play_button.Enable.assert_called_with(False)
+            mock_play_reverse.Enable.assert_called_with(True)
+            mock_play_forward.Enable.assert_called_with(False)
             mock_pause_button.Enable.assert_called_with(True)
             mock_stop_button.Enable.assert_called_with(True)
