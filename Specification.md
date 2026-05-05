@@ -17,6 +17,7 @@ This software project aims to deliver a cross-platform graphical user interface 
 2. **Dual Video Display**
    - The application shall allow the user to load two independent video files.
    - Loading shall be available via **File > Open Video 1** and **File > Open Video 2** (or equivalent shortcuts). Each menu item opens a file chooser and loads the selected file into the corresponding pane.
+   - The File menu shall provide **File > Close Videos**, which unloads both videos, resets both panes to their empty/default state, and restores timeline/sync controls to startup defaults (time slider at 0, sync offset slider at 0).
    - Clicking the empty video pane (or the "no video loaded" placeholder text) shall open the file chooser for that pane, so users can load a video by clicking where it will appear.
    - Both videos shall be displayed simultaneously, in a side-by-side or stacked configuration.
    - Users must be able to toggle the layout between vertical (top/bottom) and horizontal (left/right) split (e.g. via **View > Toggle Layout** and keyboard shortcut).
@@ -71,6 +72,7 @@ This software project aims to deliver a cross-platform graphical user interface 
    - Zoom must be supported independently or synchronously for each video pane, allowing detailed comparison.
    - The zoom state (level and pan position) must remain consistent during video playback, frame stepping, and when seeking the timeline.
    - When a video file is successfully loaded into a pane (including via **File → Open**, click-to-open on an empty pane, drag-and-drop, or CLI startup paths), **that pane's** zoom factor and pan position shall reset to their defaults (1× zoom and default centered pan for the renderer). If zoom is **synchronized** across both panes, loading a new file into either pane shall reset zoom and pan for **both** panes so magnifications stay aligned.
+   - Invoking **File → Close Videos** shall reset zoom and pan to defaults for **both** panes, clear pane playback/render state so both panes show the empty/not-loaded state consistently, and reset each pane's displayed time/frame overlay to the startup baseline.
    - The zoom feature must not interfere with video synchronization or performance.
    - Tooltips and UI labels must clarify the functionality and shortcuts for zoom and pan actions.
    - The zoom level label in the control panel shall use **red** foreground text whenever **any** zoom factor shown in that label is **not exactly** 1×, and default/neutral foreground (e.g. standard window text colour) when **every** displayed factor is exactly 1× — regardless of synchronized vs independent zoom mode.

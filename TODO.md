@@ -605,6 +605,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement wx.Frame subclass
 - [x] Implement menu bar creation
 - [x] Wire File menu: Open Video 1 / Open Video 2 trigger file chooser and load video for that pane
+- [ ] Wire File menu: Close Videos unloads both videos, resets both panes to empty defaults, and resets timeline/sync sliders to 0
 - [x] Wire View menu: Toggle Layout menu item toggles layout orientation and refreshes frame layout
 - [x] Wire View menu: Toggle Scaling Mode menu item toggles scaling mode (independent ↔ match larger)
 - [x] Implement toolbar creation (if needed)
@@ -618,6 +619,7 @@ This document outlines the implementation plan from lowest-level modules to high
 **Unit Tests Required:**
 - [x] Test MainFrame initialization
 - [x] Test menu bar creation
+- [ ] Test File menu includes Close Videos and dispatches to close/reset callback
 - [x] Test window layout contains all components
 - [x] Regression: repeated `_create_layout` reuses one video container panel (avoids orphan `wx.Panel` widgets that break layout on toggle)
 - [x] Test window close handler
@@ -637,6 +639,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Integrate SettingsManager for loading settings
 - [x] Integrate ErrorHandler for global error handling
 - [x] After a successful video load into slot 1 or 2, trigger pane zoom/pan reset per Specification §7 / Architecture (delegate to `VideoPane` or shared helper; ensure CLI/drop/menu paths all hit this)
+- [ ] Implement Close Videos handler that unloads both media slots, resets both panes, restores timeline position + sync offset to 0, and refreshes "no video loaded" control states
 
 **Unit Tests Required:**
 - [x] Test Application initialization
@@ -648,6 +651,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test settings loading on startup
 - [x] Test error handling integration
 - [x] Test `_apply_loaded_video` (or equivalent) invokes zoom/pan reset for the loaded pane(s) consistent with independent vs synchronized zoom mode
+- [ ] Test Close Videos clears both loaded videos, resets both panes, restores timeline/sync sliders to 0, and updates controls/menu state accordingly
 
 ### Entry Point / CLI (`__main__.py` and app startup wiring)
 - [x] Implement command-line parsing with `argparse` (no custom parser)

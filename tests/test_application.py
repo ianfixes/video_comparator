@@ -752,6 +752,50 @@ class TestApplication(unittest.TestCase):
         mock_pane2.reset_zoom_pan.assert_called_once()
         mock_zc.update_zoom_display.assert_called()
 
+    def test_handle_close_videos_resets_to_startup_state(self) -> None:
+        """Close Videos restores blank panes with timeline/sync reset to zero."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta_loaded = VideoMetadata(
+            file_path=Path("/loaded.mp4"),
+            duration=5.0,
+            fps=25.0,
+            width=1280,
+            height=720,
+            pixel_format="yuv420p",
+            total_frames=125,
+            time_base=0.04,
+        )
+        app.metadata_video1 = meta_loaded
+        app.metadata_video2 = meta_loaded
+        app.timeline_controller = TimelineController(meta_loaded, meta_loaded)
+        app.timeline_controller.set_sync_offset(12)
+        app.timeline_controller.set_position(1.0)
+
+        app.playback_controller = MagicMock()
+        app.decoder_video1 = MagicMock()
+        app.decoder_video2 = MagicMock()
+        app.frame_cache_video1 = MagicMock()
+        app.frame_cache_video2 = MagicMock()
+        app.video_pane1 = MagicMock()
+        app.video_pane2 = MagicMock()
+        app.control_panel = MagicMock()
+        app.control_panel.timeline_slider = MagicMock()
+        app.control_panel.sync_controls = MagicMock()
+        app.control_panel.zoom_controls = MagicMock()
+
+        app._handle_close_videos()
+
+        self.assertEqual(app.timeline_controller.current_position, 0.0)
+        self.assertEqual(app.timeline_controller.sync_offset_frames, 0)
+        self.assertIsNone(app.playback_controller)
+        app.video_pane1.set_metadata.assert_called_once_with(None)
+        app.video_pane2.set_metadata.assert_called_once_with(None)
+        app.video_pane1.set_frame.assert_called_once_with(None)
+        app.video_pane2.set_frame.assert_called_once_with(None)
+        app.control_panel.update_load_state.assert_called_once_with(False, False)
+        app.control_panel.sync_controls.update_offset.assert_called_once()
+        app.control_panel.timeline_slider.update_range.assert_called_once()
+
     def test_startup_with_one_positional_video_calls_pane1_load_path(self) -> None:
         """CLI startup with one video loads slot 1."""
         app = Application(

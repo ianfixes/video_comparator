@@ -193,6 +193,21 @@ class TestMainFrame(unittest.TestCase):
             layout_manager.update_layout.assert_called_once_with(800, 600)
             size_event.Skip.assert_called_once()
 
+    def test_set_menu_handlers_binds_close_videos_handler(self) -> None:
+        """File menu close-videos callback is bound when provided."""
+        with patch("video_comparator.app.main_frame.wx.Frame.__init__", return_value=None), patch.object(
+            MainFrame, "_create_menu_bar"
+        ), patch.object(MainFrame, "_create_layout"), patch.object(MainFrame, "_bind_events"):
+            frame = MainFrame(
+                layout_manager=self.layout_manager,
+                control_panel=self.control_panel,
+                shortcut_manager=self.shortcut_manager,
+            )
+            frame._close_videos_item = MagicMock()
+            with patch.object(frame, "Bind") as mock_bind:
+                frame.set_menu_handlers(on_close_videos=MagicMock())
+            self.assertEqual(mock_bind.call_count, 1)
+
     def test_integration_with_layout_manager(self) -> None:
         """Test integration with LayoutManager."""
         with patch("video_comparator.app.main_frame.wx.Frame.__init__", return_value=None), patch.object(
