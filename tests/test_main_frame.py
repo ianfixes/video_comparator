@@ -215,5 +215,5 @@ class TestMainFrame(unittest.TestCase):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=DeprecationWarning)
                 key_event = MagicMock(spec=wx.KeyEvent)
-            frame._on_key_down(key_event)
+                frame._on_char_hook(key_event)
             self.shortcut_manager.handle_key_event.assert_called_once_with(key_event)

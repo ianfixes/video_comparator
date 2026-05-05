@@ -106,6 +106,7 @@ class TestKeyBinding(unittest.TestCase):
 
         event = MagicMock()
         event.GetKeyCode.return_value = wx.WXK_SPACE
+        event.GetUnicodeKey.return_value = 0
         event.GetModifiers.return_value = wx.MOD_CONTROL
 
         self.assertTrue(binding.matches_event(event))
@@ -121,6 +122,7 @@ class TestKeyBinding(unittest.TestCase):
 
         event = MagicMock()
         event.GetKeyCode.return_value = wx.WXK_RETURN
+        event.GetUnicodeKey.return_value = 0
         event.GetModifiers.return_value = wx.MOD_CONTROL
 
         self.assertFalse(binding.matches_event(event))
@@ -136,9 +138,36 @@ class TestKeyBinding(unittest.TestCase):
 
         event = MagicMock()
         event.GetKeyCode.return_value = wx.WXK_SPACE
+        event.GetUnicodeKey.return_value = 0
         event.GetModifiers.return_value = wx.MOD_SHIFT
 
         self.assertFalse(binding.matches_event(event))
+
+    def test_matches_event_uses_unicode_when_keycode_is_zero(self) -> None:
+        """CHAR_HOOK on macOS often leaves GetKeyCode() unset for punctuation and Space."""
+        binding = KeyBinding(
+            key_code=ord(","),
+            modifiers=0,
+            command="step_backward",
+            tooltip="Comma",
+        )
+        event = MagicMock()
+        event.GetKeyCode.return_value = 0
+        event.GetUnicodeKey.return_value = ord(",")
+        event.GetModifiers.return_value = 0
+        self.assertTrue(binding.matches_event(event))
+
+        binding_space = KeyBinding(
+            key_code=wx.WXK_SPACE,
+            modifiers=0,
+            command="play_pause",
+            tooltip="Space",
+        )
+        ev2 = MagicMock()
+        ev2.GetKeyCode.return_value = 0
+        ev2.GetUnicodeKey.return_value = 32
+        ev2.GetModifiers.return_value = 0
+        self.assertTrue(binding_space.matches_event(ev2))
 
 
 class TestShortcutManager(unittest.TestCase):
@@ -148,8 +177,9 @@ class TestShortcutManager(unittest.TestCase):
         """Test default key bindings are registered."""
         handlers = {
             "play_pause": lambda: None,
-            "play_forward": lambda: None,
-            "play_reverse": lambda: None,
+            "play_pause_reverse": lambda: None,
+            "seek_backward_10s": lambda: None,
+            "seek_forward_10s": lambda: None,
             "stop": lambda: None,
             "step_forward": lambda: None,
             "step_backward": lambda: None,
@@ -165,8 +195,9 @@ class TestShortcutManager(unittest.TestCase):
 
         expected_commands = {
             "play_pause",
-            "play_forward",
-            "play_reverse",
+            "play_pause_reverse",
+            "seek_backward_10s",
+            "seek_forward_10s",
             "stop",
             "step_forward",
             "step_backward",
@@ -211,7 +242,6 @@ class TestShortcutManager(unittest.TestCase):
 
         self.assertTrue(handler_called)
         self.assertTrue(result)
-        event.Skip.assert_called_once()
 
     def test_key_press_no_handler_returns_false(self) -> None:
         """Test key press with no matching handler returns False."""
@@ -274,7 +304,7 @@ class TestShortcutManager(unittest.TestCase):
 
         self.assertIsNotNone(tooltip)
         if tooltip is not None:
-            self.assertIn("Play/Pause", tooltip)
+            self.assertIn("Space", tooltip)
 
     def test_tooltip_generation_nonexistent_command(self) -> None:
         """Test tooltip generation returns None for nonexistent command."""
@@ -353,12 +383,11 @@ class TestShortcutManager(unittest.TestCase):
             nonlocal handler_called
             handler_called = True
 
-        handlers = {"sync_nudge_forward": test_handler}
+        handlers = {"play_pause_reverse": test_handler}
         manager = ShortcutManager(command_handlers=handlers)
 
-        # Sync nudge forward is bound to Shift+Up by default
         event = MagicMock()
-        event.GetKeyCode.return_value = wx.WXK_UP
+        event.GetKeyCode.return_value = wx.WXK_SPACE
         event.GetModifiers.return_value = wx.MOD_SHIFT
 
         result = manager.handle_key_event(event)

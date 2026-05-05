@@ -168,7 +168,9 @@ class MainFrame(wx.Frame):
         """Bind window events."""
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.Bind(wx.EVT_SIZE, self._on_resize)
-        self.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+        # CHAR_HOOK runs before focused-child key handling so shortcuts work when
+        # video panes or control widgets have focus (Specification §11).
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_char_hook)
 
     def _on_close(self, event: wx.CloseEvent) -> None:
         """Handle window close event.
@@ -189,14 +191,11 @@ class MainFrame(wx.Frame):
             self.layout_manager.update_layout(size.GetWidth(), size.GetHeight())
         event.Skip()
 
-    def _on_key_down(self, event: wx.KeyEvent) -> None:
-        """Handle keyboard events and dispatch to ShortcutManager.
-
-        Args:
-            event: wx.KeyEvent
-        """
-        if not self.shortcut_manager.handle_key_event(event):
-            event.Skip()
+    def _on_char_hook(self, event: wx.KeyEvent) -> None:
+        """Dispatch application shortcuts before child widgets consume keys."""
+        if self.shortcut_manager.handle_key_event(event):
+            return
+        event.Skip()
 
     def _on_exit(self, event: wx.CommandEvent) -> None:
         """Handle exit menu item.

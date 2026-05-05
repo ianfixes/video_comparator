@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import wx
 
 from video_comparator.app.application import Application
-from video_comparator.common.types import PlaybackState
+from video_comparator.common.types import PlaybackDirection, PlaybackState
 from video_comparator.config.settings_manager import SettingsManager
 from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
@@ -231,6 +231,26 @@ class TestApplication(unittest.TestCase):
                 app.initialize()
                 self.settings_manager.load.assert_called_once()
 
+    def test_shortcuts_include_play_and_step_even_without_playback_controller(self) -> None:
+        """Shortcut handlers should always be registered; handlers themselves no-op until controller exists."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.playback_controller = None
+        app.timeline_controller = MagicMock()
+        app.layout_manager = MagicMock()
+        app.video_pane1 = MagicMock()
+        app.video_pane2 = MagicMock()
+
+        with patch("video_comparator.app.application.ShortcutManager") as mock_shortcut_manager:
+            app._create_shortcut_manager()
+
+        self.assertTrue(mock_shortcut_manager.called)
+        kwargs = mock_shortcut_manager.call_args.kwargs
+        handlers = kwargs["command_handlers"]
+        self.assertIn("play_pause", handlers)
+        self.assertIn("play_pause_reverse", handlers)
+        self.assertIn("step_forward", handlers)
+        self.assertIn("step_backward", handlers)
+
     def test_error_handling_integration(self) -> None:
         """Test error handling integration."""
         with patch("video_comparator.app.application.wx.App") as mock_app_class:
@@ -396,6 +416,157 @@ class TestApplication(unittest.TestCase):
 
         mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
         mock_pc.request_frames_at_current_position.assert_not_called()
+
+    def test_handle_play_pause_unpause_uses_play_forward(self) -> None:
+        """Space from paused/stopped uses play_forward(), not play(), so unpause is always forward."""
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PAUSED
+        app.playback_controller = mock_pc
+        app.control_panel = MagicMock()
+
+        app._handle_play_pause()
+
+        mock_pc.play_forward.assert_called_once()
+        mock_pc.play.assert_not_called()
+
+    def test_handle_play_pause_when_playing_pauses(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PLAYING
+        app.playback_controller = mock_pc
+        app.control_panel = MagicMock()
+
+        app._handle_play_pause()
+
+        mock_pc.pause.assert_called_once()
+
+    def test_handle_play_pause_reverse_when_paused_calls_play_reverse(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PAUSED
+        app.playback_controller = mock_pc
+        app.control_panel = MagicMock()
+
+        app._handle_play_pause_reverse()
+
+        mock_pc.play_reverse.assert_called_once()
+
+    def test_handle_play_pause_reverse_when_playing_forward_pauses(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PLAYING
+        mock_pc.playback_direction = PlaybackDirection.FORWARD
+        app.playback_controller = mock_pc
+        app.control_panel = MagicMock()
+
+        app._handle_play_pause_reverse()
+
+        mock_pc.pause.assert_called_once()
+
+    def test_handle_play_pause_reverse_when_playing_reverse_pauses(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        mock_pc = MagicMock()
+        mock_pc.state = PlaybackState.PLAYING
+        mock_pc.playback_direction = PlaybackDirection.REVERSE
+        app.playback_controller = mock_pc
+        app.control_panel = MagicMock()
+
+        app._handle_play_pause_reverse()
+
+        mock_pc.pause.assert_called_once()
+
+    def test_seek_timeline_seconds_updates_position_and_requests_frames(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta1 = VideoMetadata(
+            file_path=Path("/a.mp4"),
+            duration=30.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=900,
+            time_base=0.001,
+        )
+        meta2 = VideoMetadata(
+            file_path=Path("/b.mp4"),
+            duration=30.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=900,
+            time_base=0.001,
+        )
+        app.timeline_controller = TimelineController(meta1, meta2)
+        app.timeline_controller.set_position(15.0)
+        mock_pc = MagicMock()
+        app.playback_controller = mock_pc
+        mock_cp = MagicMock()
+        mock_cp.timeline_slider = MagicMock()
+        app.control_panel = mock_cp
+
+        app._seek_timeline_seconds(-10.0)
+
+        self.assertAlmostEqual(app.timeline_controller.current_position, 5.0)
+        mock_cp.timeline_slider.update_position.assert_called_once()
+        mock_pc.request_frames_at_current_position.assert_called_once()
+
+    def test_keyboard_step_forward_updates_timeline_label_position(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.playback_controller = MagicMock()
+        mock_cp = MagicMock()
+        mock_cp.timeline_slider = MagicMock()
+        app.control_panel = mock_cp
+
+        app._handle_step_forward()
+
+        app.playback_controller.frame_step_forward.assert_called_once()
+        mock_cp.timeline_slider.update_position.assert_called_once()
+
+    def test_keyboard_step_backward_updates_timeline_label_position(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        app.playback_controller = MagicMock()
+        mock_cp = MagicMock()
+        mock_cp.timeline_slider = MagicMock()
+        app.control_panel = mock_cp
+
+        app._handle_step_backward()
+
+        app.playback_controller.frame_step_backward.assert_called_once()
+        mock_cp.timeline_slider.update_position.assert_called_once()
+
+    def test_sync_nudge_forward_ignored_when_sync_slider_disabled(self) -> None:
+        app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
+        meta1 = VideoMetadata(
+            file_path=Path("/a.mp4"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+        meta2 = VideoMetadata(
+            file_path=Path("/b.mp4"),
+            duration=10.0,
+            fps=30.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=300,
+            time_base=0.001,
+        )
+        app.timeline_controller = TimelineController(meta1, meta2)
+        mock_cp = MagicMock()
+        mock_cp.sync_controls.offset_slider.IsEnabled.return_value = False
+        app.control_panel = mock_cp
+        off0 = app.timeline_controller.sync_offset_frames
+
+        app._handle_sync_nudge_forward()
+
+        self.assertEqual(app.timeline_controller.sync_offset_frames, off0)
 
     def test_dropped_path_rejects_bad_extension(self) -> None:
         """Drag-drop handler does not load files with non-video extensions."""

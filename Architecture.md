@@ -263,16 +263,23 @@ This document outlines the major subsystems for the video comparator. Each subsy
 
 ### 9) Input & Shortcuts
 #### Responsibilities
-- keyboard shortcuts for
-  - play/pause (extend documentation when implementing reverse vs forward shortcuts — distinct bindings recommended if shortcuts remain parity with toolbar)
-  - step
-  - zoom
-  - sync nudge
-  - layout toggle
-  - (optional / future) **Reset Zoom** and **Reset Pan** if shortcuts are extended beyond toolbar parity with Specification §7
-- tooltip/help text
-- optional shortcut customization
-- unified dispatch so buttons and keys hit the same controller actions.
+- keyboard shortcuts per **`Specification.md`** §§3–7 and §11 (defaults summarized below); **`ShortcutManager`** holds bindings + dispatch; **`MainFrame`** binds **`EVT_CHAR_HOOK`** so shortcuts fire even when a video pane or control has focus (before **`EVT_KEY_DOWN`** reaches the focused child).
+- **Normative defaults** (full semantics in Specification):
+
+  | Key | Command intent |
+  |-----|----------------|
+  | **Space** | Play/pause: pause when playing; unpause **forward** when paused; start forward when stopped (with media) |
+  | **Shift+Space** | From paused: unpause **reverse**; from stopped: start reverse; while playing: toggle direction (forward ↔ reverse) |
+  | **Left / Right Arrow** | Timeline seek **−10 s** / **+10 s** (clamped) |
+  | **Period** | Frame step forward |
+  | **Comma** | Frame step backward |
+  | **Minus** | Sync offset −1 frame (both videos loaded) |
+  | **Equals** | Sync offset +1 frame (both videos loaded) |
+
+- Additional defaults: **Ctrl+S** Stop; **Ctrl+L** / **Ctrl+Shift+M** layout & scaling; **Ctrl+[** / **Ctrl+]** zoom out/in; **0** zoom reset — distinct from unmodified **Minus**/**Equals**/**Comma**/**Period** (Specification §7).
+- tooltip/help text aligned with bindings
+- optional shortcut customization (`Settings.shortcut_overrides`)
+- unified dispatch so toolbar/menu actions and keys invoke the same controller methods where applicable.
 #### Testability
 - keybinding maps are pure data
 - unit tests ensure commands dispatch to controllers.

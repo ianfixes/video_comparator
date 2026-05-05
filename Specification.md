@@ -34,10 +34,12 @@ This software project aims to deliver a cross-platform graphical user interface 
    - Dragging or clicking the slider moves both videos to the specified timestamp/frame, keeping them synchronized (with applicable sync offsets).
    - When the user changes the timeline position (e.g. by dragging the slider), the application shall request and display the frame(s) at the new position.
    - The current playback time/frame should be displayed for each video.
+   - **Default keyboard (coarse seek):** **Left Arrow** shall move the timeline backward by **10 seconds**; **Right Arrow** shall move it forward by **10 seconds**, both clamped to the valid navigable range. Both videos remain synchronized (including sync offsets).
 
 4. **Frame-by-Frame Control**
    - Hotkeys and on-screen buttons must allow users to skip forward or backward a single frame in both videos simultaneously.
    - Frame-step hotkeys/buttons should work even when the videos are paused.
+   - **Default keyboard:** **Period** (`.`) shall step **forward** one frame; **Comma** (`,`) shall step **backward** one frame (same behaviour as the on-screen frame-step controls).
 
 5. **Playback Control**
    - There must be **forward play**, **reverse play**, pause, and stop controls so both videos can advance **either direction** through the timeline together while staying in sync.
@@ -47,6 +49,9 @@ This software project aims to deliver a cross-platform graphical user interface 
    - **Both direction-specific play buttons** shall observe the **same enablement rule** as the single play control today: enabled **only when at least one video is loaded**, disabled when no video is loaded. Button enabled/disabled styling should reflect **which direction is active** when playing (e.g. disable or de-emphasize the inactive-direction play button while one direction is active — exact UX left to implementation provided intent is clear).
    - When only one video is loaded, that video shall still be playable in **both** directions (plus pause, stop, frame step, and timeline seek).
    - Playback should maintain synchronization between both videos (within the configured sync settings) in **either** direction.
+   - **Default keyboard (play/pause and direction):**
+     - **Space** shall act as **play/pause**: when **playing** (**forward or reverse**), it shall **pause**; when **paused**, it shall **always** resume **forward** play from the current timeline position; when **stopped** with at least one video loaded, it shall start **forward** play (same effective outcome as **▶ Play** from rest).
+     - **Shift+Space**: when **paused**, shall **always** resume **reverse** play from the current timeline position (never forward). When **stopped** with at least one video loaded, shall start **reverse** play (**◀ Play**). When **already playing**, shall toggle playback direction (**forward ↔ reverse**) at the current timeline position (same intent as swapping **◀ Play** / **▶ Play**).
 
 6. **Sync Adjustment Controls for Second Video**
    - Sync adjustment controls (slider and +/-1 frame buttons) shall be enabled only when **both** videos are loaded; they shall be disabled when fewer than two videos are loaded.
@@ -54,9 +59,11 @@ This software project aims to deliver a cross-platform graphical user interface 
      - A slider for rough adjustment of sync offset relative to the first video (expressed in frames, positive or negative).
      - "+" and "-" buttons for precise adjustment: shifting the second video's position by one frame forward or backward.
    - The effective sync offset must be visually indicated.
+   - **Default keyboard:** When sync controls are enabled (**both** videos loaded), **Minus** (`-`, US keyboard hyphen/minus) shall apply a **−1** frame nudge to sync offset; **Equals** (`=`) shall apply a **+1** frame nudge (same as the on-screen **−1** / **+1** controls). When sync controls are disabled, these keys shall have no effect on sync.
 
 7. **Zoom and Region Inspection**
    - The application must provide controls and/or hotkeys to zoom in and out on the video display area, as well as to reset zoom to default.
+   - Default **zoom** keyboard bindings (if any) shall **not** use the same unmodified keys as the **sync** defaults (**Minus**, **Equals**) or the **frame-step** defaults (**Comma**, **Period**) defined elsewhere in this specification; implementations shall choose distinct chords or keys and document them.
    - Mouse interactions for zoom and pan:
      - **Mouse drag**: Clicking and dragging the mouse within a video pane must pan the zoomed region, allowing users to inspect different areas of the frame.
      - **Scroll wheel**: Scrolling the mouse wheel over a video pane must zoom in (scroll up) or zoom out (scroll down) on that pane.
@@ -90,7 +97,20 @@ This software project aims to deliver a cross-platform graphical user interface 
 11. **User Interface and Usability**
     - Each pane should display video filename, coded resolution, display dimensions/aspect context (when non-square pixel metadata is present), and playback time/frame.
     - Tooltips and labels should clarify the purpose of all controls, including zoom and pan features.
-    - Keyboard shortcuts must be documented and customizable if possible, **including** (once implemented) distinct documented bindings or toolbar parity for **forward vs reverse play** (§5).
+    - Keyboard shortcuts must be **documented** (see consolidated table below and `README.md`) and **customizable if possible** without breaking the logical commands (play/pause, seek, frame step, sync nudge, zoom, layout, etc.).
+    - **Consolidated default bindings (normative summary):** The application shall implement at least the following defaults (detailed semantics in §§3–7):
+
+      | Key | Action |
+      |-----|--------|
+      | **Space** | Pause if playing; if paused or stopped (with media), resume/start **forward** play |
+      | **Shift+Space** | From **paused**, unpause **always reverse**; from **stopped** (with media), start **reverse**; while **playing**, toggle direction forward ↔ reverse |
+      | **Left Arrow** | Seek timeline **−10 s** (clamped) |
+      | **Right Arrow** | Seek timeline **+10 s** (clamped) |
+      | **Period** (`.`) | Frame step **forward** |
+      | **Comma** (`,`) | Frame step **backward** |
+      | **Minus** (`-`) | Sync offset **−1** frame (when both videos loaded) |
+      | **Equals** (`=`) | Sync offset **+1** frame (when both videos loaded) |
+
     - UI should clearly indicate the current zoom level and allow resetting the view easily (including non-default zoom called out via label coloring per §7, **Reset Zoom** / **Reset Pan** enablement per §7, and tooltips that distinguish “reset magnification + pan” from “reset pan only”).
 
 12. **Error Handling**

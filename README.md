@@ -91,6 +91,22 @@ poetry install
 - FFmpeg libraries (installed system-wide or via package manager)
 - wxWidgets runtime libraries (included with wxPython package)
 
+## Keyboard shortcuts (defaults)
+
+Bindings match **`Specification.md`** (§§3–7, §11). The main window handles **`EVT_CHAR_HOOK`** so shortcuts run before focused children (video panes, sliders, etc.) consume keys.
+
+| Key | Action |
+|-----|--------|
+| **Space** | Play/pause: pauses when playing; **unpause always forward**; from stopped (with media), start forward |
+| **Shift+Space** | From **paused**: unpause **always reverse**; from **stopped**: start reverse; while **playing**, toggles direction (forward ↔ reverse) |
+| **← / →** | Seek timeline **10 seconds** backward / forward (clamped) |
+| **.** (period) | Step **forward** one frame |
+| **,** (comma) | Step **backward** one frame |
+| **−** (minus) | Sync offset **−1** frame (when both videos loaded) |
+| **=** (equals) | Sync offset **+1** frame (when both videos loaded) |
+
+Other defaults: **Ctrl+S** Stop, **Ctrl+L** layout, **Ctrl+Shift+M** scaling, **Ctrl+[** / **Ctrl+]** zoom out/in, **0** reset zoom (see `Architecture.md` §9).
+
 ## Testing
 
 The project uses pytest for unit and integration tests. Test files are located in the `tests/` directory.

@@ -18,7 +18,7 @@ import wx
 
 from video_comparator.app.main_frame import MainFrame
 from video_comparator.cache.frame_cache import FrameCache, print_framedebug
-from video_comparator.common.types import LayoutOrientation, ScalingMode
+from video_comparator.common.types import LayoutOrientation, PlaybackDirection, PlaybackState, ScalingMode
 from video_comparator.config.settings import Settings
 from video_comparator.config.settings_manager import SettingsManager
 from video_comparator.decode.video_decoder import VideoDecoder
@@ -225,13 +225,19 @@ class Application:
         """Create shortcut manager with command handlers."""
         command_handlers: Dict[str, Callable] = {}
 
-        if self.playback_controller is not None:
-            command_handlers["play_pause"] = self._handle_play_pause
-            command_handlers["play_forward"] = self._handle_play_forward
-            command_handlers["play_reverse"] = self._handle_play_reverse
-            command_handlers["stop"] = self._handle_stop
-            command_handlers["step_forward"] = self._handle_step_forward
-            command_handlers["step_backward"] = self._handle_step_backward
+        command_handlers["play_pause"] = self._handle_play_pause
+        command_handlers["play_pause_reverse"] = self._handle_play_pause_reverse
+        command_handlers["play_forward"] = self._handle_play_forward
+        command_handlers["play_reverse"] = self._handle_play_reverse
+        command_handlers["stop"] = self._handle_stop
+        command_handlers["step_forward"] = self._handle_step_forward
+        command_handlers["step_backward"] = self._handle_step_backward
+
+        if self.timeline_controller is not None:
+            command_handlers["seek_backward_10s"] = self._handle_seek_backward_10s
+            command_handlers["seek_forward_10s"] = self._handle_seek_forward_10s
+            command_handlers["sync_nudge_forward"] = self._handle_sync_nudge_forward
+            command_handlers["sync_nudge_backward"] = self._handle_sync_nudge_backward
 
         if self.layout_manager is not None:
             command_handlers["toggle_layout"] = self._handle_toggle_layout
@@ -241,10 +247,6 @@ class Application:
             command_handlers["zoom_in"] = self._handle_zoom_in
             command_handlers["zoom_out"] = self._handle_zoom_out
             command_handlers["zoom_reset"] = self._handle_zoom_reset
-
-        if self.timeline_controller is not None:
-            command_handlers["sync_nudge_forward"] = self._handle_sync_nudge_forward
-            command_handlers["sync_nudge_backward"] = self._handle_sync_nudge_backward
 
         settings = self.settings_manager.get_settings()
         custom_bindings = None
@@ -448,8 +450,6 @@ class Application:
             self.control_panel.timeline_slider.update_range_after_sync_offset_change()
         if self.playback_controller is None:
             return
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller.state != PlaybackState.PLAYING:
             self.playback_controller.request_frames_at_current_position()
 
@@ -462,8 +462,6 @@ class Application:
 
     def _on_playback_timer(self, event: wx.TimerEvent) -> None:
         """Advance playback when playing and update timeline slider."""
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller is None:
             return
         if self.playback_controller.state != PlaybackState.PLAYING:
@@ -482,15 +480,51 @@ class Application:
             self.control_panel.update_button_states()
 
     def _handle_play_pause(self) -> None:
-        """Handle play/pause command."""
+        """Space: pause when playing; unpause always forward; stopped → forward play (Specification §5)."""
         if self.playback_controller is None:
             return
-        from video_comparator.common.types import PlaybackState
-
         if self.playback_controller.state == PlaybackState.PLAYING:
             self.playback_controller.pause()
         else:
-            self.playback_controller.play()
+            self.playback_controller.play_forward()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_play_pause_reverse(self) -> None:
+        """Shift+Space: pause when playing; otherwise reverse unpause/reverse start."""
+        if self.playback_controller is None:
+            return
+        pc = self.playback_controller
+        if pc.state == PlaybackState.PLAYING:
+            pc.pause()
+        else:
+            pc.play_reverse()
+        if self.control_panel is not None:
+            self.control_panel.update_button_states()
+
+    def _handle_seek_backward_10s(self) -> None:
+        """Seek timeline −10 seconds (clamped)."""
+        self._seek_timeline_seconds(-10.0)
+
+    def _handle_seek_forward_10s(self) -> None:
+        """Seek timeline +10 seconds (clamped)."""
+        self._seek_timeline_seconds(10.0)
+
+    def _seek_timeline_seconds(self, delta_seconds: float) -> None:
+        """Apply a signed timeline jump and refresh slider + frames."""
+        if self.timeline_controller is None:
+            return
+        min_p, max_p = self.timeline_controller.get_effective_range()
+        if max_p <= min_p:
+            return
+        cur = self.timeline_controller.current_position
+        new_t = max(min_p, min(cur + delta_seconds, max_p))
+        if new_t == cur:
+            return
+        self.timeline_controller.set_position(new_t)
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
+        self._on_timeline_position_changed()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -523,6 +557,8 @@ class Application:
         if self.playback_controller is None:
             return
         self.playback_controller.frame_step_forward()
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -531,6 +567,8 @@ class Application:
         if self.playback_controller is None:
             return
         self.playback_controller.frame_step_backward()
+        if self.control_panel is not None and self.control_panel.timeline_slider is not None:
+            self.control_panel.timeline_slider.update_position()
         if self.control_panel is not None:
             self.control_panel.update_button_states()
 
@@ -714,6 +752,8 @@ class Application:
         """Handle sync nudge forward command."""
         if self.timeline_controller is None:
             return
+        if self.control_panel is None or not self.control_panel.sync_controls.offset_slider.IsEnabled():
+            return
         self.timeline_controller.increment_sync_offset()
         if self.control_panel is not None:
             self.control_panel.sync_controls.update_offset()
@@ -722,6 +762,8 @@ class Application:
     def _handle_sync_nudge_backward(self) -> None:
         """Handle sync nudge backward command."""
         if self.timeline_controller is None:
+            return
+        if self.control_panel is None or not self.control_panel.sync_controls.offset_slider.IsEnabled():
             return
         self.timeline_controller.decrement_sync_offset()
         if self.control_panel is not None:

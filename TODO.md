@@ -556,10 +556,12 @@ This document outlines the implementation plan from lowest-level modules to high
 
 ### ShortcutManager (`input/shortcut_manager.py`)
 - [x] Add distinct default shortcuts for **reverse play** vs **forward play** when implementing dual-direction playback (keeping pause/stop parity); update tooltip/help strings accordingly.
+- [x] **Reconcile defaults with `Specification.md` §11:** **Space** / **Shift+Space** play semantics; **←/→** ±10 s timeline seek (not frame step); **comma** / **period** frame step (not continuous play); **minus** / **equals** sync ±1; zoom on **Ctrl+[** / **Ctrl+]** per §7.
+- [x] **Focus / routing:** **`MainFrame`** uses **`EVT_CHAR_HOOK`** so **`ShortcutManager`** runs before focused children consume keys.
 - [x] Implement default key bindings
 - [x] Implement key binding registration
 - [x] Implement command dispatch to handlers
-- [x] Implement keyboard event handling (wx.EVT_KEY_DOWN)
+- [x] Implement keyboard event handling (`EVT_CHAR_HOOK` on main frame → `ShortcutManager`)
 - [x] Implement tooltip/help text generation
 - [x] Implement custom binding override support
 
@@ -708,7 +710,7 @@ This document outlines the implementation plan from lowest-level modules to high
 
 ### Documentation
 - [ ] Write user documentation (how to use the application)
-- [ ] Document keyboard shortcuts
+- [x] Document keyboard shortcuts (**normative:** `Specification.md` §§3–7 & §11 table; **quick reference:** `README.md`; **engineering:** `Architecture.md` §9 — implementation still pending)
 - [ ] Write developer documentation (architecture overview)
 - [ ] Document extension points for future features
 
