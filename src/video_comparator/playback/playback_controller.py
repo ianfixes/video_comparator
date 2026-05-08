@@ -298,7 +298,7 @@ class PlaybackController:
             return
 
         if result.status != FrameRequestStatus.SUCCESS and result.error is not None:
-            self.error_handler.handle_error(result.error)
+            self.error_handler.handle_error(self._annotate_error_with_video_context(video_id, result.error))
 
         with self._sync_lock:
             if video_id == 1:
@@ -326,6 +326,21 @@ class PlaybackController:
                     self.frame_cache_video1.signal_sync_complete()
                 if self.decoder_video2 is not None:
                     self.frame_cache_video2.signal_sync_complete()
+
+    def _annotate_error_with_video_context(self, video_id: int, error: Exception) -> Exception:
+        """Attach decoder identity context (video slot and file) to frame errors."""
+        decoder = self.decoder_video1 if video_id == 1 else self.decoder_video2
+        file_path = None
+        if decoder is not None and decoder.metadata.file_path is not None:
+            file_path = decoder.metadata.file_path.name
+        decoder_label = f"video {video_id}"
+        if file_path is not None:
+            decoder_label = f"{decoder_label} ({file_path})"
+        annotated_message = f"{decoder_label}: {error}"
+        try:
+            return error.__class__(annotated_message)
+        except Exception:
+            return Exception(annotated_message)
 
     def _generate_protected_frame_sequence(
         self,

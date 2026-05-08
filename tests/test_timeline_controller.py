@@ -61,29 +61,29 @@ class TestTimelineController(unittest.TestCase):
         self.assertAlmostEqual(controller.frame_to_time_video1(240), 10.0)
 
     def test_frame_to_time_conversion_video2_with_positive_offset(self) -> None:
-        """Test frame-to-time conversion for video 2 with positive offset."""
+        """Video-2 source frame-to-time conversion is independent of sync offset."""
         controller = TimelineController(self.metadata_30fps, self.metadata_24fps)
         controller.set_sync_offset(5)
 
         frame = 5
-        expected_time = (frame - 5) / 24.0
+        expected_time = frame / 24.0
         self.assertAlmostEqual(controller.frame_to_time_video2(frame), expected_time)
 
         frame = 29
-        expected_time = (frame - 5) / 24.0
+        expected_time = frame / 24.0
         self.assertAlmostEqual(controller.frame_to_time_video2(frame), expected_time)
 
     def test_frame_to_time_conversion_video2_with_negative_offset(self) -> None:
-        """Test frame-to-time conversion for video 2 with negative offset."""
+        """Video-2 source frame-to-time conversion ignores negative sync offset as well."""
         controller = TimelineController(self.metadata_30fps, self.metadata_24fps)
         controller.set_sync_offset(-3)
 
         frame = 0
-        expected_time = (frame - (-3)) / 24.0
+        expected_time = frame / 24.0
         self.assertAlmostEqual(controller.frame_to_time_video2(frame), expected_time)
 
         frame = 24
-        expected_time = (frame - (-3)) / 24.0
+        expected_time = frame / 24.0
         self.assertAlmostEqual(controller.frame_to_time_video2(frame), expected_time)
 
     def test_time_to_frame_conversion_video1_30fps(self) -> None:
@@ -331,6 +331,36 @@ class TestTimelineController(unittest.TestCase):
         frame = controller.time_to_frame_video2(10.0)
         self.assertLessEqual(frame, self.metadata_24fps.total_frames - 1)
         self.assertGreaterEqual(frame, 0)
+
+    def test_offset_24_frames_at_24fps_stays_one_second_ahead_vs_29fps_as_timeline_advances(self) -> None:
+        """Desired behavior: +24 frame offset on a 24fps video is a persistent +1s lead over timeline time."""
+        metadata_29fps = VideoMetadata(
+            file_path=Path("/test/video29.avi"),
+            duration=10.0,
+            fps=29.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=290,
+            time_base=0.001,
+        )
+        metadata_24fps = VideoMetadata(
+            file_path=Path("/test/video24.avi"),
+            duration=10.0,
+            fps=24.0,
+            width=1920,
+            height=1080,
+            pixel_format="yuv420p",
+            total_frames=240,
+            time_base=0.001,
+        )
+        controller = TimelineController(metadata_29fps, metadata_24fps)
+        controller.set_sync_offset(24)  # 24 frames @24fps == +1.0 second
+
+        for position_seconds in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0):
+            controller.set_position(position_seconds)
+            lead_seconds = controller.get_resolved_time_video2() - controller.get_resolved_time_video1()
+            self.assertAlmostEqual(lead_seconds, 1.0, delta=(1.0 / metadata_24fps.fps) + 1e-9)
 
     def test_position_with_different_durations(self) -> None:
         """Test position setting with videos of different durations."""

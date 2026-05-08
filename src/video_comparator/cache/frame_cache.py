@@ -39,6 +39,7 @@ class FrameCache:
 
     _prefetch_coordination_semaphore: Optional[threading.Semaphore] = None
     _prefetch_coordination_lock = threading.Lock()
+    _TAIL_FALLBACK_MAX_BACKTRACK_FRAMES = 2
 
     def __init__(
         self,
@@ -387,6 +388,16 @@ class FrameCache:
             dec_status, dec_err = self._attempt_to_cache_frame(frame_index, decoder)
 
             if dec_status != FrameRequestStatus.SUCCESS:
+                fallback_frame = self._try_tail_decode_fallback(frame_index, dec_status, decoder)
+                if fallback_frame is not None:
+                    return FrameResult(
+                        frame_number=frame_index,
+                        frame=self.debug_mark_frame_unique(fallback_frame, frame_index)
+                        if DEBUG_FORCE_UNIQUE_FRAMES
+                        else fallback_frame,
+                        status=FrameRequestStatus.SUCCESS,
+                        error=None,
+                    )
                 return FrameResult(
                     frame_number=frame_index,
                     frame=None,
@@ -414,6 +425,31 @@ class FrameCache:
             status=FrameRequestStatus.SUCCESS,
             error=None,
         )
+
+    def _try_tail_decode_fallback(
+        self, frame_index: int, dec_status: FrameRequestStatus, decoder: VideoDecoder
+    ) -> Optional[np.ndarray]:
+        """For near-EOF decode misses, clamp to nearest decodable trailing frame."""
+        if dec_status != FrameRequestStatus.DECODE_ERROR:
+            return None
+        tail_start = self._current_decoder_metadata_total_frames - 1 - self._TAIL_FALLBACK_MAX_BACKTRACK_FRAMES
+        if frame_index < max(0, tail_start):
+            return None
+
+        lowest_candidate = max(0, frame_index - self._TAIL_FALLBACK_MAX_BACKTRACK_FRAMES)
+        for candidate in range(frame_index - 1, lowest_candidate - 1, -1):
+            if self.has_frame(candidate):
+                cached = self.get(candidate)
+                if cached is not None:
+                    return cached
+                continue
+            status, _err = self._attempt_to_cache_frame(candidate, decoder)
+            if status != FrameRequestStatus.SUCCESS:
+                continue
+            cached = self.get(candidate)
+            if cached is not None:
+                return cached
+        return None
 
     def _update_access_order(self, frame_index: int) -> None:
         """Update LRU access order for a frame (must be called with lock held).

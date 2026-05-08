@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from video_comparator.cache.frame_cache import FrameCache
-from video_comparator.decode.video_decoder import DecodeOperationResult, VideoDecoder
+from video_comparator.common.types import FrameRequestStatus
+from video_comparator.decode.video_decoder import DecodeError, DecodeOperationResult, VideoDecoder
 
 
 class TestFrameCache(unittest.TestCase):
@@ -47,3 +48,50 @@ class TestFrameCache(unittest.TestCase):
             frame_cache.put(idx, frame)
 
         self.assertLessEqual(frame_cache.cache_size(), frame_cache.max_memory_bytes)
+
+    def test_fetch_frame_sync_tail_decode_fallback_returns_nearest_decodable_frame(self) -> None:
+        """Near-EOF decode miss should fall back to a trailing decodable frame without error."""
+        frame_cache = FrameCache(max_memory_mb=10)
+        decoder = MagicMock()
+        decoder.metadata = MagicMock()
+        decoder.metadata.total_frames = 100
+        frame_cache._current_decoder_metadata_total_frames = 100
+        target = 99
+        fallback = 98
+        fallback_frame = np.ones((2, 2, 3), dtype=np.uint8)
+
+        def decode_side_effect(frame_index: int) -> DecodeOperationResult:
+            if frame_index == target:
+                raise DecodeError("Failed to decode frame 99")
+            if frame_index == fallback:
+                return DecodeOperationResult(
+                    requested_frame=fallback_frame, decoded_frames=[(fallback, fallback_frame)]
+                )
+            raise AssertionError(f"Unexpected frame index {frame_index}")
+
+        decoder.decode_frame_operation.side_effect = decode_side_effect
+
+        result = frame_cache._fetch_frame_sync(target, decoder, is_prefetch=False)
+
+        self.assertEqual(result.status, FrameRequestStatus.SUCCESS)
+        self.assertIsNone(result.error)
+        self.assertIsNotNone(result.frame)
+        if result.frame is None:
+            self.fail("tail fallback should return a frame")
+        np.testing.assert_array_equal(result.frame, fallback_frame)
+        self.assertEqual(decoder.decode_frame_operation.call_args_list[0].args[0], target)
+        self.assertEqual(decoder.decode_frame_operation.call_args_list[1].args[0], fallback)
+
+    def test_fetch_frame_sync_non_tail_decode_error_is_not_suppressed(self) -> None:
+        """Decode errors away from EOF should still surface as DECODE_ERROR."""
+        frame_cache = FrameCache(max_memory_mb=10)
+        decoder = MagicMock()
+        decoder.metadata = MagicMock()
+        decoder.metadata.total_frames = 100
+        frame_cache._current_decoder_metadata_total_frames = 100
+        decoder.decode_frame_operation.side_effect = DecodeError("middle decode failure")
+
+        result = frame_cache._fetch_frame_sync(50, decoder, is_prefetch=False)
+
+        self.assertEqual(result.status, FrameRequestStatus.DECODE_ERROR)
+        self.assertIsInstance(result.error, DecodeError)

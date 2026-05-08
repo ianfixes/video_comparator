@@ -540,7 +540,11 @@ class TestPlaybackController(unittest.TestCase):
 
             self.frame_cache_video1.signal_sync_complete.assert_called_once()
             self.frame_cache_video2.signal_sync_complete.assert_called_once()
-            self.error_handler.handle_error.assert_called_once_with(error)
+            self.error_handler.handle_error.assert_called_once()
+            annotated = self.error_handler.handle_error.call_args[0][0]
+            self.assertIsInstance(annotated, DecodeError)
+            self.assertIn("video 2", str(annotated))
+            self.assertIn("Decode failed", str(annotated))
 
     def test_cancelled_frame_result_status_handling(self) -> None:
         """Test CANCELLED FrameResult status handling (discarded)."""
@@ -576,7 +580,11 @@ class TestPlaybackController(unittest.TestCase):
 
         controller._handle_frame_result(1, result)
 
-        self.error_handler.handle_error.assert_called_once_with(error)
+        self.error_handler.handle_error.assert_called_once()
+        annotated = self.error_handler.handle_error.call_args[0][0]
+        self.assertIsInstance(annotated, SeekError)
+        self.assertIn("video 1", str(annotated))
+        self.assertIn("Seek failed", str(annotated))
 
     def test_user_callback_receives_frame_result_objects(self) -> None:
         """Test user callback receives FrameResult objects for both videos."""
