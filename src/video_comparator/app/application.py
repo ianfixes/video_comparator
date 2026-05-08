@@ -376,9 +376,9 @@ class Application:
     ) -> None:
         """Handle frame callback from playback controller.
 
-        Defers pane updates to the next event loop iteration via wx.CallAfter so
-        that Refresh() is processed correctly (avoids blank panes when called from
-        timer or step handlers).
+        Applies pane updates immediately on the GUI thread: decode runs synchronously
+        on the same thread as the playback timer, so deferring with wx.CallAfter could
+        reorder updates behind the next timer tick (timeline/scrubber ahead of pixels).
 
         Args:
             result_video1: FrameResult for video 1
@@ -408,15 +408,7 @@ class Application:
             )
         frame1 = result_video1.frame.copy() if result_video1.frame is not None else None
         frame2 = result_video2.frame.copy() if result_video2.frame is not None else None
-        wx.CallAfter(
-            self._apply_frames_to_panes,
-            frame1,
-            frame2,
-            time_v1,
-            frame_v1,
-            time_v2,
-            frame_v2,
-        )
+        self._apply_frames_to_panes(frame1, frame2, time_v1, frame_v1, time_v2, frame_v2)
 
     def _apply_frames_to_panes(
         self,
@@ -454,8 +446,7 @@ class Application:
             self.control_panel.timeline_slider.update_range_after_sync_offset_change()
         if self.playback_controller is None:
             return
-        if self.playback_controller.state != PlaybackState.PLAYING:
-            self.playback_controller.request_frames_at_current_position()
+        self.playback_controller.request_frames_at_current_position()
 
     def _create_playback_timer(self) -> None:
         """Create and bind the playback advance timer (call tick when playing)."""

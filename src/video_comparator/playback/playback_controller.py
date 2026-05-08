@@ -21,6 +21,8 @@ from video_comparator.errors.error_handler import ErrorHandler
 from video_comparator.media.video_metadata import VideoMetadata
 from video_comparator.sync.timeline_controller import TimelineController
 
+_PrefillSkipSignature = Tuple[int, int, int, PlaybackDirection]
+
 
 class PlaybackError(Exception):
     """Base exception for playback controller errors."""
@@ -74,7 +76,8 @@ class PlaybackController:
         self.playback_speed: float = 1.0
         self._prefill_strategy_video1: Optional[PrefillStrategy] = None
         self._prefill_strategy_video2: Optional[PrefillStrategy] = None
-        self._last_position: float = -1.0
+        self._last_prefill_signature: Optional[_PrefillSkipSignature] = None
+        self._pending_delivery_overlay: Optional[Tuple[float, int, float, int]] = None
 
         self._sync_lock = threading.Lock()
         self._pending_result_video1: Optional[FrameResult] = None
@@ -95,7 +98,7 @@ class PlaybackController:
         self.playback_direction = PlaybackDirection.FORWARD
         self._transition_to_playing()
         if self.state == PlaybackState.PLAYING and prev_direction != PlaybackDirection.FORWARD:
-            self._last_position = -1.0
+            self._last_prefill_signature = None
             self._request_frames()
 
     def play_reverse(self) -> None:
@@ -104,7 +107,7 @@ class PlaybackController:
         self.playback_direction = PlaybackDirection.REVERSE
         self._transition_to_playing()
         if self.state == PlaybackState.PLAYING and prev_direction != PlaybackDirection.REVERSE:
-            self._last_position = -1.0
+            self._last_prefill_signature = None
             self._request_frames()
 
     def _transition_to_playing(self) -> None:
@@ -133,6 +136,7 @@ class PlaybackController:
         if self.state in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             self.state = PlaybackState.STOPPED
             self.playback_direction = PlaybackDirection.FORWARD
+            self._last_prefill_signature = None
             self.timeline_controller.set_position(0.0)
             self._update_prefill_strategies()
         elif self.state == PlaybackState.STOPPED:
@@ -144,7 +148,8 @@ class PlaybackController:
         """Quiesce playback state for application teardown without requesting frames."""
         self.state = PlaybackState.STOPPED
         self.playback_direction = PlaybackDirection.FORWARD
-        self._last_position = -1.0
+        self._last_prefill_signature = None
+        self._pending_delivery_overlay = None
         with self._sync_lock:
             self._pending_result_video1 = None
             self._pending_result_video2 = None
@@ -211,7 +216,7 @@ class PlaybackController:
 
     def request_frames_at_current_position(self) -> None:
         """Request frames for the current timeline position (e.g. after loading videos)."""
-        self._last_position = -1.0
+        self._last_prefill_signature = None
         self._request_frames()
 
     def _request_frames(self) -> None:
@@ -220,15 +225,26 @@ class PlaybackController:
 
     def _update_prefill_strategies(self) -> None:
         """Update PrefillStrategy instances for both frame caches based on current position."""
-        current_position = self.timeline_controller.current_position
-
-        if current_position == self._last_position:
-            return
-
-        self._last_position = current_position
-
         frame_video1 = self.timeline_controller.get_resolved_frame_video1()
         frame_video2 = self.timeline_controller.get_resolved_frame_video2()
+        skip_signature: _PrefillSkipSignature = (
+            frame_video1,
+            frame_video2,
+            self.timeline_controller.sync_offset_frames,
+            self.playback_direction,
+        )
+        if skip_signature == self._last_prefill_signature:
+            return
+
+        self._last_prefill_signature = skip_signature
+
+        current_position = self.timeline_controller.current_position
+        self._pending_delivery_overlay = (
+            self.timeline_controller.get_resolved_time_video1(),
+            frame_video1,
+            self.timeline_controller.get_resolved_time_video2(),
+            frame_video2,
+        )
 
         frames_video1 = self._generate_protected_frame_sequence(
             frame_video1, self.timeline_controller.metadata_video1, self.playback_direction
@@ -313,10 +329,15 @@ class PlaybackController:
                 self._pending_result_video2 = None
 
                 if self.frame_callback is not None:
-                    time_v1 = self.timeline_controller.get_resolved_time_video1()
-                    frame_v1 = self.timeline_controller.get_resolved_frame_video1()
-                    time_v2 = self.timeline_controller.get_resolved_time_video2()
-                    frame_v2 = self.timeline_controller.get_resolved_frame_video2()
+                    overlay = self._pending_delivery_overlay
+                    if overlay is not None:
+                        time_v1, frame_v1, time_v2, frame_v2 = overlay
+                    else:
+                        time_v1 = self.timeline_controller.get_resolved_time_video1()
+                        frame_v1 = self.timeline_controller.get_resolved_frame_video1()
+                        time_v2 = self.timeline_controller.get_resolved_time_video2()
+                        frame_v2 = self.timeline_controller.get_resolved_frame_video2()
+                    self._pending_delivery_overlay = None
                     print_framedebug(
                         "PlaybackController: invoking frame_callback " "frame_v1=%d frame_v2=%d" % (frame_v1, frame_v2)
                     )

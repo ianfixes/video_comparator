@@ -393,6 +393,26 @@ class TestPlaybackController(unittest.TestCase):
         self.frame_cache_video1.request_prefill_frame.assert_called()
         self.frame_cache_video2.request_prefill_frame.assert_called()
 
+    def test_prefill_strategy_updates_when_sync_offset_changes_at_same_timeline(self) -> None:
+        """Changing sync offset must refresh frames even when timeline seconds are unchanged."""
+        controller = PlaybackController(
+            self.timeline_controller,
+            self.decoder_video1,
+            self.decoder_video2,
+            self.frame_cache_video1,
+            self.frame_cache_video2,
+            self.error_handler,
+        )
+        controller.play()
+        self.frame_cache_video1.request_prefill_frame.reset_mock()
+        self.frame_cache_video2.request_prefill_frame.reset_mock()
+
+        self.timeline_controller.set_sync_offset(7)
+        controller._update_prefill_strategies()
+
+        self.frame_cache_video1.request_prefill_frame.assert_called_once()
+        self.frame_cache_video2.request_prefill_frame.assert_called_once()
+
     def test_prefill_strategy_handles_different_framerates(self) -> None:
         """Test PrefillStrategy handles different framerates correctly."""
         controller = PlaybackController(

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import av
 import numpy as np
 
 from video_comparator.decode.video_decoder import UnsupportedFormatError, VideoDecoder
@@ -236,6 +237,29 @@ class TestVideoDecoder(unittest.TestCase):
             self.assertIn("out of range", str(context.exception))
         finally:
             decoder.close()
+
+    def test_seek_to_frame_zero_falls_back_to_container_start_when_stream_seek_fails(self) -> None:
+        """Frame-0 seek should fall back to container start if stream-scoped seek errors."""
+        avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
+        if not avi_file.exists():
+            self.skipTest(f"Test video file not found: {avi_file}")
+
+        metadata = VideoMetadata.from_path(avi_file)
+        decoder = VideoDecoder(metadata)
+
+        mock_stream = MagicMock()
+        mock_stream.time_base = 1.0 / metadata.fps
+        mock_stream.start_time = 0
+        mock_container = MagicMock()
+        mock_container.seek.side_effect = [av.AVError(-1, "simulated frame-0 stream seek failure"), None]
+        decoder._video_stream = mock_stream
+        decoder._container = mock_container
+
+        decoder.seek_to_frame(0)
+
+        self.assertEqual(mock_container.seek.call_count, 2)
+        self.assertEqual(mock_container.seek.call_args_list[0].kwargs.get("stream"), mock_stream)
+        self.assertEqual(mock_container.seek.call_args_list[1].args[0], 0)
 
     def test_frame_decoding_returns_numpy_array_with_correct_shape(self) -> None:
         """Test frame decoding returns NumPy array with correct shape."""

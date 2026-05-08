@@ -408,8 +408,8 @@ class TestApplication(unittest.TestCase):
         mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
         mock_pc.request_frames_at_current_position.assert_called_once()
 
-    def test_on_sync_offset_changed_skips_frame_request_when_playing(self) -> None:
-        """When playing, sync offset change updates timeline UI but does not request frames immediately."""
+    def test_on_sync_offset_changed_requests_frames_when_playing(self) -> None:
+        """Sync offset change must refresh both panes immediately even during playback."""
         app = Application(settings_manager=self.settings_manager, error_handler=self.error_handler)
         meta1 = VideoMetadata(
             file_path=Path("/a.mp4"),
@@ -442,7 +442,7 @@ class TestApplication(unittest.TestCase):
         app._on_sync_offset_changed()
 
         mock_cp.timeline_slider.update_range_after_sync_offset_change.assert_called_once()
-        mock_pc.request_frames_at_current_position.assert_not_called()
+        mock_pc.request_frames_at_current_position.assert_called_once()
 
     def test_handle_play_pause_unpause_uses_play_forward(self) -> None:
         """Space from paused/stopped uses play_forward(), not play(), so unpause is always forward."""
