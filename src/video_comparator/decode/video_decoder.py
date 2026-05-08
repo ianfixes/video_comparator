@@ -128,6 +128,14 @@ class VideoDecoder:
             if self._container is not None:
                 self._container.seek(timestamp_pts, stream=self._video_stream)
         except av.AVError as e:
+            if frame_index == 0 and self._container is not None:
+                try:
+                    # Some containers reject stream-scoped seek for the first frame.
+                    # Fall back to absolute container start for frame 0.
+                    self._container.seek(0)
+                    return
+                except av.AVError:
+                    pass
             raise SeekError(f"Failed to seek to frame {frame_index}") from e
 
     def seek_to_timestamp(self, timestamp_seconds: float) -> None:
