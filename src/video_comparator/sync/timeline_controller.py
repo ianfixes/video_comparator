@@ -55,16 +55,19 @@ class TimelineController:
         return frame_index / self.metadata_video1.fps
 
     def frame_to_time_video2(self, frame_index: int) -> float:
-        """Convert frame index to timestamp for video 2, accounting for sync offset.
+        """Convert a video-2 source frame index to video-2 source timestamp.
 
         Args:
-            frame_index: Frame index (0-based)
+            frame_index: Video 2 source frame index (0-based)
 
         Returns:
-            Timestamp in seconds
+            Video 2 source timestamp in seconds
         """
-        adjusted_frame = frame_index - self.sync_offset_frames
-        return adjusted_frame / self.metadata_video2.fps
+        # Sync offset is applied when resolving timeline time -> video2 frame
+        # (time_to_frame_video2). By the time we arrive here, frame_index is already
+        # the resolved source frame number for video 2, so subtracting offset again
+        # would cancel it and collapse the intended inter-pane time separation.
+        return frame_index / self.metadata_video2.fps
 
     def time_to_frame_video1(self, timestamp: float) -> int:
         """Convert timestamp to frame index for video 1.

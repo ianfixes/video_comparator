@@ -297,6 +297,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test resolved frame calculation for video 1
 - [x] Test resolved frame calculation for video 2 (with offset)
 - [ ] Test resolved time calculation for both videos, including non-zero offsets where resolved times are expected to differ between panes
+- [ ] Fix mixed-framerate offset-time consistency bug: ensure `resolved_time_video2` preserves video2-frame offset semantics across timeline progression (no offset cancellation via round-trip conversion)
+- [x] Add regression-spec test (expected failure for current bug): with video1=29 fps, video2=24 fps, offset `+24` maintains approximately `+1.0 s` pane-2 lead as timeline advances
+- [ ] After fix, convert the mixed-framerate regression test from expected-failure to passing assertion and keep it permanently
 - [x] Test with videos of different framerates (e.g., 24fps vs 30fps)
 - [x] Test edge cases (position at start, position at end, large offsets)
 

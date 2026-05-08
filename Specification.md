@@ -59,6 +59,8 @@ This software project aims to deliver a cross-platform graphical user interface 
    - The second video must feature at the top:
      - A slider for rough adjustment of sync offset relative to the first video (expressed in frames, positive or negative).
      - "+" and "-" buttons for precise adjustment: shifting the second video's position by one frame forward or backward.
+   - **Offset unit semantics (normative):** The sync offset value is defined in **video 2 native frames** (integer units), not in timeline seconds and not in video 1 frames.
+   - **Mixed-framerate behavior (normative):** For non-zero offsets, the resolved source times shown/used for the two panes shall remain separated by approximately `offset_frames / fps_video2` as timeline playback advances (subject to integer frame quantization and clamping at stream bounds). Example: a `+24` offset on a 24 fps video corresponds to approximately `+1.0 s` lead for pane 2 relative to pane 1 while both advance.
    - The effective sync offset must be visually indicated.
    - **Default keyboard:** When sync controls are enabled (**both** videos loaded), **Minus** (`-`, US keyboard hyphen/minus) shall apply a **−1** frame nudge to sync offset; **Equals** (`=`) shall apply a **+1** frame nudge (same as the on-screen **−1** / **+1** controls). When sync controls are disabled, these keys shall have no effect on sync.
 

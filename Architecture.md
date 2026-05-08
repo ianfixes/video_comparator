@@ -175,6 +175,8 @@ This document outlines the major subsystems for the video comparator. Each subsy
 - provides resolved target frame/time to consumers.
 - **Resolved-time semantics:** `resolved_time_video1` and `resolved_time_video2` are per-video source times for the actually resolved display frames. With non-zero sync offset, these times should typically differ by approximately `offset / fps_video2` (subject to clamping/rounding at bounds), and must not collapse to identical values due to inverse-conversion cancellation.
 - **Offset consistency invariant:** for video 2, `time -> frame -> time` and `frame -> time -> frame` mappings must preserve offset semantics consistently, including positive and negative offsets and boundary clamps.
+- **Offset unit invariant:** `sync_offset_frames` is always interpreted as integer frame units in video 2's native frame domain. Playback/tick progression in timeline seconds must not reinterpret this offset using video 1 fps, max fps, or synthetic common-denominator time quanta.
+- **Mixed-fps regression anchor:** with video1 at 29 fps and video2 at 24 fps, setting `sync_offset_frames = +24` should keep pane 2 approximately +1.0 s ahead of pane 1 throughout forward/reverse timeline movement (except expected quantization/clamp behavior near bounds).
 
 #### Testability
 - pure logic tests for offset math
