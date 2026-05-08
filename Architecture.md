@@ -63,6 +63,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
 **Decoder/Cache contract:** The decoder does not decide frame priority or retention policy. FrameCache chooses what to request and when. Decoder APIs may expose results either by return values or callbacks (implementation detail), but must make all decoded frames from a decode operation available to FrameCache so FrameCache can apply retention policy.
 
 **Decoder locality policy:** For each request, decoder execution should prefer the lowest-latency operation relative to current decode cursor/container state. If the target frame is near current decode position, decode forward without a new seek; if far, perform seek+decode-forward from keyframe. This is a latency optimization policy owned by decoder execution, while request priority remains owned by FrameCache.
+**EOF tail fallback policy:** If decode fails for a requested frame at/near `total_frames - 1`, treat it as a bounded tail condition (common metadata/container rounding mismatch) and retry/clamp to the nearest decodable trailing frame instead of emitting a hard user-visible decode error. Keep this fallback narrowly scoped to near-tail requests so non-tail decode failures still surface normally.
 
 ### 4) Frame Cache & Prebuffer
 #### Responsibilities
@@ -218,6 +219,7 @@ This document outlines the major subsystems for the video comparator. Each subsy
   - If one video has an error and the other succeeds, sync signal is still sent (error frame is passed to callback)
 - Handles race conditions: when position changes rapidly, old requests are cancelled and new ones initiated
 - **Single-video mode**: PlaybackController may be created with decoder_video2 (or decoder_video1) as None when only one video is loaded. Only the loaded video's FrameCache receives request_prefill_frame(). A placeholder FrameResult (frame=None, status=SUCCESS) is used for the missing side so the frame callback is invoked with (result1, result2) and the UI updates only the loaded pane; effective timeline duration is that of the loaded video.
+- **Tail error surfacing contract:** PlaybackController/ErrorHandler should not show a blocking error dialog for successful tail fallback clamps; only unresolved decode failures after fallback attempts are reported as errors.
 #### Testability
 - unit tests on state transitions and emitted requests
 - simulated tick tests without GUI

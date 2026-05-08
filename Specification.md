@@ -128,6 +128,8 @@ This software project aims to deliver a cross-platform graphical user interface 
       - Timeline Controller: invalid positions, out-of-range seeks
       - Playback Controller: playback state errors, synchronization failures
     - Exceptions are caught at appropriate boundaries and displayed via ErrorHandler with user-friendly messages.
+    - **Tail decode boundary policy:** At end-of-stream, if a requested frame at or immediately adjacent to the stream tail cannot be decoded due to container/index rounding mismatch, the playback path shall gracefully clamp to the nearest decodable trailing frame (for that stream) instead of surfacing a user-facing error dialog.
+    - The tail boundary fallback above is limited to near-EOF requests and must not mask decode failures at non-tail positions.
 
 13. **Project Extensibility**
     - The GUI and backend should be designed for modularity, allowing future expansion (e.g., annotation tools, quality metrics overlays, multi-video support).

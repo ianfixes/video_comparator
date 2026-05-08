@@ -239,6 +239,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Implement decoder/cache integration contract: decoder surfaces all decoded frames from each decode operation; FrameCache decides retention/eviction.
 - [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
 - [x] Implement frame-accurate decode: after keyframe-based seek, decode forward to the requested frame index (see Architecture.md § Decode Engine — Frame-accurate decode). Uses stream `time_base` / `start_time`, a first-frame PTS base for 0-based indexing, and sequential counting after seek when PTS order is non-monotonic. For the last frame index (`total_frames - 1`), if the decode iterator ends before an exact match, returns the last decodable frame (best-effort).
+- [x] Implement near-EOF fallback for decode requests at/near stream tail (retry/clamp to nearest decodable trailing frame; do not broaden to non-tail failures)
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
 
@@ -332,6 +333,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement `signal_sync_complete()` call to both FrameCaches after both first frames arrive
 - [x] Ensure sync signal is sent even if one video has error (error frame passed to callback)
 - [x] Integrate with ErrorHandler for error reporting
+- [x] Suppress user-facing error dialog for successful tail-fallback frame clamps; only unresolved post-fallback decode failures should be surfaced
 - [x] Define per-class exceptions for playback errors (e.g., `PlaybackStateError`, `SynchronizationError`)
 
 ### Reverse playback (Specification §5)
@@ -367,6 +369,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test synchronization: sync signal sent even when one video has error
 - [x] Test CANCELLED FrameResult status handling (discarded)
 - [x] Test error FrameResult status handling (ErrorHandler integration)
+- [x] Add regression test: tail decode miss near EOF (e.g. requested last frame undecodable) falls back to nearest decodable frame without showing ErrorHandler dialog
 - [x] Test user callback receives FrameResult objects for both videos
 - [ ] Ensure callback overlay metadata (time/frame) is derived from delivered frame results for that callback cycle, not from potentially advanced timeline state
 - [x] Test pause -> frame-step (+/-) -> play continuity: playback resumes from stepped timestamp without discontinuous jump
