@@ -154,6 +154,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] Use O(1)-style recency bookkeeping for LRU operations in hot paths (no list remove/scan for common access/update operations).
 - [ ] Use incremental running memory accounting rather than full-cache memory summations on insert/evict path.
 - [ ] Implement non-redundant frame-copy operations on hot cache/decode path while preserving frame-safety guarantees.
+- [x] Align cache **`put`** semantics with Architecture.md **§ Cache key correctness**: duplicate presentation indices must not retain a permanently wrong bitmap (explicit replace, version stamp, or invalidate-on-redecode policy once decoder assigns PTS-backed indices).
 - [x] Implement protected frame mechanism (frames from PrefillStrategy are not evicted)
 - [x] Implement memory bounds checking and eviction
 - [x] Implement frame retrieval by frame index
@@ -204,6 +205,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - Cache is the scheduler/retention authority; decoder is the decode execution engine.
 - Any frame decoded while satisfying a cache request must be surfaced back to cache for retention decisions.
 - Implementation detail (callback vs return values) is flexible as long as all decoded work is surfaced to cache.
+- **Indexing risk:** Regression coverage should still add **long-GOP / B-frame** fixtures (see VideoDecoder tests); AVI-only tests alone do not prove PTS reordering paths.
 
 **Unit Tests Required:**
 - [x] Test cache hit when frame exists
@@ -238,7 +240,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Implement error handling for decode failures
 - [ ] Implement decoder/cache integration contract: decoder surfaces all decoded frames from each decode operation; FrameCache decides retention/eviction.
 - [x] Define per-class exceptions for decode errors (e.g., `DecodeError`, `SeekError`, `UnsupportedFormatError`)
-- [x] Implement frame-accurate decode: after keyframe-based seek, decode forward to the requested frame index (see Architecture.md § Decode Engine — Frame-accurate decode). Uses stream `time_base` / `start_time`, a first-frame PTS base for 0-based indexing, and sequential counting after seek when PTS order is non-monotonic. For the last frame index (`total_frames - 1`), if the decode iterator ends before an exact match, returns the last decodable frame (best-effort).
+- [x] Implement **presentation-correct** indexing for every decoded picture: map each frame to the agreed **0-based presentation index** using PTS/stream `time_base` + presentation-time floor (demux min), including after keyframe seek + decode-forward — **do not** rely on decode-order `decode_index += 1` as the sole labeling rule for long-GOP/B-frame streams (see Architecture.md § Presentation index vs decode order).
+- [ ] Enforce monotonic presentation delivery for playback requests (forward non-decreasing, reverse non-increasing) so decoder emission-order quirks cannot produce visible forward/back jitter even when per-frame timestamp mapping exists.
+- [ ] Re-verify seek-then-decode-forward and near-EOF fallback against the monotonic delivery model so returned/displayed frames and surfaced intermediates remain both correctly indexed and temporally stable.
 - [x] Implement near-EOF fallback for decode requests at/near stream tail (retry/clamp to nearest decodable trailing frame; do not broaden to non-tail failures)
 
 **Note:** Hardware acceleration is not implemented to keep dependencies simple.
@@ -247,8 +251,8 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test container opening with valid video file
 - [x] Test container opening with invalid file (error handling)
 - [x] Test video stream detection and selection
-- [x] Test frame-accurate seek by frame index (verify exact frame returned)
-- [x] Test frame-accurate seek by timestamp (verify correct frame for timestamp)
+- [ ] Test frame-accurate seek by frame index (verify exact frame returned for **presentation** index after refactor; extend beyond all-I/short-GOP fixtures as needed)
+- [ ] Test frame-accurate seek by timestamp (verify correct presentation frame for timestamp after refactor)
 - [x] Test frame decoding returns NumPy array with correct shape
 - [x] Test frame decoding returns correct pixel format
 - [x] Test seek to first frame
@@ -256,8 +260,9 @@ This document outlines the implementation plan from lowest-level modules to high
 - [x] Test seek to middle frame
 - [x] Test seek with videos of different framerates
 - [x] Test decode error handling (corrupted frame, unsupported codec)
-- [x] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions.
-- [x] Test that decoding two successive frames (e.g. frame N and N+1) from a test video yields different images (ensures frame-accurate decode, not keyframe-only)
+- [ ] Test decoder/cache integration contract: decode operations surface target plus intermediate decoded frames to FrameCache for retention decisions — **must assert correct presentation index per surfaced raster**, not only pixel inequality between successive requests.
+- [ ] Test that successive presentation indices decode to distinct content where expected — add **long-GOP / B-frame reordering** sample(s) so ordering bugs are not masked by simple AVI-only coverage.
+- [ ] Add regression test: during forward playback ticks, video-2 displayed presentation index/time never regresses unless user performs explicit seek/step/reverse action.
 - [x] Expose decode operation results so FrameCache can receive all decoded frames from a request (target + intermediates), using API shape that best matches PyAV container behavior.
 - [x] Keep decoder free of cache prioritization/retention policy decisions.
 - [x] Add decoder locality optimization policy: choose decode-forward from current cursor for nearby targets and seek+decode-forward for distant targets, prioritizing UI request latency.
@@ -267,7 +272,7 @@ This document outlines the implementation plan from lowest-level modules to high
 - [ ] New high-priority requests supersede older lower-priority queued work at the next decode boundary.
 - [x] Decoder work contributes decoded frames back to FrameCache for retention decisions.
 - [ ] Throughput optimization does not override the primary objective: minimize UI request-to-frame latency.
-- [x] Verify single-writer cache contract with tests (decoder does not write cache directly; FrameCache performs authoritative insertion exactly once per accepted decoded frame).
+- [x] Verify single-writer cache contract with tests after FrameCache **duplicate-key / overwrite** policy is implemented (decoder does not write cache directly; FrameCache performs authoritative insertion; **exactly-once vs deliberate replace** semantics documented in Architecture.md § Cache key correctness).
 - [x] Add targeted performance tests for cache hot paths to guard against O(n) regression in recency updates and insertion/eviction accounting.
 
 ### TimelineController (`sync/timeline_controller.py`)

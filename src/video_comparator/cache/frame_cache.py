@@ -108,16 +108,20 @@ class FrameCache:
     def put(self, frame_index: int, frame: np.ndarray) -> None:
         """Store a frame in cache (thread-safe).
 
-        Args:
-            frame_index: Frame index
-            frame: Frame array to store
+        If an entry already exists for ``frame_index``, it is replaced so a corrected
+        decode cannot leave a stale bitmap stuck under that presentation index.
         """
         with self._lock:
+            stored = frame.copy()
             if frame_index in self._cache:
+                old_size = self._frame_sizes.get(frame_index, 0)
+                new_size = self._calculate_frame_memory(stored)
+                self._cache[frame_index] = stored
+                self._frame_sizes[frame_index] = new_size
+                self._current_memory_bytes += new_size - old_size
                 self._update_access_order(frame_index)
                 return
 
-            stored = frame.copy()
             self._evict_if_needed(stored)
             self._cache[frame_index] = stored
             frame_size = self._calculate_frame_memory(stored)

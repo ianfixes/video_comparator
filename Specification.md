@@ -89,6 +89,9 @@ This software project aims to deliver a cross-platform graphical user interface 
 8. **Frame Accuracy**
    - The application must ensure precise, frame-accurate seeking and display for both videos.
    - The timeline and frame step operations must account for differences in framerate or timestamp precision between source files.
+   - **Presentation correctness:** For each video stream, the bitmap shown in a pane and any frame index shown in the UI for that pane must correspond to the **same presentation-time frame** of that stream — i.e. the correct image for that stream’s agreed **presentation frame index** (or equivalent timestamp semantics), not merely “some decoded picture” obtained while advancing the decoder. Long-GOP codecs (e.g. H.264/H.265 with B-frame reordering) require mapping decoded pictures using timestamps (e.g. PTS/time base), because **decode order** can differ from **presentation order**.
+   - **Monotonic playback requirement:** During forward playback, each pane’s displayed presentation instant shall be non-decreasing (and non-increasing during reverse playback), except at explicit user-driven seeks/steps or stream-boundary clamps. Implementations shall not rely on “first decoded picture matching target index” when decoder emission order can violate presentation order; reorder-buffer or equivalent monotonic selection logic is required for stability.
+   - **Cache correctness:** Any frame cache keyed by presentation frame index must not retain a **wrong** image under that index once the decode path can determine the correct mapping (no indefinite “sticky” mis-labeling). Implementations shall define how duplicate-key inserts are resolved so incorrect associations cannot persist across seeks, steps, and playback. See `Architecture.md` § Frame Cache — cache key correctness.
 
 9. **Performance**
    - The tool should pre-buffer frames as needed to minimize seek latency.

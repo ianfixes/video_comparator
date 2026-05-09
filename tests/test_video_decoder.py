@@ -2,7 +2,7 @@
 
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import av
 import numpy as np
@@ -337,8 +337,8 @@ class TestVideoDecoder(unittest.TestCase):
         finally:
             decoder.close()
 
-    def test_decode_operation_prefers_local_forward_decode_for_nearby_targets(self) -> None:
-        """Nearby forward requests should avoid an extra seek."""
+    def test_decode_operation_seeks_on_gap_not_on_consecutive_forward(self) -> None:
+        """Non-consecutive indices seek twice; consecutive forward seeks only for the first."""
         avi_file = self.sample_data_dir / "file_example_AVI_480_750kB.avi"
         if not avi_file.exists():
             self.skipTest(f"Test video file not found: {avi_file}")
@@ -347,14 +347,18 @@ class TestVideoDecoder(unittest.TestCase):
         mock_stream.time_base = 1.0 / 30.0
         mock_stream.start_time = 0
 
+        tb = 1.0 / 30.0
         frame_a = MagicMock()
         frame_a.pts = 0
+        frame_a.time = 0.0
         frame_a.to_ndarray.return_value = np.zeros((2, 2, 3), dtype=np.uint8)
         frame_b = MagicMock()
         frame_b.pts = 1
+        frame_b.time = 1.0 * tb
         frame_b.to_ndarray.return_value = np.ones((2, 2, 3), dtype=np.uint8)
         frame_c = MagicMock()
         frame_c.pts = 2
+        frame_c.time = 2.0 * tb
         frame_c.to_ndarray.return_value = np.full((2, 2, 3), 2, dtype=np.uint8)
 
         mock_container = MagicMock()
@@ -364,12 +368,28 @@ class TestVideoDecoder(unittest.TestCase):
             decoder = VideoDecoder(metadata)
             decoder._container = mock_container
             decoder._video_stream = mock_stream
-            with patch.object(decoder, "seek_to_frame") as mock_seek:
+            decoder._presentation_floor_seconds = 0.0
+            decoder._decode_cursor_frame_index = None
+            with patch.object(decoder, "_seek_to_frame_internal") as mock_seek:
                 decoder.decode_frame_operation(0)
                 decoder.decode_frame_operation(2)
 
             mock_ensure_open.assert_called()
-            self.assertEqual(mock_seek.call_count, 1)
+            self.assertEqual(mock_seek.call_count, 2)
+            mock_seek.assert_has_calls([call(0), call(2)])
+
+        mock_container.decode.side_effect = [[frame_a], [frame_b]]
+        with patch.object(VideoDecoder, "_ensure_open"):
+            decoder2 = VideoDecoder(metadata)
+            decoder2._container = mock_container
+            decoder2._video_stream = mock_stream
+            decoder2._presentation_floor_seconds = 0.0
+            decoder2._decode_cursor_frame_index = None
+            with patch.object(decoder2, "_seek_to_frame_internal") as mock_seek2:
+                decoder2.decode_frame_operation(0)
+                decoder2.decode_frame_operation(1)
+            self.assertEqual(mock_seek2.call_count, 1)
+            mock_seek2.assert_called_once_with(0)
 
     def test_successive_frames_yield_different_images(self) -> None:
         """Decoding two successive frames must yield different images (frame-accurate decode)."""

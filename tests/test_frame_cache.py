@@ -49,6 +49,19 @@ class TestFrameCache(unittest.TestCase):
 
         self.assertLessEqual(frame_cache.cache_size(), frame_cache.max_memory_bytes)
 
+    def test_put_replaces_existing_frame_updates_memory_and_pixels(self) -> None:
+        """Duplicate presentation keys must replace stale bitmaps (Architecture cache key correctness)."""
+        frame_cache = FrameCache(max_memory_mb=10)
+        a = np.zeros((4, 4, 3), dtype=np.uint8)
+        b = np.ones((4, 4, 3), dtype=np.uint8)
+        frame_cache.put(3, a)
+        size_one = frame_cache.cache_size()
+        frame_cache.put(3, b)
+        self.assertEqual(frame_cache.cache_size(), size_one)
+        cached = frame_cache.get(3)
+        assert cached is not None
+        np.testing.assert_array_equal(cached, b)
+
     def test_fetch_frame_sync_tail_decode_fallback_returns_nearest_decodable_frame(self) -> None:
         """Near-EOF decode miss should fall back to a trailing decodable frame without error."""
         frame_cache = FrameCache(max_memory_mb=10)
